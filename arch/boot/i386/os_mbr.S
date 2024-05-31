@@ -11,7 +11,7 @@ os_mbr:
     movw %ax, %es
     movw %ax, %ss
     movw %ax, %fs
-    movw $_os_boot_sp_end, %sp
+    movw $_os_kernel_sp_end, %sp
     movw $OS_VIDEO_MEM_BASE, %ax
     movw %ax, %gs
 /* 
@@ -39,12 +39,67 @@ os_mbr:
     movb $'R', %gs:0x08
     movb $0XA4, %gs:0x09
 
-os_mbr_end:
-    jmp os_mbr_end
+    movl $OS_LOADER_START_SEC_ID, %eax /* 扇区ID */
+    movw $_os_loader_start, %bx /* loader基地址 */
+    movw $OS_LOADER_SEC_NUM, %cx /* 扇区数 */
 
-    pushl $OS_LOADER_SECS_NUM
-    pushl $OS_LOADER_START_SEC_ID
-    pushl $OS_LOADER_BASE
-// call os_read_disk_m16
+    call os_read_disk_m16
     
     jmp os_loader_start
+
+.code16
+.section .os.mbr.text, "ax"
+.global os_read_disk_m16
+
+os_read_disk_m16:
+    /* 之后的操作要更改eax, cx, 先保存起来后面恢复 */
+    movl %eax, %esi
+    movw %cx, %di
+
+    /* 写入要读取的扇区数目 */
+    movw $OS_DISK_SEC_CNT_PORT, %dx
+    movb %cl, %al
+    outb %al, %dx
+    movl %esi, %eax
+
+    movw $OS_DISK_LBA_LOW_PORT, %dx
+    outb %al, %dx
+
+    movb $0x8, %cl 
+    shr %cl, %eax
+    movw $OS_DISK_LBA_MID_PORT, %dx
+    outb %al, %dx
+
+    shr %cl, %eax
+    movw $OS_DISK_LBA_HIGH_PORT, %dx
+    outb %al, %dx
+
+    shr %cl, %eax
+    and $0x0F, %al
+    or $OS_DISK_DEV_LBA_MASK, %al
+    movw $OS_DISK_DEV_PORT, %dx
+    outb %al, %dx
+
+    movw $OS_DISK_CMD_STA_PORT, %dx
+    movb $OS_DISK_CMD_RD, %al
+    outb %al, %dx
+
+os_disk_not_ready:
+    nop
+    inb %dx, %al
+    and $0x88, %al
+    cmp $0x08, %al
+    jne os_disk_not_ready
+
+    movw %di, %ax
+    movw $256, %dx
+    mul %dx
+    movw %ax, %cx
+    movw $OS_DISK_RD_PORT, %dx
+
+os_disk_read_next:
+    inw %dx, %ax
+    movw %ax, 0(%bx)
+    add $2, %bx
+    loop os_disk_read_next
+    ret 

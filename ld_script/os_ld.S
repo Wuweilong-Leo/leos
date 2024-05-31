@@ -1,8 +1,8 @@
 MEMORY
 {
 	MBR_MEM(rwx): ORIGIN = 0x00007C00, LENGTH = 512
-    LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 0x6000
-    L1M(rwx) : ORIGIN = 0x00010000, LENGTH = 0x40000
+    LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 1024
+    L1M(rwx) : ORIGIN = 0x0008000, LENGTH = 0x40000
     L2M(rwx) : ORIGIN = 0x00050000, LENGTH = 0xB0000
 }
 
@@ -13,13 +13,11 @@ SECTIONS
     .L1M_LOADER :
     {   
         . = ALIGN(4);
+        _os_loader_start = .;
         *(.os.loader.text)
         *(.os.loader.data)
         *(.os.loader.bss)
-        . = ALIGN(4);
-        _os_boot_sp_start = .;
-        . += 0x4000;
-        _os_boot_sp_end = .;
+        _os_loader_end = .;
     } > LOADER_MEM
 
     .L1M_MBR : 
@@ -30,6 +28,14 @@ SECTIONS
         . = _os_mbr_end;
         LONG(0xaa550000)
     } > MBR_MEM
+
+    .L1M_KERNEL_STACK :
+    {
+        . = ALIGN(4);
+        _os_kernel_sp_start = .;
+        . += 0x4000;
+        _os_kernel_sp_end = .;
+    } > L1M
 
     .L1M_BSS : 
     {

@@ -60,3 +60,4 @@ dis:
 	objcopy -O binary $(CUR_DIR)/build/output/os_kernel.elf $(CUR_DIR)/build/output/os_kernel.bin
 	objdump -d -S $(CUR_DIR)/build/output/os_kernel.elf > $(CUR_DIR)/build/output/os_kernel.dis
 	objcopy -O binary -j .L1M_MBR $(CUR_DIR)/build/output/os_kernel.elf $(CUR_DIR)/build/output/os_mbr.bin
+	objcopy -O binary -j .L1M_LOADER $(CUR_DIR)/build/output/os_kernel.elf $(CUR_DIR)/build/output/os_loader.bin

@@ -12,6 +12,7 @@ struct os_run_que {
     uint32_t uni_flag;
     bool need_sched;
     struct os_task_cb *idle_task;
+    uint32_t cur_prio;
     uint32_t rdy_list_msk;
     struct os_list rdy_list[OS_TASK_PRIO_MAX_NUM];
     struct os_list delay_list;
