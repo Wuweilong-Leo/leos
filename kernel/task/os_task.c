@@ -2,7 +2,7 @@
 #include "os_task_internal.h"
 #include "os_def.h"
 
-OS_SEC_L1_TEXT void OsTskSchedule(void)
+OS_SEC_KERNEL_TEXT void OsTskSchedule(void)
 {
     if (!OS_RUN_QUE()->needSched){
         return;

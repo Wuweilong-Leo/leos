@@ -1,6 +1,7 @@
 #include "os_def.h"
-
-OS_SEC_L1_TEXT S32 main(void)
+#include "os_print_external.h"
+OS_SEC_KERNEL_TEXT S32 main(void)
 {
+    OsPrintStr("hello kernel\n");
     while (1) {}
 }

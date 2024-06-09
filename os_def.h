@@ -32,12 +32,9 @@ typedef void *uintptr_t;
 #define OS_SEC_GDT_DATA __attribute__((section(".os.gdt.data")))
 #define OS_SEC_PGT_DATA __attribute__((section(".os.pgt.data")))
 #define OS_SEC_INIT_TEXT __attribute__((section(".os.init.text")))
-#define OS_SEC_L1_TEXT   __attribute__((section(".os.l1.text")))
-#define OS_SEC_L1_DATA   __attribute__((section(".os.l1.data")))
-#define OS_SEC_L1_BSS    __attribute__((section(".os.l1.bss")))
-#define OS_SEC_L2_TEXT   __attribute__((section(".os.l2.text")))
-#define OS_SEC_L2_DATA   __attribute__((section(".os.l2.data")))
-#define OS_SEC_L2_BSS    __attribute__((section(".os.l2.bss")))
+#define OS_SEC_KERNEL_TEXT   __attribute__((section(".os.kernel.text")))
+#define OS_SEC_KERNEL_DATA   __attribute__((section(".os.kernel.data")))
+#define OS_SEC_KERNEL_BSS    __attribute__((section(".os.kernel.bss")))
 
 #define OS_BUILD_ERR_CODE(mid, errCode) (((mid) << 16) | ((0xFFFF) & (errCode)))
 #endif

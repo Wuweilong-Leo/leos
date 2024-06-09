@@ -3,8 +3,7 @@ MEMORY
     LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 1024
     KERNEL_STACK_MEM(rwx): ORIGIN = 0x00002000, LENGTH = 0x4000
 	MBR_MEM(rwx): ORIGIN = 0x00007C00, LENGTH = 512
-    L1M(rwx) : ORIGIN = 0x0000D000, LENGTH = 0x40000
-    L2M(rwx) : ORIGIN = 0x00050000, LENGTH = 0x60000 
+    KERNEL_MEM(rwx) : ORIGIN = 0x0000D000, LENGTH = 0x60000
     VEDIO_MEM(rwx): ORIGIN = 0x0000B8000, LENGTH = 0x8000
     PG_TAB_MEM(rwx): ORIGIN = 0x00100000, LENGTH = 0x101000
 }
@@ -13,7 +12,7 @@ ENTRY(main)
 
 SECTIONS
 {
-    .L1M_LOADER :
+    .LOADER :
     {   
         . = ALIGN(4);
         _os_loader_start = .;
@@ -27,7 +26,7 @@ SECTIONS
         _os_loader_end = .;
     } > LOADER_MEM
 
-    .L1M_MBR : 
+    .MBR : 
     {
         _os_mbr_start = .;
         *(.os.mbr.text)
@@ -44,7 +43,7 @@ SECTIONS
         _os_pg_tab_end = .;
     } > PG_TAB_MEM
 
-    .L1M_KERNEL_STACK :
+    .KERNEL_STACK :
     {
         . = ALIGN(4);
         _os_kernel_sp_start = .;
@@ -52,39 +51,22 @@ SECTIONS
         _os_kernel_sp_end = .;
     } > KERNEL_STACK_MEM
 
-    .L1M_TEXT : 
+    .KERNEL_TEXT : 
     {
         . = ALIGN(4);
-        *(.os.l1.text)
-    } > L1M
+        *(.os.kernel.text)
+    } > KERNEL_MEM
 
-    .L1M_BSS : 
+    .KENNEL_BSS : 
     {
         . = ALIGN(4);
-        *(.os.l1.bss)
-    } > L1M
+        *(.os.kernel.bss)
+    } > KERNEL_MEM
 
-    .L1M_DATA : 
+    .KERNEL_DATA : 
     {
         . = ALIGN(4);
-        *(.os.l1.data)
-    } > L1M
-
-    .L2M_BSS : 
-    {
-        . = ALIGN(4);
-        *(.os.l2.bss)
-    } > L2M
-
-    .L2M_DATA : 
-    {
-        . = ALIGN(4);
-        *(.os.l2.data)
-    } > L2M
-
-    .L2M_TEXT : 
-    {
-        . = ALIGN(4);
-        *(.os.l2.text)
-    } > L2M
+        *(.rodata)
+        *(.os.kernel.data)
+    } > KERNEL_MEM
 }

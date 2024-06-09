@@ -1,6 +1,6 @@
 #include "os_cpu_i386.h"
 .code32
-.section .os.l1.text, "ax"
+.section .os.kernel.text, "ax"
 .global OsTrapTsk
 
 OsTrapTsk:
@@ -19,7 +19,7 @@ OsTrapTsk:
     call OsSchedMain
 
 .code32
-.section .os.l1.text, "ax"
+.section .os.kernel.text, "ax"
 .global OsLoadTsk
 
 OsLoadTsk:
