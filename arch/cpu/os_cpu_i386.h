@@ -1,9 +1,14 @@
 #ifndef OS_CPU_I386_H
 #define OS_CPU_I386_H
+#define OS_PG_SIZE 4096
 /* pc一开始在此处，bios把mbr程序搬到此地址，开始执行mbr */
 #define OS_MBR_BASE 0x7C00
 /* 显存的起始地址 */
-#define OS_VIDEO_MEM_BASE 0xB800
+#define OS_VIDEO_MEM_BASE 0x000B8000
+#define OS_VIDEO_MEM_GS (OS_VIDEO_MEM_BASE >> 4)
+#define OS_VIDEO_MEM_END 0x000BFFFF
+#define OS_VIDEO_MEM_SIZE (OS_VIDEO_MEM_END - OS_VIDEO_MEM_BASE)
+#define OS_VIDEO_MEM_PGS_NUM (OS_VIDEO_MEM_SIZE / OS_PG_SIZE)
 /* loader的起始扇区号 */
 #define OS_LOADER_START_SEC_ID 0x2
 /* loader的sec数 */
@@ -20,5 +25,19 @@
 #define OS_DISK_STA_BUSY_MASK 0x80
 #define OS_DISK_STA_RDY_MASK 0x08
 #define OS_DISK_RD_PORT 0x1F0
+#define OS_KERNEL_SEC_ID 0x9
+
+#define OS_RPL0 0
+#define OS_RPL1 1
+#define OS_RPL2 2
+#define OS_RPL3 3
+#define OS_TI_GDT 0
+#define OS_TI_LDT 1
+#define OS_SELECTOR_K_CODE ((1 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
+#define OS_SELECTOR_K_DATA ((2 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
+#define OS_SELECTOR_K_VEDIO ((3 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
+
+#define OS_FAST_SAVE_FLAG 0x0U
+#define OS_ALL_SAVE_FLAG 0x01U
 
 #endif

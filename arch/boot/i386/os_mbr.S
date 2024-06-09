@@ -2,17 +2,17 @@
 
 .code16
 .section .os.mbr.text, "ax"
-.global os_mbr
+.global OsMbr
 
 /* 实模式 */
-os_mbr:
+OsMbr:
     movw %cs, %ax
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %ss
     movw %ax, %fs
     movw $_os_kernel_sp_end, %sp
-    movw $OS_VIDEO_MEM_BASE, %ax
+    movw $OS_VIDEO_MEM_GS, %ax
     movw %ax, %gs
 /* 
  * 一个中断可以有多个功能号，完成不同功能。
@@ -43,15 +43,15 @@ os_mbr:
     movw $_os_loader_start, %bx /* loader基地址 */
     movw $OS_LOADER_SEC_NUM, %cx /* 扇区数 */
 
-    call os_read_disk_m16
+    call OsReadDiskM16
     
-    jmp os_loader_start
+    jmp OsLoaderStart
 
 .code16
 .section .os.mbr.text, "ax"
-.global os_read_disk_m16
+.global OsReadDiskM16
 
-os_read_disk_m16:
+OsReadDiskM16:
     /* 之后的操作要更改eax, cx, 先保存起来后面恢复 */
     movl %eax, %esi
     movw %cx, %di
@@ -84,12 +84,12 @@ os_read_disk_m16:
     movb $OS_DISK_CMD_RD, %al
     outb %al, %dx
 
-os_disk_not_ready:
+OsDiskNotRdy:
     nop
     inb %dx, %al
     and $0x88, %al
     cmp $0x08, %al
-    jne os_disk_not_ready
+    jne OsDiskNotRdy
 
     movw %di, %ax
     movw $256, %dx
@@ -97,9 +97,9 @@ os_disk_not_ready:
     movw %ax, %cx
     movw $OS_DISK_RD_PORT, %dx
 
-os_disk_read_next:
+OsDiskReadNext:
     inw %dx, %ax
     movw %ax, 0(%bx)
     add $2, %bx
-    loop os_disk_read_next
+    loop OsDiskReadNext
     ret 

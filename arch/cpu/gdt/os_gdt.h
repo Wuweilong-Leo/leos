@@ -1,29 +1,57 @@
 #ifndef OS_GDT_H
 #define OS_GDT_H
 #include "os_def.h"
-struct os_gdt_entry_attr_low {
-  uint8_t type : 4;
-  uint8_t s : 1;
-  uint8_t dpl : 2;
-  uint8_t p : 1;
+
+struct OS_STRUCT_PACKED OsGdtEntry {
+  U16 limitLowWord;
+  U16 baseLowWord;
+  U8 baseMidByte;
+  U8 attrType : 4;
+  U8 attrS : 1;
+  U8 attrDpl : 2;
+  U8 attrP : 1;
+  U8 limitHigh : 4;
+  U8 attrAvl : 1;
+  U8 attrL : 1;
+  U8 attrDb : 1;
+  U8 attrG : 1;
+  U8 baseHighByte;
 };
 
-struct os_gdt_entry_attr_high {
-  uint8_t avl : 1;
-  uint8_t l : 1;
-  uint8_t db : 1;
-  uint8_t g : 1;
-};
-
-struct os_gdt_entry {
-  uint16_t limit_low_word;
-  uint16_t base_low_word;
-  uint8_t base_mid_byte;
-  struct os_gdt_entry_attr_low attr_low;
-  uint8_t limit_high : 4;
-  struct os_gdt_entry_attr_high attr_high;
-  uint8_t base_high_byte;
+struct OS_STRUCT_PACKED OsGdtInfo {
+  U16 gdtLimit;
+  U32 gdtBase;
 };
 
 #define OS_GDT_ENTRY_MAX_NUM 0x10
+#define OS_GDT_ENTRY_ATTR_DPL_0 0
+#define OS_GDT_ENTRY_ATTR_DPL_1 1
+#define OS_GDT_ENTRY_ATTR_DPL_2 2
+#define OS_GDT_ENTRY_ATTR_DPL_3 3
+#define OS_GDT_ENTRY_ATTR_S_0 0
+#define OS_GDT_ENTRY_ATTR_S_1 1
+#define OS_GDT_ENTRY_ATTR_NP 0
+#define OS_GDT_ENTRY_ATTR_P 1
+#define OS_GDT_ENTRY_ATTR_L_0 0
+#define OS_GDT_ENTRY_ATTR_L_1 1
+#define OS_GDT_ENTRY_ATTR_DB_0 0
+#define OS_GDT_ENTRY_ATTR_DB_1 1
+#define OS_GDT_ENTRY_ATTR_G_4K 1
+#define OS_GDT_ENTRY_ATTR_G_B 0
+#define OS_GDT_ENTRY_ATTR_TYPE_DATA (0 << 3)
+#define OS_GDT_ENTRY_ATTR_TYPE_TEXT (1 << 3)
+#define OS_GDT_ENTRY_ATTR_TYPE_DATA_GROW_UP (0 << 2)
+#define OS_GDT_ENTRY_ATTR_TYPE_DATA_GROW_DOWN (1 << 2)
+#define OS_GDT_ENTRY_ATTR_TYPE_DATA_RO (0 << 1)
+#define OS_GDT_ENTRY_ATTR_TYPE_DATA_RW (1 << 1)
+#define OS_GDT_ENTRY_ATTR_TYPE_TEXT_NCOR (0 << 2)
+#define OS_GDT_ENTRY_ATTR_TYPE_TEXT_COR (1 << 2)
+#define OS_GDT_ENTRY_ATTR_TYPE_TEXT_XO (0 << 1)
+#define OS_GDT_ENTRY_ATTR_TYPE_TEXT_XR (1 << 1)
+#define OS_GDT_ENTRY_ATTR_TYPE_V (0 << 0)
+#define OS_GDT_ENTRY_ATTR_TYPE_NV (0 << 0)
+#define OS_GDT_ENTRY_ATTR_AVL 0
+
+extern struct OsGdtEntry g_gdt[OS_GDT_ENTRY_MAX_NUM];
+extern uintptr_t _os_gdt_start;
 #endif

@@ -7,18 +7,27 @@
 #define OS_TASK_LOWEST_PRIO 31
 #define OS_TASK_PRIO_MAX_NUM (OS_TASK_LOWEST_PRIO + 1)
 
-struct os_run_que {
-    struct os_task_cb *running_task;
-    uint32_t uni_flag;
-    bool need_sched;
-    struct os_task_cb *idle_task;
-    uint32_t cur_prio;
-    uint32_t rdy_list_msk;
-    struct os_list rdy_list[OS_TASK_PRIO_MAX_NUM];
-    struct os_list delay_list;
+typedef struct OsTaskCb * (*OsPickNextTsk) (void);
+
+struct OsScheduler {
+    void *enqueTsk;
+    void *dequeTsk;
+    OsPickNextTsk pickNextTsk;
 };
 
-extern struct os_run_que g_run_que;
+struct OsRunQue {
+    struct OsTaskCb *runningTsk;
+    U32 uniFlag;
+    bool needSched;
+    U32 curPrio;
+    U32 rdyListMsk;
+    struct OsList rdyList[OS_TASK_PRIO_MAX_NUM];
+    struct OsList delayList;
+    struct OsScheduler *scheduler;
+};
 
-#define OS_RUN_QUE() (&g_run_que)
+extern struct OsRunQue g_runQue;
+
+#define OS_RUN_QUE() (&g_runQue)
+#define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)
 #endif

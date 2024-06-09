@@ -1,31 +1,48 @@
-#include "os_sched_external.h"
+#include "os_sched_internal.h"
 #include "os_list_external.h"
 
-OS_SEC_L1_BSS struct os_run_que g_run_que;
+OS_SEC_L1_BSS struct OsRunQue g_runQue;
 
 /* 外部关中断 */
-OS_SEC_L1_TEXT void os_sched_enqueue_rdy_list_tail(struct os_task_cb *tsk)
+OS_SEC_L1_TEXT void OsSchedAddTskToRdyListTail(struct OsTaskCb *tsk)
 {
-    struct os_run_que *rq = OS_RUN_QUE();
-    uint32_t tsk_prio = tsk->prio;
-    struct os_list *rdy_list = &rq->rdy_list[tsk_prio];
+    struct OsRunQue *rq = OS_RUN_QUE();
+    U32 tskPrio = tsk->prio;
+    struct osList *rdyList = &rq->rdyList[tskPrio];
 
-    os_list_add_tail(rdy_list, &tsk->rdy_list_node);
-
-    if (tsk_prio < rq->cur_prio) {
-        rq->cur_prio = tsk_prio;
-        rq->need_sched = TRUE;
+    OsListAddTail(rdyList, &tsk->rdyListNode);
+    if (tskPrio < rq->curPrio) {
+        rq->curPrio = tskPrio;
+        rq->needSched = TRUE;
     }
 }
 
-OS_SEC_L1_TEXT void os_sched_dequeue_rdy_list(struct os_task_cb* tsk)
+OS_SEC_L1_TEXT void OsSchedDelTskFromRdyList(struct OsTaskCb* tsk)
 {
-    struct os_run_que *rq = OS_RUN_QUE();
-    struct os_list *rdy_list = &rq->rdy_list[tsk->prio];
+    struct OsRunQue *rq = OS_RUN_QUE();
+    struct OsList *rdyList = &rq->rdyList[tsk->prio];
 
-    os_list_remove_node(&tsk->rdy_list_node);
-
-    if (tsk == rq->running_task) {
-        rq->need_sched = TRUE;
+    OsListRemoveNode(&tsk->rdyListNode);
+    if (tsk == rq->runningTsk) {
+        rq->needSched = TRUE;
     }
+}
+
+OS_SEC_L1_TEXT void OsSchedMain(void)
+{
+    struct OsRunQue *rq = OS_RUN_QUE();
+    struct OsScheduler *scheduler = rq->scheduler;
+    struct OsTaskCb *curTsk = OS_RUNNING_TASK();
+    struct OsTaskCb *nextTsk = curTsk;
+
+    if (rq->needSched) {
+        nextTsk = scheduler->pickNextTsk();
+
+        if (nextTsk != curTsk) {
+            nextTsk->status = OS_TASK_RUNNING;
+            rq->runningTsk = nextTsk; 
+        }
+    }
+
+    OsLoadTsk(nextTsk);
 }

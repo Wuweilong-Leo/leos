@@ -7,9 +7,9 @@
 #define OS_TASK_MAX_NUM 32
 #define OS_TASK_ARG_NUM 4
 
-typedef void (*task_entry)(void **);
+typedef void (*OsTaskEntry)(void **);
 
-enum os_task_status {
+enum OsTaskStatus {
   OS_TASK_NOT_CREATE,
   OS_TASK_NOT_RESUME,
   OS_TASK_RUNNING,
@@ -20,30 +20,30 @@ enum os_task_status {
 };
 
 /* 任务控制块 */
-struct os_task_cb {
-  uintptr_t stk_ptr;
-  uintptr_t kernel_stk_bot;
-  struct os_list free_list_node;
-  uint32_t pid;
-  task_entry entry;
-  uint32_t arg[OS_TASK_ARG_NUM];
-  enum os_task_status status;
-  uint32_t prio;
-  uintptr_t pg_dir;
-  uint32_t ticks;
-  uint32_t delay_ticks;
+struct OsTaskCb {
+  uintptr_t stkPtr;
+  uintptr_t kernelStkBot;
+  struct OsList freeListNode;
+  U32 pid;
+  OsTaskEntry entry;
+  void *arg[OS_TASK_ARG_NUM];
+  enum OsTaskStatus status;
+  U32 prio;
+  uintptr_t pgDir;
+  U32 ticks;
+  U32 delayTicks;
   char name[OS_TASK_NAME_MAX_SIZE];
-  struct os_list rdy_list_node;
-  struct os_list pend_list_node;
+  struct OsList rdyListNode;
+  struct OsList pendListNode;
   /* 拥有的信号量链表 */
-  struct os_list sem_list;
-  struct os_list delay_list_node;
+  struct OsList semList;
+  struct OsList delayListNode;
 };
 
 struct OsTaskCreateParam {
   char name[OS_TASK_NAME_MAX_SIZE];
-  uint32_t prio;
-  task_entry entry_func;
+  U32 prio;
+  OsTaskEntry entryFunc;
   void *arg[OS_TASK_ARG_NUM];
 };
 #endif
