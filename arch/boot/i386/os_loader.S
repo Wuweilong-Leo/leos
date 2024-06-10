@@ -58,7 +58,7 @@ OsPmodeStart:
 
     ljmp $OS_SELECTOR_K_CODE, $OsEnterKernel
 OsEnterKernel:
-    movl $0xc0002000, %esp
+    addl $0xc0000000, %esp
     call main 
 
 

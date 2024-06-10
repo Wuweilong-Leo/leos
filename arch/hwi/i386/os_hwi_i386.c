@@ -99,9 +99,29 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 
 static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum)
 {
+    U32 cr0;
+    U32 cr1;
+    U32 cr2;
+
+    OS_EMBED_ASM("cli");
+    
     OS_ASSERT(excNum < OS_EXC_MAX_NUM);
 
     OsPrintStr(g_excNameTab[excNum]);
+    
+    OS_EMBED_ASM("movl %%cr0, %0":"=r"(cr0)::);
+    OS_EMBED_ASM("movl %%cr1, %0":"=r"(cr1)::);
+    OS_EMBED_ASM("movl %%cr1, %0":"=r"(cr2)::);
+
+    OsPrintStr("cr0: ");
+    OsPrintHex(cr0);
+    OsPrintStr("\n");
+    OsPrintStr("cr1: ");
+    OsPrintHex(cr1);
+    OsPrintStr("\n");
+    OsPrintStr("cr2: ");
+    OsPrintHex(cr2);
+    OsPrintStr("\n");
 
     while (1) {}
 }
