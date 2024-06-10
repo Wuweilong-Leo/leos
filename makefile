@@ -7,14 +7,17 @@ COMPILE_FLAG := -m32 -std=c99 -fno-builtin -c
 
 INC_DIR := $(CUR_DIR)  
 INC_DIR += $(CUR_DIR)/kernel/include/
-INC_DIR += $(CUR_DIR)/arch/cpu/
-INC_DIR += $(CUR_DIR)/arch/cpu/gdt
-INC_DIR += $(CUR_DIR)/arch/cpu/pgt
-INC_DIR += $(CUR_DIR)/arch/io/
+INC_DIR += $(CUR_DIR)/arch/cpu/i386/
+INC_DIR += $(CUR_DIR)/arch/hwi/i386
+INC_DIR += $(CUR_DIR)/arch/timer/i386
+INC_DIR += $(CUR_DIR)/arch/cpu/i386/gdt
+INC_DIR += $(CUR_DIR)/arch/cpu/i386/pgt
+INC_DIR += $(CUR_DIR)/arch/io/i386
 INC_DIR += $(CUR_DIR)/lib/include/
 INC_DIR += $(CUR_DIR)/kernel/sched
 INC_DIR += $(CUR_DIR)/dev/print
 INC_DIR += $(CUR_DIR)/dev/include
+INC_DIR += $(CUR_DIR)/debug/include
 
 INCS = $(foreach dir, $(INC_DIR), -I$(dir))		   
 
@@ -23,12 +26,15 @@ SUB_DIR += $(CUR_DIR)/kernel/sched
 SUB_DIR += $(CUR_DIR)/kernel/task
 SUB_DIR += $(CUR_DIR)/kernel/mem
 SUB_DIR += $(CUR_DIR)/arch/boot/i386
-SUB_DIR += $(CUR_DIR)/arch/io
-SUB_DIR += $(CUR_DIR)/arch/cpu/gdt
-SUB_DIR += $(CUR_DIR)/arch/cpu/pgt
+SUB_DIR += $(CUR_DIR)/arch/io/i386
+SUB_DIR += $(CUR_DIR)/arch/hwi/i386
+SUB_DIR += $(CUR_DIR)/arch/timer/i386
+SUB_DIR += $(CUR_DIR)/arch/cpu/i386/gdt
+SUB_DIR += $(CUR_DIR)/arch/cpu/i386/pgt
 SUB_DIR += $(CUR_DIR)/lib
-SUB_DIR += $(CUR_DIR)/arch/cpu/
+SUB_DIR += $(CUR_DIR)/arch/cpu/i386
 SUB_DIR += $(CUR_DIR)/dev/print
+SUB_DIR += $(CUR_DIR)/debug
 
 C_SRCS := $(foreach dir, $(SUB_DIR), $(wildcard $(dir)/*.c))
 C_SRCS_NO_DIR := $(notdir $(C_SRCS))
@@ -55,25 +61,34 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/task/%.c
 $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/mem/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
-$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/io/%.c 
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/io/i386/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
-$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/gdt/%.c 
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/gdt/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
-$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/pgt/%.c 
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/pgt/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/lib/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
+$(OBJ_DIR)/%.o: $(CUR_DIR)/debug/%.c 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
 $(OBJ_DIR)/%.o: $(CUR_DIR)/dev/print/%.c 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/hwi/i386/%.c 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/timer/i386/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/boot/i386/%.S 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
-$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/%.S 
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/%.S 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 clean:

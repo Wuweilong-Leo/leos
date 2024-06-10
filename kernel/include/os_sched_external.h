@@ -18,6 +18,7 @@ struct OsScheduler {
 struct OsRunQue {
     struct OsTaskCb *runningTsk;
     U32 uniFlag;
+    U32 intCount;
     bool needSched;
     U32 curPrio;
     U32 rdyListMsk;
