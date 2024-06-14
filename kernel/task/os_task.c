@@ -10,3 +10,4 @@ OS_SEC_KERNEL_TEXT void OsTskSchedule(void)
 
     OsTrapTsk(OS_RUNNING_TASK());
 }
+

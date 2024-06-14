@@ -29,6 +29,11 @@ struct OS_STRUCT_PACKED OsIdtInfo {
     U32 idtBase;
 };
 
+enum OsIntStatus {
+    OS_INT_OFF,
+    OS_INT_ON
+};
+
 #define OS_IDT_ENTRY_ATTR_P 1
 #define OS_IDT_ENTRY_ATTR_DPL0 0
 #define OS_IDT_ENTRY_ATTR_DPL3 3
@@ -44,6 +49,33 @@ struct OS_STRUCT_PACKED OsIdtInfo {
 
 #define OS_HWI_VECTOR(hwiNum) \
     (OsHwiVector##hwiNum)
+
+OS_INLINE enum OsIntStatus OsGetIntStatus(void)
+{
+    U32 eflag;
+
+    OS_EMBED_ASM("pushf; popl %0" : "=r"(eflag));
+    
+    return (eflag & 0x200)? OS_INT_ON : OS_INT_OFF;
+}
+
+OS_INLINE enum OsIntStatus OsIntLock(void)
+{
+    enum OsIntStatus intSave = OsGetIntStatus();
+
+    OS_EMBED_ASM("cli");
+
+    return intSave;
+}
+
+OS_INLINE void OsIntUnlock(enum OsIntStatus intSave)
+{
+    if (intSave == OS_INT_OFF) {
+        OS_EMBED_ASM("cli");
+    } else {
+        OS_EMBED_ASM("sti");
+    }
+}
 
 extern void OS_HWI_VECTOR(0x00) (void);
 extern void OS_HWI_VECTOR(0x01) (void);
@@ -81,4 +113,5 @@ extern void OS_HWI_VECTOR(0x20) (void);
 
 extern U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr);
 extern void OsHwiConfig(void);
+
 #endif

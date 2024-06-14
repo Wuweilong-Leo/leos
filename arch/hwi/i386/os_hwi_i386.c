@@ -108,6 +108,7 @@ static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum)
     OS_ASSERT(excNum < OS_EXC_MAX_NUM);
 
     OsPrintStr(g_excNameTab[excNum]);
+    OsPrintStr("\n");
     
     OS_EMBED_ASM("movl %%cr0, %0":"=r"(cr0)::);
     OS_EMBED_ASM("movl %%cr1, %0":"=r"(cr1)::);

@@ -21,4 +21,14 @@ struct OS_STRUCT_PACKED OsPgtEntry {
 
 #define OS_PGD_ENTRY_NUM 1024
 #define OS_PGT_ENTRY_NUM 1024
+
+/* 虚拟地址在对应的页目录的索引 */
+#define OS_PDE_IDX(addr) (((addr) & 0xFFC00000U) >> 22)
+/* 虚拟地址在对应的页表的索引 */
+#define OS_PTE_IDX(addr) (((addr) & 0x003FF000U) >> 12)
+
+#define OS_PTE_EXIST(pteVaddr) (((*(pteVaddr)) & OS_PG_P) != 0)
+#define OS_PDE_EXIST(pdeVaddr) (((*(pdeVaddr)) & OS_PG_P) != 0)
+
+extern void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr);
 #endif 

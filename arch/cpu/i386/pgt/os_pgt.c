@@ -3,6 +3,9 @@
 #include "string.h"
 #include "os_cpu_i386.h"
 #include "os_io_i386.h"
+#include "os_debug_external.h"
+#include "os_mem_external.h"
+
 OS_SEC_PGT_DATA struct OsPgtEntry g_pgd[OS_PGD_ENTRY_NUM];
 OS_SEC_PGT_DATA struct OsPgtEntry g_pgt[256][OS_PGD_ENTRY_NUM];
 
@@ -74,4 +77,51 @@ OS_SEC_LOADER_TEXT void OsReadDiskM32(U32 secId, U32 secNum, uintptr_t dst)
         *(U16 *)dstAddr = data;
         dstAddr += 2;
     } while ((--readTimes) > 0);
+}
+
+/* 根据虚拟地址找此虚拟地址对应的页表的虚拟地址 */
+OS_INLINE uintptr_t OsGetPteVirAddr(uintptr_t vaddr) 
+{
+    uintptr_t pte;
+    pte = (uintptr_t)(0xFFC00000 + (((U32)vaddr & 0xFFC00000) >> 10) +
+                      OS_PTE_IDX((U32)vaddr) * 4);
+    return pte;
+}
+
+/* 根据虚拟地址找此虚拟地址对应的页目录项的虚拟地址 */
+OS_INLINE uintptr_t OsGetPdeVirAddr(uintptr_t vaddr)
+{
+    uintptr_t pde;
+    pde = (uintptr_t)(0xFFFFF000 + OS_PDE_IDX((U32)vaddr) * 4);
+    return pde;
+}
+
+OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
+{
+    U32 *pteVaddr;
+    U32 *pdeVaddr;
+    uintptr_t ptPhyAddr;
+
+    pteVaddr = (U32 *)OsGetPteVirAddr(virAddr);
+    pdeVaddr = (U32 *)OsGetPdeVirAddr(virAddr);
+
+  /* 如果页目录项已存在，则对应页表已经存在，只用更改页表项 */
+  if (OS_PDE_EXIST(pdeVaddr)) {
+    /* 如果页表项还不存在，添加页表项 */
+    if (!OS_PTE_EXIST(pteVaddr)) {
+      *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    } else {
+      OS_DEBUG_PRINT_STR("pte repeat\n");
+      *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    }
+  } else {
+    /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
+    ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
+    /* 把页表物理地址写入页目录, 一旦写入，可以通过pte来访问页表项了。*/
+    *pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    /* 把整张页表初始化为0 */
+    memset((uintptr_t)((U32)pteVaddr & 0xFFFFF000), 0, OS_PG_SIZE);
+    /* 写入页表项 */
+    *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+  }
 }
