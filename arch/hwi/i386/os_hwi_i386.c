@@ -5,6 +5,9 @@
 #include "os_cpu_i386.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
+#include "os_sched_external.h"
+#include "os_context_i386.h"
+#include "os_sys.h"
 
 /*
  * i386中断异常都根据IDT，走一个流程
@@ -76,9 +79,10 @@ OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {
     .idtBase = g_idt
 };
 
-static OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum)
+static OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum, uintptr_t context)
 {
     (void)hwiNum;
+    (void)context;
     return;
 }
 
@@ -88,41 +92,41 @@ OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr)
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
+OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum, uintptr_t context)
 {
-    OsHwiHandlerFunc isr;
-    g_runQue.intCount++;
-    isr = g_hwiForm[hwiNum].isr;
-    isr(hwiNum);
-    g_runQue.intCount--;
+    struct OsRunQue *rq = OS_RUN_QUE();
+    OsHwiHandlerFunc isr = g_hwiForm[hwiNum].isr;
+    
+    rq->intCount++;
+    rq->uniFlag |= OS_HWI_ACTIVE;
+    isr(hwiNum, context);
+    rq->uniFlag &= ~OS_HWI_ACTIVE;
+    rq->intCount--;
 }
 
-static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum)
+static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum, uintptr_t context)
 {
     U32 cr0;
     U32 cr1;
-    U32 cr2;
+    U32 cr2; /* CR2, page fault异常的地址 */
+    struct OsAllSaveContext *excInfo = (struct OsAllSaveContext *)context;
 
     OS_EMBED_ASM("cli");
     
     OS_ASSERT(excNum < OS_EXC_MAX_NUM);
 
-    OsPrintStr(g_excNameTab[excNum]);
-    OsPrintStr("\n");
+    kprintf("exc type: %s\n", g_excNameTab[excNum]);
     
-    OS_EMBED_ASM("movl %%cr0, %0":"=r"(cr0)::);
-    OS_EMBED_ASM("movl %%cr1, %0":"=r"(cr1)::);
-    OS_EMBED_ASM("movl %%cr1, %0":"=r"(cr2)::);
+    OS_EMBED_ASM("movl %%cr2, %0":"=a"(cr2)::);
+    kprintf("cr2 : 0x%x\n", cr2);
 
-    OsPrintStr("cr0: ");
-    OsPrintHex(cr0);
-    OsPrintStr("\n");
-    OsPrintStr("cr1: ");
-    OsPrintHex(cr1);
-    OsPrintStr("\n");
-    OsPrintStr("cr2: ");
-    OsPrintHex(cr2);
-    OsPrintStr("\n");
+    kprintf("excCs : 0x%x\n", (U32)excInfo->cs);
+    kprintf("excEip : 0x%x\n", (U32)excInfo->eip);
+    kprintf("excEax : 0x%x\n", (U32)excInfo->eax);
+    kprintf("excEbx : 0x%x\n", (U32)excInfo->ebx);
+    kprintf("excEcx : 0x%x\n", (U32)excInfo->ecx);
+    kprintf("excEdx : 0x%x\n", (U32)excInfo->edx);
+    kprintf("excEbp : 0x%x\n", (U32)excInfo->ebp);
 
     while (1) {}
 }
@@ -187,5 +191,10 @@ OS_SEC_KERNEL_TEXT void OsHwiConfig(void)
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");
 }
 
+/* 中断尾巴 */
+OS_SEC_KERNEL_TEXT void OsHwiTail(void)
+{
+    OsSchedMain();
+}
 
 

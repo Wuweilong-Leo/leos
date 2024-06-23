@@ -63,14 +63,28 @@ OsHwiVector\hwiNum:
     \balanceErrCode
     OS_SAVE_CONTEXT
 
+    /* runQue第一个变量就是runningTsk */
+    /* runningTsk 第一个变量就是stkPtr */
+    movl $g_runQue, %eax
+    movl 0(%eax), %ebx // runningTsk
+    movl %esp, 0(%ebx)
+    
+    /* 切到系统栈 */
+   // movl $_os_kernel_sp_end, %eax
+   // movl %eax, %esp
+
     /* 清中断 */
     movb $0x20, %al
     outb %al, $0xa0
     outb %al, $0x20
 
-    pushl $\hwiNum
+    movl 0(%ebx), %eax
+    pushl %eax
+    pushl $\hwiNum 
     call OsHwiDispatcher
-    jmp OsHwiRet
+    addl $8, %esp
+
+    call OsHwiTail
 .endm
 
 .macro ZERO
@@ -130,9 +144,6 @@ OS_HWI_VECTOR 0x2d, ZERO
 OS_HWI_VECTOR 0x2e, ZERO
 OS_HWI_VECTOR 0x2f, ZERO
 
-OsHwiRet:
-    addl $8, %esp
-
 OsAllLoad:
     popl %edi
     popl %esi
@@ -146,6 +157,6 @@ OsAllLoad:
     popl %fs
     popl %es
     popl %ds
-    addl $4, %esp /* 跳过error_code */
+    addl $4, %esp /* 跳过errorCode */
 
     iret

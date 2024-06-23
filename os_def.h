@@ -38,4 +38,5 @@ typedef unsigned long *uintptr_t;
 #define OS_SEC_KERNEL_BSS    __attribute__((section(".os.kernel.bss")))
 
 #define OS_BUILD_ERR_CODE(mid, errCode) (((mid) << 16) | ((0xFFFF) & (errCode)))
+
 #endif

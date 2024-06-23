@@ -4,4 +4,5 @@
 extern void OsPrintChar(char c);
 extern void OsPrintStr(char *str);
 extern void OsPrintHex(U32 num);
+extern U32 kprintf(const char *fmt, ...);
 #endif

@@ -17,6 +17,7 @@ struct OsScheduler {
 
 struct OsRunQue {
     struct OsTaskCb *runningTsk;
+    struct OsTaskCb *idleTsk;
     U32 uniFlag;
     U32 intCount;
     bool needSched;
@@ -31,4 +32,9 @@ extern struct OsRunQue g_runQue;
 
 #define OS_RUN_QUE() (&g_runQue)
 #define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)
+
+extern void OsSchedSwitchIdle(void);
+extern void OsSchedConfig(void);
+extern struct OsTaskCb *OsSchedPickNextTskRt(void);
+extern void OsSchedMain(void);
 #endif

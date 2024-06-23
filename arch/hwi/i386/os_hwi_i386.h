@@ -9,7 +9,7 @@
 #define OS_PIC_S_CTRL 0xa0
 #define OS_PIC_S_DATA 0xa1
 
-typedef void (*OsHwiHandlerFunc)(U32 hwiNum);
+typedef void (*OsHwiHandlerFunc)(U32 hwiNum, uintptr_t context);
 typedef void (*OsHwiVector)(void);
 
 struct OsHwiForm {
@@ -68,13 +68,22 @@ OS_INLINE enum OsIntStatus OsIntLock(void)
     return intSave;
 }
 
-OS_INLINE void OsIntUnlock(enum OsIntStatus intSave)
+OS_INLINE void OsIntRestore(enum OsIntStatus intSave)
 {
     if (intSave == OS_INT_OFF) {
         OS_EMBED_ASM("cli");
     } else {
         OS_EMBED_ASM("sti");
     }
+}
+
+OS_INLINE enum OsIntStatus OsIntUnlock(void)
+{
+    enum OsIntStatus intSave = OsGetIntStatus();
+
+    OS_EMBED_ASM("sti");
+
+    return intSave;
 }
 
 extern void OS_HWI_VECTOR(0x00) (void);

@@ -60,13 +60,19 @@ SECTIONS
     .KENNEL_BSS : 
     {
         . = ALIGN(4);
+        _os_kernel_bss_start = .;
         *(.os.kernel.bss)
+        _os_kernel_bss_end = .;
     } > KERNEL_MEM
 
     .KERNEL_DATA : 
     {
         . = ALIGN(4);
         *(.rodata)
+        _os_bss_table_start = .;
+        LONG(_os_kernel_bss_start)
+        LONG(_os_kernel_bss_end)
+        _os_bss_table_end = .;
         *(.os.kernel.data)
     } > KERNEL_MEM
 }

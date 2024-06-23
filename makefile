@@ -3,12 +3,13 @@ OBJ_DIR := $(CUR_DIR)/build/obj
 BIN_DIR := $(CUR_DIR)/build/output
 MAP_DIR := $(CUR_DIR)/build/map
 
-COMPILE_FLAG := -m32 -std=c99 -fno-builtin -c
+COMPILE_FLAG := -g -m32 -std=c99 -fno-builtin -c
 
 INC_DIR := $(CUR_DIR)  
 INC_DIR += $(CUR_DIR)/kernel/include/
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/
 INC_DIR += $(CUR_DIR)/arch/hwi/i386
+INC_DIR += $(CUR_DIR)/arch/boot/
 INC_DIR += $(CUR_DIR)/arch/timer/i386
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/gdt
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/pgt
@@ -28,6 +29,7 @@ SUB_DIR += $(CUR_DIR)/kernel/sched
 SUB_DIR += $(CUR_DIR)/kernel/task
 SUB_DIR += $(CUR_DIR)/kernel/mem
 SUB_DIR += $(CUR_DIR)/arch/boot/i386
+SUB_DIR += $(CUR_DIR)/arch/boot
 SUB_DIR += $(CUR_DIR)/arch/io/i386
 SUB_DIR += $(CUR_DIR)/arch/hwi/i386
 SUB_DIR += $(CUR_DIR)/arch/timer/i386
@@ -92,6 +94,9 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/timer/i386/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/boot/i386/%.S 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/boot/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/%.S 

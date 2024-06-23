@@ -23,6 +23,7 @@ extern void OsDebugPanicSpin(char *filename, U32 line, const char *func,
 #define OS_DEBUG_PRINT_CHAR(c)  OsPrintChar(c)
 #define OS_DEBUG_PRINT_HEX(hex) OsPrintHex(hex)
 #define OS_DEBUG_PRINT_STR(str) OsPrintStr(str)
+#define OS_DEBUG_KPRINT(fmt, ...) kprintf(__VA_ARG__)
 #else
 #define ASSERT(condition)
 #define OS_DEBUG_PRINT_CHAR(c)

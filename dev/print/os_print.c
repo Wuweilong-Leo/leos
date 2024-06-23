@@ -1,6 +1,7 @@
 #include "os_def.h"
 #include "os_print_internal.h"
 #include "string.h"
+#include "os_hwi_i386.h"
 
 OS_INLINE void OsPrintRollScreen(void) 
 {
@@ -114,4 +115,85 @@ OS_SEC_KERNEL_TEXT void OsPrintHex(U32 num)
   }
 
   OsPrintStr(buf + (++off));
+}
+
+OS_SEC_KERNEL_TEXT void itoa(U32 val, char ** bufPtrAddr, U8 base)
+{
+    U32 m = val % base;
+    U32 i = val / base;
+
+    if (i != 0) {
+        itoa(i, bufPtrAddr, base);
+    }
+
+    if (m < 10) {
+        *((*bufPtrAddr)++) = m + '0';
+    } else {
+        *((*bufPtrAddr)++) = m + 'A' - 10;
+    }
+}
+
+OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
+{
+    char* bufPtr = str;
+    const char* idxPtr = fmt;
+    char idxChar = *idxPtr;
+    S32 argInt;
+    char* argStr;
+
+    while(idxChar)		//挨个挨个字符来弄
+    {
+    	if(idxChar != '%')
+    	{
+    	    *(bufPtr++) = idxChar;
+    	    idxChar = *(++idxPtr);
+    	    continue;
+    	}
+    	idxChar = *(++idxPtr);
+    	switch(idxChar)
+    	{
+    	    case 's':
+    	    	argStr = OS_VA_ARG(ap, char *);
+    	    	strcpy(bufPtr,argStr);
+    	    	bufPtr += strlen(argStr);
+    	    	idxChar = *(++idxPtr);
+    	    	break;
+    	    case 'x':
+    	    	argInt = OS_VA_ARG(ap, int);
+    	    	itoa(argInt,&bufPtr,16);
+    	    	idxChar = *(++idxPtr);
+    	    	break;
+    	    case 'd':
+    	    	argInt = OS_VA_ARG(ap, int);
+    	    	if(argInt < 0)
+    	    	{
+    	    	    argInt = 0 - argInt;
+    	    	    *(bufPtr++) = '-';
+    	    	}
+    	    	itoa(argInt, &bufPtr, 10);
+    	    	idxChar = *(++idxPtr);
+    	    	break;
+    	    case 'c':
+    	    	*(bufPtr++) = OS_VA_ARG(ap, char);
+    	    	idxChar = *(++idxPtr);
+    	}
+    }
+    return strlen(str);
+}
+
+OS_SEC_KERNEL_TEXT void kprintf(const char *fmt, ...)
+{
+    char buf[1024] = {0};
+    void *args;
+    U32 len;
+    enum OsIntStatus intSave;
+
+    intSave = OsIntLock();
+    OS_VA_START(args, fmt);
+    len = vsprintf(buf, fmt, args);
+    OS_VA_END(args);
+    OsPrintStr(buf);
+    OsIntRestore(intSave);
+
+    return len;
 }

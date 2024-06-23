@@ -7,7 +7,7 @@ OS_SEC_KERNEL_TEXT void OsBtmpInit(struct OsBtmp *btmp, U8 *base, U32 bitNum)
     btmp->base = base;
     btmp->byteLen = OS_BTMP_BITNUM_2_BYTELEN(bitNum);
     btmp->bitNum = bitNum;
-    // memset(base, 0, btmp->byteLen);
+    memset(base, 0, btmp->byteLen);
 }
 
 OS_SEC_KERNEL_TEXT void OsBtmpSet(struct OsBtmp *btmp, U32 idx)

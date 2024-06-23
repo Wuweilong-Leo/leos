@@ -14,4 +14,8 @@
 #define OS_VIDEO_BASE_ADDR ((volatile U8 * const)0xC00B8000)
 #define OS_ROLL_VIDEO_SRC_ADDR ((volatile U8 * const)0xC00B80A0)
 #define OS_ROLL_VIDEO_DST_ADDR OS_VIDEO_BASE_ADDR
+
+#define OS_VA_START(ap, v) ((ap) = (void *)&(v))
+#define OS_VA_ARG(ap, t) (*(t*)((ap) += 4))
+#define OS_VA_END(ap) ((ap) = NULL)
 #endif

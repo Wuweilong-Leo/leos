@@ -13,12 +13,10 @@ OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl,
   OsOutb(counterPort, (U8)(counterVal >> 8));
 }
 
-OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum)
+OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum, uintptr_t context)
 {
-    (void)hwiNum;
-    OS_DEBUG_PRINT_STR("hwiNum == ");
-    OS_DEBUG_PRINT_HEX(hwiNum);
-    OS_DEBUG_PRINT_STR("\n");
+    (void)context;
+    kprintf("hwi num = 0x%x\n", hwiNum);
 }
 
 OS_SEC_KERNEL_TEXT void OsTimerConfig(void)
