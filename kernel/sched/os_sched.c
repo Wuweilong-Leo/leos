@@ -2,19 +2,36 @@
 #include "os_list_external.h"
 #include "string.h"
 #include "os_debug_external.h"
+#include "os_sys.h"
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
 OS_SEC_KERNEL_DATA struct OsScheduler g_rtScheduler = {
-    .dequeTsk = NULL,
-    .enqueTsk = NULL,
-    .pickNextTsk = OsSchedPickNextTskRt
+    .pickNextTsk = OsSchedPickHighestPrioTsk
 };
 
-OS_SEC_KERNEL_TEXT struct OsTaskCb *OsSchedPickNextTskRt(void)
+/* Multilevel Feedback Queue Scheduling */
+OS_SEC_KERNEL_DATA struct OsScheduler g_mfqsScheduler = {
+    .pickNextTsk = OsSchedPickHighestPrioTsk
+};
+
+OS_INLINE U32 OsSchedGetHighestPrio(void)
+{
+    struct OsRunQue *rq = OS_RUN_QUE();
+    U32 bit = 0;
+
+    /* 保证总有一个任务ready */
+    while ((rq->rdyListMsk & (1 << bit)) == 0) {
+        bit++;
+    }
+
+    return bit;
+}
+
+OS_SEC_KERNEL_TEXT struct OsTaskCb *OsSchedPickHighestPrioTsk(void)
 {
     struct OsList *rdyList;
-    U32 highestPrio = OS_RUN_QUE()->curPrio;
+    U32 highestPrio = OsSchedGetHighestPrio();
     struct OsList *rdyListNode;
 
     rdyList = &OS_RUN_QUE()->rdyList[highestPrio];
@@ -28,7 +45,6 @@ OS_SEC_KERNEL_TEXT void OsSchedConfig(void)
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 i;
 
-    rq->curPrio = OS_TASK_PRIO_MAX_NUM;
     rq->runningTsk = NULL;
     rq->rdyListMsk = 0;
     for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
@@ -36,7 +52,7 @@ OS_SEC_KERNEL_TEXT void OsSchedConfig(void)
     }
     OsListInit(&rq->delayList);
     rq->intCount = 0;
-    rq->scheduler = &g_rtScheduler;
+    rq->scheduler = &g_mfqsScheduler;
     rq->needSched = FALSE;
 }
 
@@ -49,10 +65,9 @@ OS_SEC_KERNEL_TEXT void OsSchedAddTskToRdyListTail(struct OsTaskCb *tsk)
 
     OsListAddTail(rdyList, &tsk->rdyListNode);
 
-    OS_RUN_QUE()->rdyListMsk |= (1 << tskPrio);
+    rq->rdyListMsk |= (1 << tskPrio);
 
-    if (tskPrio < rq->curPrio) {
-        rq->curPrio = tskPrio;
+    if (tskPrio < OS_RUNNING_TASK()->prio) {
         rq->needSched = TRUE;
     }
 }
@@ -74,6 +89,11 @@ OS_SEC_KERNEL_TEXT void OsSchedDelTskFromRdyList(struct OsTaskCb* tsk)
     }
 }
 
+OS_SEC_KERNEL_TEXT void OsSchedModifyTskPrio(struct OsTaskCb *tsk)
+{
+    tsk->prio = (tsk->prio + 1) % OS_TASK_PRIO_MAX_NUM;
+}
+
 OS_SEC_KERNEL_TEXT void OsSchedMain(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
@@ -81,14 +101,11 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
     struct OsTaskCb *nextTsk = curTsk;
 
-    if (rq->needSched) {
+    if (rq->needSched && OS_HWI_NOT_ACTIVE(rq->uniFlag)) {
         rq->needSched = FALSE;
         nextTsk = scheduler->pickNextTsk();
-
-        if (nextTsk != curTsk) {
-            nextTsk->status = OS_TASK_RUNNING;
-            rq->runningTsk = nextTsk; 
-        }
+        nextTsk->status = OS_TASK_RUNNING;
+        rq->runningTsk = nextTsk;
     }
 
     OsLoadTsk(nextTsk);
@@ -100,14 +117,17 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchIdle(void)
     struct OsTaskCb *idleTskCb;
     struct OsRunQue *rq = OS_RUN_QUE();
 
+    /* 创建idle task */
     if (OsTaskCreateIdle(&idleTskId) != OS_OK) {
-        OS_DEBUG_PRINT_STR("OsTaskCreateIdle failed\n");
+        OS_DEBUG_KPRINT("%s\n", "create idle err\n");
+        return;
     }
 
     idleTskCb = OS_TASK_GET_CB(idleTskId);
+
     rq->idleTsk = idleTskCb;
     rq->runningTsk = idleTskCb;
-    rq->idleTsk->status = OS_TASK_RUNNING;
+    idleTskCb->status = OS_TASK_RUNNING;
 
     OsLoadTsk(idleTskCb);
 }

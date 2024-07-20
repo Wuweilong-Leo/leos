@@ -12,14 +12,14 @@ struct OsList {
 
 /* 通过元素地址获取结构体的首地址 */
 #define OS_LIST_GET_STRUCT_ENTRY(structType, elemName, elemAddr)               \
-  ((structType *)((U32)elemAddr - OFFSET(structType, elemName)))
+  ((structType *)((U32)(elemAddr) - OFFSET(structType, elemName)))
 
 #define OS_LIST_FOR_EACH(list, tmpNode)                                        \
   for ((tmpNode) = (list)->next; (tmpNode) != (list); (tmpNode) = (tmpNode)->next)
 
 #define OS_LIST_GET_FIRST_NODE(list) ((list)->next)
 
-#define OS_LIST_INIT(list) {(list), (list)}
+#define OS_LIST_INIT(list) {&(list), &(list)}
 
 OS_INLINE void OsListInit(struct OsList *list)
 {

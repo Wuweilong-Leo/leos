@@ -7,9 +7,10 @@
 #include "os_context_i386.h"
 #include "os_debug_external.h"
 #include "os_sys.h"
+#include "string.h"
 
 OS_SEC_KERNEL_DATA struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
-OS_SEC_KERNEL_DATA struct OsList g_tskFreeList = {&g_tskFreeList, &g_tskFreeList};
+OS_SEC_KERNEL_DATA struct OsList g_tskFreeList = OS_LIST_INIT(g_tskFreeList);
 
 OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
 {
@@ -25,13 +26,42 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
     }
 }
 
+OS_SEC_KERNEL_TEXT void tsk1(void)
+{
+    while (1) {
+        kprintf("tsk1\n");
+    }
+}
+
+OS_SEC_KERNEL_TEXT void tsk2(void)
+{
+    while (1) {
+        kprintf("tsk2\n");
+    }
+}
+
 OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
 {
-    enum OsIntStatus intSave;    
+    struct OsTaskCreateParam param = {0};
+    U32 tskId;
+    U32 ret;
+
+    strcpy(param.name, "tsk1");
+    param.prio = 0;
+    param.entryFunc = tsk1;
+
+    (void)OsTaskCreate(&param, &tskId);
+    (void)OsTaskResume(tskId);
+
+    strcpy(param.name, "tsk2");
+    param.prio = 16;
+    param.entryFunc = tsk2;
+
+    (void)OsTaskCreate(&param, &tskId);
+    (void)OsTaskResume(tskId);
+
     while (1) {
-        intSave = OsIntLock();
-        OsPrintStr("idle task \n");
-        OsIntRestore(intSave);
+        kprintf("idle tsk\n");
     }
 }
 
@@ -40,11 +70,6 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
     struct OsList *listNode;
 
     if (OsListIsEmpty(&g_tskFreeList)) {
-        OS_DEBUG_PRINT_STR("freeList prev, next: ");
-        OS_DEBUG_PRINT_HEX((U32)g_tskFreeList.prev);
-        OS_DEBUG_PRINT_STR(" ");
-        OS_DEBUG_PRINT_HEX((U32)g_tskFreeList.next);
-        OS_DEBUG_PRINT_STR("\n");
         return NULL;
     }
     
@@ -99,30 +124,29 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam * param, U32 *tskId
 
     tskCb = OsTaskGetFreeCb();
     if (tskCb == NULL) {
-        OS_DEBUG_PRINT_STR("OsTaskCreate: OsTaskGetFreeCb failed\n");
+        OS_DEBUG_KPRINT("%s\n", "OsTaskCreate: OsTaskGetFreeCb failed");
         OsIntRestore(intSave);
         return OS_TASK_CREATE_NO_FREE_CB;
     }
     
-    OS_DEBUG_PRINT_STR("OsTaskCreate: freeCb = ");
-    OS_DEBUG_PRINT_HEX((U32)tskCb);
-    OS_DEBUG_PRINT_STR("\n");
+    OS_DEBUG_KPRINT("OsTaskCreate: freeCb = 0x%x\n", (U32)tskCb);
 
     stkMemBase = (uintptr_t)OsMemKernelAllocPgs(1);
     if (stkMemBase == NULL) {
-        OS_DEBUG_PRINT_STR("OsTaskCreate: OsMemKernelAllocPgs failed\n");
         OsIntRestore(intSave);
         return OS_TASK_CREATE_STK_ALLOC_FAIL;
     }
     tskCb->kernelStkTop = stkMemBase;
+    OS_DEBUG_KPRINT("OsTaskCreate: stkTop = 0x%x\n", tskCb->kernelStkTop);
+
     OsTaskInitStack(stkMemBase, OS_PG_SIZE);
 
     OsTaskSetCb(tskCb, param);
     OsSetContext(stkMemBase, OS_PG_SIZE, tskCb);
+    tskCb->ticks = OsTaskGetInitialTick(tskCb->prio);
+
     *tskId = tskCb->pid;
-    OS_DEBUG_PRINT_STR("OsTaskCreate: task pid = ");
-    OS_DEBUG_PRINT_HEX(*tskId);
-    OS_DEBUG_PRINT_STR("\n");
+    OS_DEBUG_KPRINT("OsTaskCreate: task pid = 0x%x\n", *tskId);
 
     OsIntRestore(intSave);
     return OS_OK;
@@ -142,9 +166,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     OsSchedAddTskToRdyListTail(tskCb);
     tskCb->status = OS_TASK_READY;
 
-    if (OS_RUN_QUE()->needSched) {
-        OsTaskSchedule();
-    }
+    OsTaskSchedule();
+
     OsIntRestore(intSave);
 }
 
@@ -168,8 +191,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(U32 *tskId)
     if (ret != OS_OK) {
         return ret;
     }
-    OS_DEBUG_PRINT_STR("tskId = ");
-    OS_DEBUG_PRINT_HEX(*tskId);
+    OS_DEBUG_KPRINT("idle tskId == 0x%x\n", *tskId);
 
     idleTskCb = OS_TASK_GET_CB(*tskId);
 
@@ -180,7 +202,12 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(U32 *tskId)
 
 OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
 {
-    if (!OS_RUN_QUE()->needSched){
+    if (!OS_RUN_QUE()->needSched) {
+        return;
+    }
+
+    /* 在中断中，等中断尾部调度 */
+    if (OS_HWI_ACTIVE(OS_RUN_QUE()->uniFlag)) {
         return;
     }
 

@@ -1,6 +1,7 @@
 #include "os_btmp_internal.h"
 #include "os_def.h"
 #include "string.h"
+#include "os_debug_external.h"
 
 OS_SEC_KERNEL_TEXT void OsBtmpInit(struct OsBtmp *btmp, U8 *base, U32 bitNum)
 {
@@ -14,7 +15,7 @@ OS_SEC_KERNEL_TEXT void OsBtmpSet(struct OsBtmp *btmp, U32 idx)
 {
     U32 bitOff = idx % 8;
     U32 byteOff = idx / 8;
-
+    
     btmp->base[byteOff] |= (1 << bitOff);
 }
 
@@ -35,9 +36,11 @@ OS_SEC_KERNEL_TEXT void OsBtmpClear(struct OsBtmp *btmp, U32 idx)
 }
 
 /* 连续申请cnt个为val的位, val只能为1或者0 */
-OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *idx) {
+OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val,
+                                   U32 *idx) {
   U32 left = 0;
   U32 right = 0;
+  
   while (right < btmp->bitNum) {
     if (OsBtmpGet(btmp, right) != val) {
       left = right + 1;
@@ -50,6 +53,3 @@ OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *id
   }
   return FALSE;
 }
-
-
-

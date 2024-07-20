@@ -15,7 +15,6 @@ enum OsTaskStatus {
   OS_TASK_RUNNING,
   OS_TASK_READY,
   OS_TASK_SEM_PENDING,
-  OS_TASK_TIME_SLICE_PENDING,
   OS_TASK_IN_DELAY
 };
 
@@ -53,7 +52,15 @@ struct OsTaskCreateParam {
 extern void OsTaskIdleEntry(void);
 extern void OsTaskConfig(void);
 extern U32 OsTaskCreateIdle(U32 *tskId);
+extern U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId);
+extern U32 OsTaskResume(U32 tskId);
+
 extern struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 
 #define OS_TASK_GET_CB(tskId) (&g_tskCbArray[(tskId)])
+
+OS_INLINE U32 OsTaskGetInitialTick(U32 prio)
+{
+    return prio + 1;
+}
 #endif

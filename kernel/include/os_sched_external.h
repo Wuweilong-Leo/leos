@@ -10,8 +10,6 @@
 typedef struct OsTaskCb * (*OsPickNextTsk) (void);
 
 struct OsScheduler {
-    void *enqueTsk;
-    void *dequeTsk;
     OsPickNextTsk pickNextTsk;
 };
 
@@ -21,7 +19,6 @@ struct OsRunQue {
     U32 uniFlag;
     U32 intCount;
     bool needSched;
-    U32 curPrio;
     U32 rdyListMsk;
     struct OsList rdyList[OS_TASK_PRIO_MAX_NUM];
     struct OsList delayList;
@@ -35,6 +32,9 @@ extern struct OsRunQue g_runQue;
 
 extern void OsSchedSwitchIdle(void);
 extern void OsSchedConfig(void);
-extern struct OsTaskCb *OsSchedPickNextTskRt(void);
+extern struct OsTaskCb *OsSchedPickHighestPrioTsk(void);
 extern void OsSchedMain(void);
+extern void OsSchedAddTskToRdyListTail(struct OsTaskCb *tsk);
+extern void OsSchedDelTskFromRdyList(struct OsTaskCb* tsk);
+extern void OsSchedModifyTskPrio(struct OsTaskCb *tsk);
 #endif

@@ -14,11 +14,6 @@
 #define OS_GET_FREE_KERNEL_PHY_MEM_SIZE(totalFreeMem) ((totalFreeMem) >> 1)
 #define OS_GET_FREE_USR_PHY_MEM_SIZE(totalFreeMem) ((totalFreeMem) >> 1)
 #define OS_GET_PG_NUM_BY_MEM_SIZE(memSize) (OS_ROUND_UP(memSize, OS_PG_SIZE)/ OS_PG_SIZE)
-
-#define OS_MEM_BTMP_BASE 0xFD000
-#define OS_MEM_BTMP0_BASE OS_MEM_BTMP_BASE
-#define OS_MEM_BTMP1_BASE (OS_MEM_BTMP0_BASE + OS_PG_SIZE)
-#define OS_MEM_BTMP2_BASE (OS_MEM_BTMP1_BASE + OS_PG_SIZE)
-
+#define OS_MEM_BTMP_MAX_NUM 3
 #define OS_KERNEL_VIR_MEM_BASE 0xC0100000
 #endif

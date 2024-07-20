@@ -24,7 +24,7 @@ OsTrapTsk:
 
 OsLoadTsk:
     movl 4(%esp), %eax
-    mov 0(%eax), %esp
+    movl 0(%eax), %esp
 
     popl %eax
     cmp $OS_ALL_SAVE_FLAG, %eax

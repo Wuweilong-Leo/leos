@@ -98,9 +98,9 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum, uintptr_t context)
     OsHwiHandlerFunc isr = g_hwiForm[hwiNum].isr;
     
     rq->intCount++;
-    rq->uniFlag |= OS_HWI_ACTIVE;
+    rq->uniFlag |= OS_HWI_ACTIVE_MSK;
     isr(hwiNum, context);
-    rq->uniFlag &= ~OS_HWI_ACTIVE;
+    rq->uniFlag &= ~OS_HWI_ACTIVE_MSK;
     rq->intCount--;
 }
 

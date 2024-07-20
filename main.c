@@ -15,8 +15,8 @@ OS_SEC_KERNEL_TEXT void OsConfigAll(void)
     OsBssInit();
     OsHwiConfig();
     OsMemConfig();
-    OsTaskConfig();
     OsSchedConfig();
+    OsTaskConfig();
     OsTimerConfig();
     OS_DEBUG_PRINT_STR("OsModuleConfig end\n");
 
@@ -27,7 +27,11 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     (void)OsIntLock();
     OsPrintStr("hello kernel\n");
     OsConfigAll();
+    
     OsSchedSwitchIdle();
 
+    /* never comes here */
     while (1) {}
+
+    return 0;
 }

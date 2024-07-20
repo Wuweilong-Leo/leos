@@ -5,5 +5,8 @@ enum OsMid {
     OS_MID_MEM,
 };
 
-#define OS_HWI_ACTIVE 0x00000001U
+#define OS_HWI_ACTIVE_MSK 0x00000001U
+
+#define OS_HWI_ACTIVE(uniFlag) (((uniFlag) & OS_HWI_ACTIVE_MSK) != 0)
+#define OS_HWI_NOT_ACTIVE(uniFlag) (((uniFlag) & OS_HWI_ACTIVE_MSK) == 0)
 #endif

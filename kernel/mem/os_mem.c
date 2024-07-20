@@ -7,6 +7,8 @@
 OS_SEC_KERNEL_DATA struct OsMemPool g_kernelPhyMemPool;
 OS_SEC_KERNEL_DATA struct OsMemPool g_usrPhyMemPool;
 OS_SEC_KERNEL_DATA struct OsMemPool g_kernelVirMemPool;
+/* 每个btmp默认先给一页大小 */
+OS_SEC_KERNEL_BSS U8 g_memPoolBtmp[OS_MEM_BTMP_MAX_NUM][OS_PG_SIZE];
 
 OS_SEC_KERNEL_TEXT void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, 
                                       U32 memSize, U8 *btmpBase)
@@ -60,15 +62,16 @@ OS_SEC_KERNEL_TEXT void OsMemConfig(void)
     freeUsrPhyMemBase = freeKernelPhyMemBase + freeKernelPhyMemSize;
 
     OsMemPoolInit(&g_kernelPhyMemPool, (uintptr_t)freeKernelPhyMemBase,
-                  freeKernelPhyMemSize, (U8 *)OS_MEM_BTMP0_BASE);    
+                  freeKernelPhyMemSize, (U8 *)g_memPoolBtmp[0]);    
     OsMemPoolInit(&g_usrPhyMemPool, (uintptr_t)freeUsrPhyMemBase,
-                  freeUsrPhyMemSize, (U8 *)OS_MEM_BTMP1_BASE);
+                  freeUsrPhyMemSize, (U8 *)g_memPoolBtmp[1]);
     OsMemPoolInit(&g_kernelVirMemPool, (uintptr_t)OS_KERNEL_VIR_MEM_BASE,
-                  1024 * 1024 * 32, (U8 *)OS_MEM_BTMP2_BASE);
+                  1024 * 1024 * 32, (U8 *)g_memPoolBtmp[2]);
 
     OsPrintMemPoolInfo(&g_kernelPhyMemPool, "kernelPhyMemPool");
     OsPrintMemPoolInfo(&g_usrPhyMemPool, "usrPhyMemPool");
     OsPrintMemPoolInfo(&g_kernelVirMemPool, "kernelVirMemPool");
+
     OS_DEBUG_PRINT_STR("OsMemConfig end\n");
 }
 
@@ -83,6 +86,8 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
         OS_DEBUG_PRINT_STR("OsMemPoolGetFreePg: free pages not enough\n");
         return NULL;
     }
+
+    OS_DEBUG_KPRINT("OsMemPoolGetFreePgs: idx = 0x%x\n", idx);
 
     addr = (uintptr_t)((U32)pool->base + idx * OS_PG_SIZE);
 

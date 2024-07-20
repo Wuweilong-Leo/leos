@@ -4,6 +4,7 @@
 #include "os_print_external.h"
 #include "os_debug_external.h"
 #include "os_io_i386.h"
+#include "os_sched_external.h"
 
 OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl,
                            U8 counterMode, U16 counterVal)
@@ -15,8 +16,24 @@ OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl,
 
 OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum, uintptr_t context)
 {
+    (void)hwiNum;
     (void)context;
-    kprintf("hwi num = 0x%x\n", hwiNum);
+    struct OsTaskCb *curTsk = OS_RUNNING_TASK();
+
+    curTsk->ticks--;
+
+    if (curTsk->ticks == 0) {
+        /* 删除rdy队列任务 */
+        OsSchedDelTskFromRdyList(curTsk);
+        /* 降低优先级 */
+        OsSchedModifyTskPrio(curTsk);
+        /* 加回rdy队列 */
+        OsSchedAddTskToRdyListTail(curTsk);
+        curTsk->status = OS_TASK_READY;
+
+        /* 更新tick */
+        curTsk->ticks = OsTaskGetInitialTick(curTsk->prio);
+    }   
 }
 
 OS_SEC_KERNEL_TEXT void OsTimerConfig(void)

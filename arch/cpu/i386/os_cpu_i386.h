@@ -38,6 +38,6 @@
 #define OS_SELECTOR_K_VEDIO ((3 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
 
 #define OS_FAST_SAVE_FLAG 0x0U
-#define OS_ALL_SAVE_FLAG 0x01U
+#define OS_ALL_SAVE_FLAG 0x1U
 
 #endif
