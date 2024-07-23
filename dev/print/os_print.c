@@ -165,8 +165,7 @@ OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
     	    	break;
     	    case 'd':
     	    	argInt = OS_VA_ARG(ap, int);
-    	    	if(argInt < 0)
-    	    	{
+    	    	if(argInt < 0) {
     	    	    argInt = 0 - argInt;
     	    	    *(bufPtr++) = '-';
     	    	}
@@ -183,7 +182,7 @@ OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
 
 OS_SEC_KERNEL_TEXT void kprintf(const char *fmt, ...)
 {
-    char buf[1024] = {0};
+    char buf[256] = {0};
     void *args;
     U32 len;
     enum OsIntStatus intSave;

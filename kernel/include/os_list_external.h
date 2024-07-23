@@ -49,20 +49,27 @@ OS_INLINE void OsListRemoveNode(struct OsList *node)
 {
     node->prev->next = node->next;
     node->next->prev = node->prev;
-}
-
-OS_INLINE struct OsList *OsListPopHead(struct OsList *list)
-{
-    struct OsList *firstNode = OS_LIST_GET_FIRST_NODE(list);
-
-    OsListRemoveNode(firstNode);
-
-    return firstNode;
+    OsListInit(node);
 }
 
 OS_INLINE bool OsListIsEmpty(struct OsList *list)
 {
     return list->next == list;
+}
+
+OS_INLINE struct OsList *OsListPopHead(struct OsList *list)
+{
+    struct OsList *firstNode;
+
+    if (OsListIsEmpty(list)) {
+        return NULL;
+    }
+
+    firstNode = OS_LIST_GET_FIRST_NODE(list);
+    
+    OsListRemoveNode(firstNode);
+
+    return firstNode;
 }
 
 OS_INLINE bool OsListFindNode(struct OsList *list, struct OsList *node)

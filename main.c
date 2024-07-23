@@ -18,6 +18,7 @@ OS_SEC_KERNEL_TEXT void OsConfigAll(void)
     OsSchedConfig();
     OsTaskConfig();
     OsTimerConfig();
+    OsSemConfig();
     OS_DEBUG_PRINT_STR("OsModuleConfig end\n");
 
 }

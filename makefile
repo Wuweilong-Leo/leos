@@ -28,6 +28,7 @@ SUB_DIR := $(CUR_DIR)
 SUB_DIR += $(CUR_DIR)/kernel/sched
 SUB_DIR += $(CUR_DIR)/kernel/task
 SUB_DIR += $(CUR_DIR)/kernel/mem
+SUB_DIR += $(CUR_DIR)/kernel/ipc/sem
 SUB_DIR += $(CUR_DIR)/arch/boot/i386
 SUB_DIR += $(CUR_DIR)/arch/boot
 SUB_DIR += $(CUR_DIR)/arch/io/i386
@@ -100,6 +101,9 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/boot/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/%.S 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/ipc/sem/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 clean:

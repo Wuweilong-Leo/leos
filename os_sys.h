@@ -3,6 +3,7 @@
 enum OsMid {
     OS_MID_TASK = 0,
     OS_MID_MEM,
+    OS_MID_SEM,
 };
 
 #define OS_HWI_ACTIVE_MSK 0x00000001U

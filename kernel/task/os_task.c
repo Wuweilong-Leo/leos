@@ -8,6 +8,7 @@
 #include "os_debug_external.h"
 #include "os_sys.h"
 #include "string.h"
+#include "os_sem_external.h"
 
 OS_SEC_KERNEL_DATA struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 OS_SEC_KERNEL_DATA struct OsList g_tskFreeList = OS_LIST_INIT(g_tskFreeList);
@@ -22,21 +23,60 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
 
         tskCb->pid = i;
         tskCb->status = OS_TASK_NOT_CREATE;
+        OsListInit(&tskCb->semList);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 }
-
+OS_SEC_KERNEL_BSS U32 g_buf[0x100];
+OS_SEC_KERNEL_BSS U32 g_bufPtr;
+OS_SEC_KERNEL_BSS U32 g_semId;
 OS_SEC_KERNEL_TEXT void tsk1(void)
 {
     while (1) {
-        kprintf("tsk1\n");
+        OsSemPend(g_semId);
+        if (g_bufPtr != 0x100) {
+            g_buf[g_bufPtr] = g_bufPtr;
+            g_bufPtr++;
+            kprintf("tsk1 push 0x%x\n", g_bufPtr);
+        }
+        OsSemPost(g_semId);
+    }
+}
+
+OS_SEC_KERNEL_TEXT void tsk3(void)
+{
+    while (1) {
+        OsSemPend(g_semId);
+        if (g_bufPtr != 0x100) {
+            g_buf[g_bufPtr] = g_bufPtr;
+            g_bufPtr++;
+            kprintf("tsk3 push 0x%x\n", g_bufPtr);
+        }
+        OsSemPost(g_semId);
     }
 }
 
 OS_SEC_KERNEL_TEXT void tsk2(void)
 {
     while (1) {
-        kprintf("tsk2\n");
+        OsSemPend(g_semId);
+        if (g_bufPtr != 0) {
+            kprintf("tsk2 pop 0x%x\n", g_buf[g_bufPtr]);
+            g_bufPtr--;
+        }
+        OsSemPost(g_semId);
+    }
+}
+
+OS_SEC_KERNEL_TEXT void tsk4(void)
+{
+    while (1) {
+        OsSemPend(g_semId);
+        if (g_bufPtr != 0) {
+            kprintf("tsk4 pop 0x%x\n", g_buf[g_bufPtr]);
+            g_bufPtr--;
+        }
+        OsSemPost(g_semId);
     }
 }
 
@@ -46,6 +86,8 @@ OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
     U32 tskId;
     U32 ret;
 
+    (void)OsSemCreate(1, &g_semId);
+
     strcpy(param.name, "tsk1");
     param.prio = 0;
     param.entryFunc = tsk1;
@@ -54,8 +96,22 @@ OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
     (void)OsTaskResume(tskId);
 
     strcpy(param.name, "tsk2");
-    param.prio = 16;
+    param.prio = 0;
     param.entryFunc = tsk2;
+
+    (void)OsTaskCreate(&param, &tskId);
+    (void)OsTaskResume(tskId);
+
+    strcpy(param.name, "tsk3");
+    param.prio = 0;
+    param.entryFunc = tsk3;
+
+    (void)OsTaskCreate(&param, &tskId);
+    (void)OsTaskResume(tskId);
+
+    strcpy(param.name, "tsk4");
+    param.prio = 0;
+    param.entryFunc = tsk4;
 
     (void)OsTaskCreate(&param, &tskId);
     (void)OsTaskResume(tskId);
@@ -131,7 +187,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam * param, U32 *tskId
     
     OS_DEBUG_KPRINT("OsTaskCreate: freeCb = 0x%x\n", (U32)tskCb);
 
-    stkMemBase = (uintptr_t)OsMemKernelAllocPgs(1);
+    stkMemBase = (uintptr_t)OsMemKernelAllocPgs(2);
     if (stkMemBase == NULL) {
         OsIntRestore(intSave);
         return OS_TASK_CREATE_STK_ALLOC_FAIL;

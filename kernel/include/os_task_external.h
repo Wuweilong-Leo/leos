@@ -54,6 +54,7 @@ extern void OsTaskConfig(void);
 extern U32 OsTaskCreateIdle(U32 *tskId);
 extern U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId);
 extern U32 OsTaskResume(U32 tskId);
+extern void OsTaskSchedule();
 
 extern struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 

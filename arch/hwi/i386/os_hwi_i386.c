@@ -5,7 +5,7 @@
 #include "os_cpu_i386.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
-#include "os_sched_external.h"
+#include "os_task_external.h"
 #include "os_context_i386.h"
 #include "os_sys.h"
 
@@ -67,7 +67,7 @@ OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_MAX_NUM] = {
     "STACK FAULT EXC",
     "GENERAL PROTECTION EXC",
     "PAGE FAULT EXC",
-    NULL, // 15为intel保留项，未使用
+    "INTEL RESERVE", // 15为intel保留项，未使用
     "FPU FLOATING POINT ERR",
     "ALIGNMENT CHECK EXC",
     "MACHINE CHECK EXC",
@@ -127,6 +127,9 @@ static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum, uintptr_t context)
     kprintf("excEcx : 0x%x\n", (U32)excInfo->ecx);
     kprintf("excEdx : 0x%x\n", (U32)excInfo->edx);
     kprintf("excEbp : 0x%x\n", (U32)excInfo->ebp);
+    kprintf("curTsk: 0x%x\n", OS_RUNNING_TASK()->pid);
+    kprintf("curTskStkPtr : 0x%x\n", (U32)OS_RUNNING_TASK()->stkPtr);
+    kprintf("curTskKernelStkTop: 0x%x\n", (U32)OS_RUNNING_TASK()->kernelStkTop);
 
     while (1) {}
 }
