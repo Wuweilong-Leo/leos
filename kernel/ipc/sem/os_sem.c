@@ -19,10 +19,9 @@ OS_SEC_KERNEL_TEXT void OsSemConfig(void)
 
         semCb->semId = i;
         OsListInit(&semCb->pendList);
+        OsListInit(&semCb->semListNode);
         OsListAddTail(&g_semFreeList, freeListNode);
     }
-
-    OsListInit(&semCb->semListNode);
 }
 
 OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
