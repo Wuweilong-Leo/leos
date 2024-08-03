@@ -25,6 +25,7 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
         tskCb->status = OS_TASK_NOT_CREATE;
         OsListInit(&tskCb->semList);
         OsListInit(&tskCb->pendListNode);
+        OsListInit(&tskCb->delayListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 }
@@ -37,9 +38,14 @@ OS_SEC_KERNEL_TEXT void tsk1(void)
         OsSemPend(g_semId);
         if (g_bufPtr < 0x100) {
             g_buf[g_bufPtr] = g_bufPtr;
+            OS_DEBUG_PRINT_STR("tsk1_push:");
+            OS_DEBUG_PRINT_HEX(g_bufPtr);
+            OS_DEBUG_PRINT_CHAR(' ');
             g_bufPtr++;
         }
         OsSemPost(g_semId);
+
+        OsTaskDelay(10);
     }
 }
 
@@ -49,6 +55,9 @@ OS_SEC_KERNEL_TEXT void tsk3(void)
         OsSemPend(g_semId);
         if (g_bufPtr < 0x100) {
             g_buf[g_bufPtr] = g_bufPtr;
+            OS_DEBUG_PRINT_STR("tsk3_push:");
+            OS_DEBUG_PRINT_HEX(g_bufPtr);
+            OS_DEBUG_PRINT_CHAR(' ');
             g_bufPtr++;
         }
         OsSemPost(g_semId);
@@ -63,6 +72,9 @@ OS_SEC_KERNEL_TEXT void tsk2(void)
         if (g_bufPtr > 0) {
             foo = g_buf[g_bufPtr - 1];
             g_bufPtr--;
+            OS_DEBUG_PRINT_STR("tsk2_pop:");
+            OS_DEBUG_PRINT_HEX(foo);
+            OS_DEBUG_PRINT_CHAR(' ');
         }
         OsSemPost(g_semId);
     }
@@ -76,6 +88,9 @@ OS_SEC_KERNEL_TEXT void tsk4(void)
         if (g_bufPtr > 0) {
             foo = g_buf[g_bufPtr - 1];
             g_bufPtr--;
+            OS_DEBUG_PRINT_STR("tsk4_pop:");
+            OS_DEBUG_PRINT_HEX(foo);
+            OS_DEBUG_PRINT_CHAR(' ');
         }
         OsSemPost(g_semId);
     }
@@ -84,7 +99,10 @@ OS_SEC_KERNEL_TEXT void tsk4(void)
 OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
 {
     struct OsTaskCreateParam param = {0};
-    U32 tskId;
+    U32 tskId1;
+    U32 tskId2;
+    U32 tskId3;
+    U32 tskId4;
     U32 ret;
 
     (void)OsSemCreate(1, &g_semId);
@@ -93,30 +111,31 @@ OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
     param.prio = 0;
     param.entryFunc = tsk1;
 
-    (void)OsTaskCreate(&param, &tskId);
-    (void)OsTaskResume(tskId);
+    (void)OsTaskCreate(&param, &tskId1);
+    (void)OsTaskResume(tskId1);
 
     strcpy(param.name, "tsk2");
     param.prio = 7;
     param.entryFunc = tsk2;
 
-    (void)OsTaskCreate(&param, &tskId);
-    (void)OsTaskResume(tskId);
+    (void)OsTaskCreate(&param, &tskId2);
+    (void)OsTaskResume(tskId2);
 
     strcpy(param.name, "tsk3");
     param.prio = 15;
     param.entryFunc = tsk3;
 
-    (void)OsTaskCreate(&param, &tskId);
-    (void)OsTaskResume(tskId);
+    (void)OsTaskCreate(&param, &tskId3);
+    (void)OsTaskResume(tskId3);
 
     strcpy(param.name, "tsk4");
     param.prio = 15;
     param.entryFunc = tsk4;
 
-    (void)OsTaskCreate(&param, &tskId);
-    (void)OsTaskResume(tskId);
+    (void)OsTaskCreate(&param, &tskId4);
+    (void)OsTaskResume(tskId4);
 
+    U32 i = 0;
     while (1) {
     }
 }
@@ -215,7 +234,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
-    if (tskCb->status != OS_TASK_NOT_RESUME) {
+    if ((tskCb->status != OS_TASK_NOT_RESUME) && (tskCb->status != OS_TASK_IN_SUSPEND)) {
         return OS_TASK_RESUME_TSK_STATUS_ILL;
     }
 
@@ -268,4 +287,92 @@ OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
     }
 
     OsTrapTsk(OS_RUNNING_TASK());
+}
+
+OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
+{
+    struct OsTaskCb *tsk;
+    enum OsIntStatus intSave;
+
+    intSave = OsIntLock();
+
+    tsk = OS_TASK_GET_CB(tskId);
+
+    /* 只允许挂起ready的任务*/
+    if ((tsk->status != OS_TASK_READY) && (tsk->status != OS_TASK_RUNNING)) {
+        OsIntRestore(intSave);
+        return OS_TASK_SUSPEND_TSK_STATUS_ILL;
+    }
+
+    /* 如果持有信号量，不允许挂起，不然会死锁 */
+    if (!OsListIsEmpty(&tsk->semList)) {
+        OsIntRestore(intSave);
+        return OS_TASK_SUSPEND_TSK_HOLD_SEM;
+    }
+
+    /* 如果是ready状态一定在就绪队列里, 直接删除 */
+    OsSchedDelTskFromRdyList(tsk);
+    tsk->status = OS_TASK_IN_SUSPEND;
+
+    /* 可能删除的是运行任务，尝试调度 */
+    OsTaskSchedule();
+
+    OsIntRestore(intSave);
+
+    return OS_OK;
+}
+
+OS_SEC_KERNEL_TEXT U32 OsTaskYield(void)
+{
+    enum OsIntStatus intSave;
+    struct OsTaskCb *curTsk;
+
+    intSave = OsIntLock();
+
+    curTsk = OS_RUNNING_TASK();
+
+    /* 如果有持有信号量，不能让步，不然死锁 */
+    if (!OsListIsEmpty(&curTsk->semList)) {
+        OsIntRestore(intSave);
+        return OS_TASK_YIELD_TSK_HOLD_SEM;
+    }
+
+    /* 只能让步给同一优先级的任务 */
+    OsSchedDelTskFromRdyList(curTsk);
+    /* 重新加入尾部 */
+    OsSchedAddTskToRdyListTail(curTsk);
+
+    /* 触发调度 */
+    OsTaskSchedule();
+
+    OsIntRestore(intSave);
+
+    return OS_OK;
+}
+
+OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
+{
+    struct OsTaskCb *tsk;
+    enum OsIntStatus intSave;
+
+    if (ticks == 0) {
+        return OS_TASK_DELAY_PARAM_ILL;
+    }
+
+    intSave = OsIntLock();
+    tsk = OS_RUNNING_TASK();
+
+    tsk->delayTicks = ticks;
+
+    OsSchedDelTskFromRdyList(tsk);
+
+    OsListAddTail(&OS_RUN_QUE()->delayList, &tsk->delayListNode);
+
+    tsk->status = OS_TASK_IN_DELAY;
+
+    OsTaskSchedule();
+
+    OsIntRestore(intSave);
+
+    return OS_OK;
 }

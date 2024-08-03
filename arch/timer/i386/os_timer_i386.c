@@ -14,14 +14,33 @@ OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl,
   OsOutb(counterPort, (U8)(counterVal >> 8));
 }
 
-OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum, uintptr_t context)
+OS_SEC_KERNEL_TEXT void OsTickScanDelayTsks(void)
 {
-    (void)hwiNum;
-    (void)context;
+    struct OsRunQue *rq = OS_RUN_QUE();
+    struct OsList *listNode;
+    struct OsTaskCb *tsk;
+
+    OS_LIST_FOR_EACH(&rq->delayList, listNode) {
+        tsk = OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, delayListNode, listNode);
+        tsk->delayTicks--;
+        if (tsk->delayTicks == 0) {
+            /* 删除会改动链表，要先把便利节点移到上一个 */
+            listNode = tsk->delayListNode.prev;
+            OsListRemoveNode(&tsk->delayListNode);
+            OsSchedAddTskToRdyListTail(tsk);
+            tsk->status = OS_TASK_READY;
+        }
+    }
+}
+
+OS_SEC_KERNEL_TEXT void OsTickDispatcher(void)
+{
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
 
-    curTsk->ticks--;
+    /* 处理延时到期的任务 */
+    OsTickScanDelayTsks();
 
+    curTsk->ticks--;
     if (curTsk->ticks == 0) {
         /* 删除rdy队列任务 */
         OsSchedDelTskFromRdyList(curTsk);
@@ -33,7 +52,15 @@ OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum, uintptr_t context)
 
         /* 更新tick */
         curTsk->ticks = OsTaskGetInitialTick(curTsk->prio);
-    }   
+    }
+}
+
+OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum, uintptr_t context)
+{
+    (void)hwiNum;
+    (void)context;
+
+    OsTickDispatcher();
 }
 
 OS_SEC_KERNEL_TEXT void OsTimerConfig(void)

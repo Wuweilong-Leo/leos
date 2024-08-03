@@ -8,12 +8,16 @@
 /* 黑底白字 */
 #define OS_BLK_BACK_WHT_WORD 0x07
 
-#define OS_SCREEN_COL_MAX 80
-#define OS_SCREEN_ROW_MAX 25
-#define OS_SCREEN_MAX (OS_SCREEN_ROW_MAX * OS_SCREEN_COL_MAX)
+#define OS_SCREEN_COL_NUM 80U
+#define OS_SCREEN_ROW_NUM 25U
+#define OS_SCREEN_POS_NUM (OS_SCREEN_COL_NUM * OS_SCREEN_ROW_NUM)
 #define OS_VIDEO_BASE_ADDR ((volatile U8 * const)0xC00B8000)
-#define OS_ROLL_VIDEO_SRC_ADDR ((volatile U8 * const)0xC00B80A0)
-#define OS_ROLL_VIDEO_DST_ADDR OS_VIDEO_BASE_ADDR
+
+#define OS_VIDEO_ROLL_DST_ADDR OS_VIDEO_BASE_ADDR
+/* 每个pos要2个字节 */
+#define OS_VIDEO_ROLL_SRC_ADDR ((volatile U8 * const)((U32)OS_VIDEO_BASE_ADDR + (OS_SCREEN_COL_NUM * 2)))
+/* 上卷 pos数 * 2字节 */
+#define OS_VIDEO_ROLL_SIZE ((OS_SCREEN_POS_NUM - OS_SCREEN_COL_NUM) * 2)
 
 #define OS_VA_START(ap, v) ((ap) = (void *)&(v))
 #define OS_VA_ARG(ap, t) (*(t*)((ap) += 4))

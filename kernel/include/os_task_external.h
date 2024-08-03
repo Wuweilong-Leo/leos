@@ -15,7 +15,8 @@ enum OsTaskStatus {
   OS_TASK_RUNNING,
   OS_TASK_READY,
   OS_TASK_SEM_PENDING,
-  OS_TASK_IN_DELAY
+  OS_TASK_IN_DELAY,
+  OS_TASK_IN_SUSPEND
 };
 
 /* 任务控制块 */
@@ -48,6 +49,11 @@ struct OsTaskCreateParam {
 #define OS_TASK_CREATE_NO_FREE_CB OS_BUILD_ERR_CODE(OS_MID_TASK, 0x0);
 #define OS_TASK_CREATE_STK_ALLOC_FAIL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x1);
 #define OS_TASK_RESUME_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x2);
+#define OS_TASK_SUSPEND_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x3);
+#define OS_TASK_SUSPEND_TSK_HOLD_SEM OS_BUILD_ERR_CODE(OS_MID_TASK, 0x4);
+#define OS_TASK_YIELD_TSK_HOLD_SEM OS_BUILD_ERR_CODE(OS_MID_TASK, 0x5);
+#define OS_TASK_DELAY_PARAM_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x6);
+#define OS_TASK_DELAY_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x7);
 
 extern void OsTaskIdleEntry(void);
 extern void OsTaskConfig(void);
@@ -55,6 +61,8 @@ extern U32 OsTaskCreateIdle(U32 *tskId);
 extern U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId);
 extern U32 OsTaskResume(U32 tskId);
 extern void OsTaskSchedule();
+extern U32 OsTaskSuspend(U32 tskId);
+extern U32 OsTaskDelay(U32 ticks);
 
 extern struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 

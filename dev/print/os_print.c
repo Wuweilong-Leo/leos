@@ -3,92 +3,104 @@
 #include "string.h"
 #include "os_hwi_i386.h"
 
-OS_INLINE void OsPrintRollScreen(void) 
+OS_INLINE void OsPrintCleanLastLine(void)
 {
-  memcpy(OS_ROLL_VIDEO_DST_ADDR, OS_ROLL_VIDEO_SRC_ADDR, 960 * 4);
+    U32 lastLineOff = ((OS_SCREEN_ROW_NUM - 1) * OS_SCREEN_COL_NUM * 2);
+    U8 *videoBaseAddr = (U8 *)OS_VIDEO_BASE_ADDR;
+    U32 i;
+
+    for (i = 0; i < OS_SCREEN_COL_NUM; i++) {
+        videoBaseAddr[lastLineOff++] = ' ';
+        videoBaseAddr[lastLineOff++] = OS_BLK_BACK_WHT_WORD;
+    }
 }
 
-OS_INLINE void OsPrintCleanLastLine(void) 
+/* 设置鼠标位置 */
+OS_SEC_KERNEL_TEXT void OsPrintSetCursor(U16 target) 
 {
-  U32 offset = 3840;
-  U32 i;
-  U8 *videoBaseAddr = (U8 *)OS_VIDEO_BASE_ADDR;
+    U8 high = (target >> 8) & 0xff;
+    U8 low = target & 0xff;
 
-  for (i = 0; i < OS_SCREEN_COL_MAX; i++) {
-    videoBaseAddr[offset++] = ' ';
-    videoBaseAddr[offset++] = OS_BLK_BACK_WHT_WORD;
-  }
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG), "a"(OS_CUR_POS_HIGH_INDEX));
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_DATA_REG), "a"(high));
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG), "a"(OS_CUR_POS_LOW_INDEX));
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_DATA_REG), "a"(low));
 }
 
-OS_INLINE void OsPrintSetCursor(U16 target) 
+OS_SEC_KERNEL_TEXT U16 OsPrintGetCursor(void) 
 {
-  U8 high = (target >> 8) & 0xff;
-  U8 low = target & 0xff;
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG),
-               "a"(OS_CUR_POS_HIGH_INDEX));
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_DATA_REG), "a"(high));
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG),
-               "a"(OS_CUR_POS_LOW_INDEX));
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_DATA_REG), "a"(low));
+    U16 curPosLow;
+    U16 curPosHigh;
+
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG), "a"(OS_CUR_POS_HIGH_INDEX));
+    OS_EMBED_ASM("inb %%dx, %%al" : "=a"(curPosHigh) : "d"(OS_CRT_DATA_REG));
+    OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG), "a"(OS_CUR_POS_LOW_INDEX));
+    OS_EMBED_ASM("inb %%dx, %%al" : "=a"(curPosLow) : "d"(OS_CRT_DATA_REG));
+
+    return ((curPosHigh << 8) & 0xff00) | (curPosLow & 0x00ff);
 }
 
-OS_INLINE U16 OsPrintGetCursor(void) {
-  U16 curPosLow;
-  U16 curPosHigh;
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG),
-               "a"(OS_CUR_POS_HIGH_INDEX));
-  OS_EMBED_ASM("inb %%dx, %%al" : "=a"(curPosHigh) : "d"(OS_CRT_DATA_REG));
-  OS_EMBED_ASM("outb %%al, %%dx" ::"d"(OS_CRT_ADDR_REG),
-               "a"(OS_CUR_POS_LOW_INDEX));
-  OS_EMBED_ASM("inb %%dx, %%al" : "=a"(curPosLow) : "d"(OS_CRT_DATA_REG));
-  return ((curPosHigh << 8) & 0xff00) | (curPosLow & 0x00ff);
-}
-
-OS_SEC_KERNEL_TEXT void OsPrintCheckOutOfScreen(U16 *nextPos) 
+/* 满了，上卷屏幕 */
+OS_SEC_KERNEL_TEXT void OsPrintRollScreen(void) 
 {
-  U16 nextCurPos = *nextPos;
-  if (nextCurPos >= OS_SCREEN_MAX) {
-    OsPrintRollScreen();
+    memcpy(OS_VIDEO_ROLL_DST_ADDR, OS_VIDEO_ROLL_SRC_ADDR, OS_VIDEO_ROLL_SIZE);
+
+    /* 上卷了屏幕，要清空最后一行，并把鼠标放到行首 */
     OsPrintCleanLastLine();
-    *nextPos = OS_SCREEN_MAX - OS_SCREEN_COL_MAX;
-  }
+
+    OsPrintSetCursor(OS_SCREEN_POS_NUM - OS_SCREEN_COL_NUM);
+}
+
+OS_INLINE bool OsPrintIsOutOfScreen(U32 pos)
+{
+    return pos >= OS_SCREEN_POS_NUM;
 }
 
 OS_SEC_KERNEL_TEXT void OsPrintChar(char c) 
 {
-  U16 curPos;
-  U16 nextCurPos;
-  U32 offset;
-  U8 *videoBaseAddr = (U8 *)OS_VIDEO_BASE_ADDR;
+    U16 curPos;
+    U16 nextCurPos;
+    U32 offset;
+    U8 *videoBaseAddr = (U8 *)OS_VIDEO_BASE_ADDR;
 
-  curPos = OsPrintGetCursor();
+    curPos = OsPrintGetCursor();
 
-  if (c == '\r' || c == '\n') {
-    nextCurPos = curPos - curPos % OS_SCREEN_COL_MAX + OS_SCREEN_COL_MAX;
-    OsPrintCheckOutOfScreen(&nextCurPos);
-  } else if (c == '\b') {
-    offset = (curPos - 1) * 2;
-    videoBaseAddr[offset] = ' ';
-    videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
-    nextCurPos = curPos - 1;
-  } else {
-    offset = curPos * 2;
-    videoBaseAddr[offset] = c;
-    videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
-    nextCurPos = curPos + 1;
-    OsPrintCheckOutOfScreen(&nextCurPos);
-  }
-  OsPrintSetCursor(nextCurPos);
+    if (c == '\r' || c == '\n') {
+        /* 另起一行 */
+        nextCurPos = curPos - (curPos % OS_SCREEN_COL_NUM) + OS_SCREEN_COL_NUM;
+        if (OsPrintIsOutOfScreen(nextCurPos)) {
+            OsPrintRollScreen();
+        } else {
+            OsPrintSetCursor(nextCurPos);
+        }
+    } else if (c == '\b') {
+        offset = (curPos - 1) * 2;
+        videoBaseAddr[offset] = ' ';
+        videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
+        nextCurPos = curPos - 1;
+        /* 因为是返回上一个cursor, 不会超出范围 */
+        OsPrintSetCursor(nextCurPos);
+    } else {
+        offset = curPos * 2;
+        videoBaseAddr[offset] = c;
+        videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
+        nextCurPos = curPos + 1;
+        if (OsPrintIsOutOfScreen(nextCurPos)) {
+            OsPrintRollScreen();
+        } else {
+            OsPrintSetCursor(nextCurPos);
+        }
+    } 
 }
 
 OS_SEC_KERNEL_TEXT void OsPrintStr(char *str) 
 {
-  U32 i = 0;
+    U32 i = 0;
 
-  while (str[i] != 0) {
-    OsPrintChar(str[i]);
-    i++;
-  }
+    while (str[i] != 0) {
+        OsPrintChar(str[i]);
+        i++;
+    }
 }
 
 OS_SEC_KERNEL_TEXT void OsPrintHex(U32 num) 
