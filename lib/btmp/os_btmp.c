@@ -38,18 +38,18 @@ OS_SEC_KERNEL_TEXT void OsBtmpClear(struct OsBtmp *btmp, U32 idx)
 /* 连续申请cnt个为val的位, val只能为1或者0 */
 OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val,
                                    U32 *idx) {
-  U32 left = 0;
-  U32 right = 0;
-  
-  while (right < btmp->bitNum) {
-    if (OsBtmpGet(btmp, right) != val) {
-      left = right + 1;
+    U32 left = 0;
+    U32 right = 0;
+    
+    while (right < btmp->bitNum) {
+        if (OsBtmpGet(btmp, right) != val) {
+            left = right + 1;
+        }
+        if (right - left + 1 == cnt) {
+            *idx = left;
+            return TRUE;
+        }
+        right++;
     }
-    if (right - left + 1 == cnt) {
-      *idx = left;
-      return TRUE;
-    }
-    right++;
-  }
-  return FALSE;
+    return FALSE;
 }

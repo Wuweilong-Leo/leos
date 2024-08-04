@@ -29,6 +29,7 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 }
+
 OS_SEC_KERNEL_BSS U32 g_buf[0x100];
 OS_SEC_KERNEL_BSS U32 g_bufPtr;
 OS_SEC_KERNEL_BSS U32 g_semId;
@@ -235,6 +236,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
     if ((tskCb->status != OS_TASK_NOT_RESUME) && (tskCb->status != OS_TASK_IN_SUSPEND)) {
+        OsIntRestore(intSave);
         return OS_TASK_RESUME_TSK_STATUS_ILL;
     }
 
@@ -244,6 +246,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     OsTaskSchedule();
 
     OsIntRestore(intSave);
+
+    return OS_OK;
 }
 
 OS_INLINE void OsTaskMakeIdleRdy(struct OsTaskCb *idleTskCb)
@@ -289,6 +293,11 @@ OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
     OsTrapTsk(OS_RUNNING_TASK());
 }
 
+OS_INLINE bool OsTaskHoldSem(struct OsTaskCb *tsk)
+{
+    return !OsListIsEmpty(&tsk->semList); 
+}
+
 OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
 {
     struct OsTaskCb *tsk;
@@ -299,13 +308,13 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
     tsk = OS_TASK_GET_CB(tskId);
 
     /* 只允许挂起ready的任务*/
-    if ((tsk->status != OS_TASK_READY) && (tsk->status != OS_TASK_RUNNING)) {
+    if ((!OS_TASK_IS_RDY(tsk)) && (!OS_TASK_IS_RUNNING(tsk))) {
         OsIntRestore(intSave);
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
 
     /* 如果持有信号量，不允许挂起，不然会死锁 */
-    if (!OsListIsEmpty(&tsk->semList)) {
+    if (OsTaskHoldSem(tsk)) {
         OsIntRestore(intSave);
         return OS_TASK_SUSPEND_TSK_HOLD_SEM;
     }
@@ -332,7 +341,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskYield(void)
     curTsk = OS_RUNNING_TASK();
 
     /* 如果有持有信号量，不能让步，不然死锁 */
-    if (!OsListIsEmpty(&curTsk->semList)) {
+    if (OsTaskHoldSem(curTsk)) {
         OsIntRestore(intSave);
         return OS_TASK_YIELD_TSK_HOLD_SEM;
     }
@@ -374,5 +383,29 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
 
     OsIntRestore(intSave);
 
+    return OS_OK;
+}
+
+OS_SEC_KERNEL_TEXT U32 OsTaskSetPrio(U32 tskId, U32 prio)
+{
+    struct OsTaskCb *tsk;
+    enum OsIntStatus intSave;
+
+    if (prio >= OS_TASK_LOWEST_PRIO) {
+        return OS_TASK_SET_PRIO_PARAM_ILL;
+    }
+
+    intSave = OsIntLock();
+
+    tsk = OS_TASK_GET_CB(tskId);
+    tsk->prio = prio;
+
+    /* 在就绪队列里 */
+    if (OS_TASK_IS_RDY(tsk) || OS_TASK_IS_RUNNING(tsk)) {
+        OsSchedDelTskFromRdyList(tsk);
+        OsSchedAddTskToRdyListTail(tsk);
+    }
+
+    OsIntRestore(intSave);
     return OS_OK;
 }

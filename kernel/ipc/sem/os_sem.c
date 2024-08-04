@@ -49,6 +49,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 *semId)
     return OS_OK;
 }
 
+OS_INLINE bool OsSemIsHeldByTsk(struct OsSemCb *semCb, struct OsTaskCb *tsk)
+{
+    return OsListFindNode(&tsk->semList, &semCb->semListNode);
+}
+
 OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
 {
     struct OsSemCb *semCb;
@@ -61,7 +66,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     /* 暂时不可重入 */
-    if (OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
+    if (OsSemIsHeldByTsk(semCb, curTsk)) {
         OsIntRestore(intSave);
         return OS_SEM_PEND_TSK_ALREADY_HOLD_SEM;
     }
@@ -104,7 +109,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     /* 没持有就释放是非法的 */
-    if (!OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
+    if (!OsSemIsHeldByTsk(semCb, curTsk)) {
         OsIntRestore(intSave);
         return OS_SEM_POST_TSK_NOT_HOLD_SEM;
     }

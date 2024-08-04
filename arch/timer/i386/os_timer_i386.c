@@ -24,7 +24,7 @@ OS_SEC_KERNEL_TEXT void OsTickScanDelayTsks(void)
         tsk = OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, delayListNode, listNode);
         tsk->delayTicks--;
         if (tsk->delayTicks == 0) {
-            /* 删除会改动链表，要先把便利节点移到上一个 */
+            /* 删除会改动链表，要先把遍历节点移到上一个 */
             listNode = tsk->delayListNode.prev;
             OsListRemoveNode(&tsk->delayListNode);
             OsSchedAddTskToRdyListTail(tsk);
@@ -37,7 +37,7 @@ OS_SEC_KERNEL_TEXT void OsTickDispatcher(void)
 {
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
 
-    /* 处理延时到期的任务 */
+    /* 扫描延时到期的任务 */
     OsTickScanDelayTsks();
 
     curTsk->ticks--;

@@ -28,8 +28,8 @@ struct OS_STRUCT_PACKED OsGdtInfo {
 #define OS_GDT_ENTRY_ATTR_DPL_1 1
 #define OS_GDT_ENTRY_ATTR_DPL_2 2
 #define OS_GDT_ENTRY_ATTR_DPL_3 3
-#define OS_GDT_ENTRY_ATTR_S_0 0
-#define OS_GDT_ENTRY_ATTR_S_1 1
+#define OS_GDT_ENTRY_ATTR_S_SYS 0
+#define OS_GDT_ENTRY_ATTR_S_NOT_SYS 1
 #define OS_GDT_ENTRY_ATTR_NP 0
 #define OS_GDT_ENTRY_ATTR_P 1
 #define OS_GDT_ENTRY_ATTR_L_0 0
@@ -52,6 +52,14 @@ struct OS_STRUCT_PACKED OsGdtInfo {
 #define OS_GDT_ENTRY_ATTR_TYPE_NV (0 << 0)
 #define OS_GDT_ENTRY_ATTR_AVL 0
 
+#define OS_GDT_USR_CODE_ENTRY_IDX 0x5
+#define OS_GDT_USR_DATA_ENTRY_IDX 0x6
+
 extern struct OsGdtEntry g_gdt[OS_GDT_ENTRY_MAX_NUM];
 extern uintptr_t _os_gdt_start;
+
+extern void OsBuildGdtEntry(U32 gdtIdx, uintptr_t addr, U32 limit,
+                            U8 attrType, U8 attrS, U8 attrDpl, U8 attrP, U8 attrAvl,
+                            U8 attrL, U8 attrDb, U8 attrG);
+extern void OsBuildUsrGdtEntry(void);
 #endif

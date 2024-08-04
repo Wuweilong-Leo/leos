@@ -6,6 +6,7 @@
 #include "os_mem_external.h"
 #include "os_task_external.h"
 #include "os_sched_external.h"
+#include "os_gdt.h"
 
 extern void OsBssInit(void);
 
@@ -13,6 +14,7 @@ OS_SEC_KERNEL_TEXT void OsConfigAll(void)
 {
     OS_DEBUG_PRINT_STR("OsModuleConfig start\n");
     OsBssInit();
+    OsBuildUsrGdtEntry();
     OsHwiConfig();
     OsMemConfig();
     OsSchedConfig();
