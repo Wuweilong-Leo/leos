@@ -30,5 +30,16 @@ struct OS_STRUCT_PACKED OsPgtEntry {
 #define OS_PTE_EXIST(pteVaddr) (((*(pteVaddr)) & OS_PG_P) != 0)
 #define OS_PDE_EXIST(pdeVaddr) (((*(pdeVaddr)) & OS_PG_P) != 0)
 
+extern struct OsPgtEntry g_pgd[OS_PGD_ENTRY_NUM];
+extern struct OsPgtEntry g_pgt[256][OS_PGD_ENTRY_NUM];
+
+/* 这是页目录的物理地址 */
+#define OS_KERNEL_PGD_BASE ((uintptr_t)(&g_pgd[0]))
+#define OS_PGD_KERNEL_IDX_START 0x300
+/* 由于页目录最后一项是页目录本身，可通过此地址获取页目录的虚拟地址 */
+#define OS_CUR_PGD_VIR_ADDR 0xFFFFF000
+
 extern void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr);
+extern uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr);
+extern void OsLoadPgd(uintptr_t pgdPhyAddr);
 #endif 

@@ -21,11 +21,13 @@ OsTrapTsk:
 .code32
 .section .os.kernel.text, "ax"
 .global OsLoadTsk
+.global OsSwitch2Process
 
 OsLoadTsk:
     movl 4(%esp), %eax
     movl 0(%eax), %esp
 
+OsSwitch2Process:
     popl %eax
     cmp $OS_ALL_SAVE_FLAG, %eax
     je OsAllLoad
@@ -148,7 +150,7 @@ OsAllLoad:
     popl %edi
     popl %esi
     popl %ebp
-    popl %esp
+    addl $4, %esp
     popl %ebx
     popl %edx
     popl %ecx

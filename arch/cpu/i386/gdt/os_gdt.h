@@ -62,4 +62,5 @@ extern void OsBuildGdtEntry(U32 gdtIdx, uintptr_t addr, U32 limit,
                             U8 attrType, U8 attrS, U8 attrDpl, U8 attrP, U8 attrAvl,
                             U8 attrL, U8 attrDb, U8 attrG);
 extern void OsBuildUsrGdtEntry(void);
+extern uintptr_t OsCreateProcessPgd(void);
 #endif

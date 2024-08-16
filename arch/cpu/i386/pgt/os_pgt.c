@@ -102,26 +102,77 @@ OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
     U32 *pdeVaddr;
     uintptr_t ptPhyAddr;
 
+    /* 
+     * 如果虚拟地址确定，虚拟地址的页目录和页表也能确定，
+     * 先找到此虚拟内存的对应的页目录和页表虚拟地址
+     */
     pteVaddr = (U32 *)OsGetPteVirAddr(virAddr);
     pdeVaddr = (U32 *)OsGetPdeVirAddr(virAddr);
 
-  /* 如果页目录项已存在，则对应页表已经存在，只用更改页表项 */
-  if (OS_PDE_EXIST(pdeVaddr)) {
-    /* 如果页表项还不存在，添加页表项 */
-    if (!OS_PTE_EXIST(pteVaddr)) {
-      *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    /* 如果页目录项已存在，则对应页表已经存在，只用更改页表项 */
+    if (OS_PDE_EXIST(pdeVaddr)) {
+        /* 如果页表项还不存在，添加页表项 */
+        if (!OS_PTE_EXIST(pteVaddr)) {
+            *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        } else {
+            OS_DEBUG_PRINT_STR("pte repeat\n");
+            *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        }
     } else {
-      OS_DEBUG_PRINT_STR("pte repeat\n");
-      *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
+        /* 页表的内存都由内核出 */
+        ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
+        /* 
+         * 因为页目录的最后一项是本身地址，一旦把页表物理地址写入页目录, 
+         * 无论内核态还是用户态，都可以通过pteVaddr来访问页表项了
+         */
+        *pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        /* 把整张页表初始化为0 */
+        memset((uintptr_t)((U32)pteVaddr & 0xFFFFF000), 0, OS_PG_SIZE);
+        /* 写入页表项 */
+        *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
     }
-  } else {
-    /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
-    ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
-    /* 把页表物理地址写入页目录, 一旦写入，可以通过pte来访问页表项了。*/
-    *pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
-    /* 把整张页表初始化为0 */
-    memset((uintptr_t)((U32)pteVaddr & 0xFFFFF000), 0, OS_PG_SIZE);
-    /* 写入页表项 */
-    *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
-  }
+}
+
+/* 根据虚拟地址获取对应的物理地址 */
+OS_SEC_KERNEL_TEXT uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr)
+{
+    uintptr_t pte = OsGetPteVirAddr(vaddr);
+
+    OS_DEBUG_KPRINT("OsGetPaddrByVaddr: *pte = 0x%x\n", *(U32 *)pte);
+
+    return (uintptr_t)(((*(U32 *)pte) & 0xfffff000) + ((U32)vaddr & 0xfff));
+}
+
+/* 每个进程要维护一张页目录 */
+OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
+{
+    struct OsPgtEntry *pgdBase;
+    uintptr_t pgdPhyAddr;
+
+    /* 进程页目录用内核的内存 */
+    pgdBase = (struct OsPgtEntry *)OsMemKernelAllocPgs(1);
+    if (pgdBase == NULL) {
+        OS_DEBUG_KPRINT("%s", "OsCreateProcessPgd: OsMemKernelAllocPgs failed\n");
+        return NULL;
+    }
+
+    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdBase = 0x%x\n", (U32)pgdBase);
+
+    /* 对页目录项进行复制，要把内核1G全部复制过来 */
+    memcpy((uintptr_t)((U32)pgdBase + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry)), 
+           (uintptr_t)((U32)OS_CUR_PGD_VIR_ADDR + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry)),
+           OS_PG_SIZE / 4);
+
+    /* 要把页目录的物理地址写入最后一项 */
+    pgdPhyAddr = OsGetPaddrByVaddr((uintptr_t)pgdBase);
+    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdPhyAddr = 0x%x\n", (U32)pgdPhyAddr);
+    *(U32 *)(&pgdBase[OS_PGD_ENTRY_NUM - 1]) = (U32)pgdPhyAddr | OS_PG_RW_W | OS_PG_US_U | OS_PG_P;
+
+    return (uintptr_t)pgdBase;
+}
+
+OS_SEC_KERNEL_TEXT void OsLoadPgd(uintptr_t pgdPhyAddr)
+{
+    OS_EMBED_ASM("movl %0, %%cr3"::"r"(pgdPhyAddr):"memory");
 }

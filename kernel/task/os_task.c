@@ -9,8 +9,10 @@
 #include "os_sys.h"
 #include "string.h"
 #include "os_sem_external.h"
+#include "os_process_external.h"
 
-OS_SEC_KERNEL_DATA struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
+/* task分为内核线程和用户进程 */
+OS_SEC_KERNEL_BSS struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 OS_SEC_KERNEL_DATA struct OsList g_tskFreeList = OS_LIST_INIT(g_tskFreeList);
 
 OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
@@ -23,6 +25,7 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
 
         tskCb->pid = i;
         tskCb->status = OS_TASK_NOT_CREATE;
+        tskCb->pgDir = NULL;
         OsListInit(&tskCb->semList);
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->delayListNode);
@@ -30,115 +33,22 @@ OS_SEC_KERNEL_TEXT void OsTaskConfig(void)
     }
 }
 
-OS_SEC_KERNEL_BSS U32 g_buf[0x100];
-OS_SEC_KERNEL_BSS U32 g_bufPtr;
-OS_SEC_KERNEL_BSS U32 g_semId;
-OS_SEC_KERNEL_TEXT void tsk1(void)
+OS_SEC_KERNEL_TEXT void Process1(void *para1, void *param2)
 {
-    while (1) {
-        OsSemPend(g_semId);
-        if (g_bufPtr < 0x100) {
-            g_buf[g_bufPtr] = g_bufPtr;
-            OS_DEBUG_PRINT_STR("tsk1_push:");
-            OS_DEBUG_PRINT_HEX(g_bufPtr);
-            OS_DEBUG_PRINT_CHAR(' ');
-            g_bufPtr++;
-        }
-        OsSemPost(g_semId);
-
-        OsTaskDelay(10);
-    }
-}
-
-OS_SEC_KERNEL_TEXT void tsk3(void)
-{
-    while (1) {
-        OsSemPend(g_semId);
-        if (g_bufPtr < 0x100) {
-            g_buf[g_bufPtr] = g_bufPtr;
-            OS_DEBUG_PRINT_STR("tsk3_push:");
-            OS_DEBUG_PRINT_HEX(g_bufPtr);
-            OS_DEBUG_PRINT_CHAR(' ');
-            g_bufPtr++;
-        }
-        OsSemPost(g_semId);
-    }
-}
-
-OS_SEC_KERNEL_TEXT void tsk2(void)
-{
-    U32 foo;
-    while (1) {
-        OsSemPend(g_semId);
-        if (g_bufPtr > 0) {
-            foo = g_buf[g_bufPtr - 1];
-            g_bufPtr--;
-            OS_DEBUG_PRINT_STR("tsk2_pop:");
-            OS_DEBUG_PRINT_HEX(foo);
-            OS_DEBUG_PRINT_CHAR(' ');
-        }
-        OsSemPost(g_semId);
-    }
-}
-
-OS_SEC_KERNEL_TEXT void tsk4(void)
-{
-    U32 foo;
-    while (1) {
-        OsSemPend(g_semId);
-        if (g_bufPtr > 0) {
-            foo = g_buf[g_bufPtr - 1];
-            g_bufPtr--;
-            OS_DEBUG_PRINT_STR("tsk4_pop:");
-            OS_DEBUG_PRINT_HEX(foo);
-            OS_DEBUG_PRINT_CHAR(' ');
-        }
-        OsSemPost(g_semId);
-    }
+    while (1) {}
 }
 
 OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
 {
-    struct OsTaskCreateParam param = {0};
-    U32 tskId1;
-    U32 tskId2;
-    U32 tskId3;
-    U32 tskId4;
-    U32 ret;
+    struct OsProcessCreateParam param = {0};
+    U32 processId;
 
-    (void)OsSemCreate(1, &g_semId);
+    param.entryFunc = Process1;
+    param.prio = 10;
 
-    strcpy(param.name, "tsk1");
-    param.prio = 0;
-    param.entryFunc = tsk1;
-
-    (void)OsTaskCreate(&param, &tskId1);
-    (void)OsTaskResume(tskId1);
-
-    strcpy(param.name, "tsk2");
-    param.prio = 7;
-    param.entryFunc = tsk2;
-
-    (void)OsTaskCreate(&param, &tskId2);
-    (void)OsTaskResume(tskId2);
-
-    strcpy(param.name, "tsk3");
-    param.prio = 15;
-    param.entryFunc = tsk3;
-
-    (void)OsTaskCreate(&param, &tskId3);
-    (void)OsTaskResume(tskId3);
-
-    strcpy(param.name, "tsk4");
-    param.prio = 15;
-    param.entryFunc = tsk4;
-
-    (void)OsTaskCreate(&param, &tskId4);
-    (void)OsTaskResume(tskId4);
-
-    U32 i = 0;
-    while (1) {
-    }
+    OsProcessCreate(&param, &processId);
+    OsProcessResume(processId);
+    while (1) {}
 }
 
 OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
@@ -178,7 +88,7 @@ OS_INLINE void OsTaskSetCb(struct OsTaskCb *tskCb, struct OsTaskCreateParam *par
     tskCb->arg[3] = param->arg[3];
 }
 
-OS_INLINE void OsTaskInitStack(uintptr_t stkBase, U32 stkSize)
+OS_INLINE void OsTaskInitKernelStack(uintptr_t stkBase, U32 stkSize)
 {
     U32 i;
 
@@ -207,22 +117,20 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam * param, U32 *tskId
     
     OS_DEBUG_KPRINT("OsTaskCreate: freeCb = 0x%x\n", (U32)tskCb);
 
-    stkMemBase = (uintptr_t)OsMemKernelAllocPgs(OS_TASK_STACK_SIZE / OS_PG_SIZE);
+    stkMemBase = (uintptr_t)OsMemKernelAllocPgs(OS_TASK_KERNEL_STACK_SIZE / OS_PG_SIZE);
     if (stkMemBase == NULL) {
         OsIntRestore(intSave);
         return OS_TASK_CREATE_STK_ALLOC_FAIL;
     }
     tskCb->kernelStkTop = stkMemBase;
-    OS_DEBUG_KPRINT("OsTaskCreate: stkTop = 0x%x\n", tskCb->kernelStkTop);
 
-    OsTaskInitStack(stkMemBase, OS_TASK_STACK_SIZE);
+    OsTaskInitKernelStack(stkMemBase, OS_TASK_KERNEL_STACK_SIZE);
 
     OsTaskSetCb(tskCb, param);
-    OsSetContext(stkMemBase, OS_TASK_STACK_SIZE, tskCb);
+    OsSetContext(stkMemBase, OS_TASK_KERNEL_STACK_SIZE, tskCb);
     tskCb->ticks = OsTaskGetInitialTick(tskCb->prio);
-
+    tskCb->tskType = OS_TASK_THREAD;
     *tskId = tskCb->pid;
-    OS_DEBUG_KPRINT("OsTaskCreate: task pid = 0x%x\n", *tskId);
 
     OsIntRestore(intSave);
     return OS_OK;
@@ -293,7 +201,7 @@ OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
     OsTrapTsk(OS_RUNNING_TASK());
 }
 
-OS_INLINE bool OsTaskHoldSem(struct OsTaskCb *tsk)
+OS_INLINE bool OsTaskHoldsSem(struct OsTaskCb *tsk)
 {
     return !OsListIsEmpty(&tsk->semList); 
 }
@@ -314,7 +222,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
     }
 
     /* 如果持有信号量，不允许挂起，不然会死锁 */
-    if (OsTaskHoldSem(tsk)) {
+    if (OsTaskHoldsSem(tsk)) {
         OsIntRestore(intSave);
         return OS_TASK_SUSPEND_TSK_HOLD_SEM;
     }
@@ -341,7 +249,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskYield(void)
     curTsk = OS_RUNNING_TASK();
 
     /* 如果有持有信号量，不能让步，不然死锁 */
-    if (OsTaskHoldSem(curTsk)) {
+    if (OsTaskHoldsSem(curTsk)) {
         OsIntRestore(intSave);
         return OS_TASK_YIELD_TSK_HOLD_SEM;
     }

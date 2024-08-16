@@ -36,8 +36,15 @@
 #define OS_SELECTOR_K_CODE ((1 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
 #define OS_SELECTOR_K_DATA ((2 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
 #define OS_SELECTOR_K_VEDIO ((3 << 3) + (OS_TI_GDT << 2) + OS_RPL0)
+#define OS_SELECTOR_U_CODE ((5 << 3) + (OS_TI_GDT << 2) + OS_RPL3)
+#define OS_SELECTOR_U_DATA ((6 << 3) + (OS_TI_GDT << 2) + OS_RPL3)
 
 #define OS_FAST_SAVE_FLAG 0x0U
 #define OS_ALL_SAVE_FLAG 0x1U
 
+#define OS_EFLAGS_MBS (1 << 1)
+#define OS_EFLAGS_IF_1 (1 << 9)
+#define OS_EFLAGS_IF_0 (0 << 9)
+#define OS_EFLAGS_IOPL_0 (0 << 12)
+#define OS_PROCESS_EFLAGS (OS_EFLAGS_IOPL_0 | OS_EFLAGS_IF_0 | OS_EFLAGS_MBS)
 #endif

@@ -21,7 +21,7 @@ struct OsAllSaveContext {
     U32 es;
     U32 ds;
     U32 errCode;
-    void (*eip)(void);
+    uintptr_t eip;
     U32 cs;
     U32 eflags;
     uintptr_t esp;
@@ -38,6 +38,8 @@ struct OsFastSaveContext {
     void *rsvd;    /* 必须保留，充当返回地址压栈空间 */
     U32 tskId;
 };
+
+extern void OsSwitch2Process(void);
 
 OS_INLINE void OsSetContext(uintptr_t stkMemBase, U32 stkSize, struct OsTaskCb* tskCb)
 {

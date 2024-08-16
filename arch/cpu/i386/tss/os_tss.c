@@ -13,3 +13,9 @@ OS_SEC_KERNEL_TEXT void OsTssConfig(void)
                     OS_GDT_ENTRY_ATTR_S_SYS, OS_GDT_ENTRY_ATTR_DPL_0, OS_GDT_ENTRY_ATTR_P, 
                     OS_GDT_ENTRY_ATTR_AVL, OS_GDT_ENTRY_ATTR_L_0, OS_GDT_ENTRY_ATTR_DB_0, OS_GDT_ENTRY_ATTR_G_4K);    
 }
+
+/* 专门用来更新内核栈 */
+OS_SEC_KERNEL_TEXT void OsTssUpdateEsp0(uintptr_t esp0)
+{
+    g_tss.esp0 = esp0;
+}

@@ -105,6 +105,8 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
         rq->needSched = FALSE;
         nextTsk = scheduler->pickNextTsk();
         nextTsk->status = OS_TASK_RUNNING;
+        /* 任务切换时的必要的架构配置 */
+        OsConfigArchForTskSwitch(nextTsk);
         rq->runningTsk = nextTsk;
     }
 

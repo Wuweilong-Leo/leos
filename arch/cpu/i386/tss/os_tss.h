@@ -5,14 +5,14 @@
 
 struct OsTss {
     U32 backlink;
-    U32 *esp0;
+    uintptr_t esp0;
     U32 ss0;
-    U32 *esp1;
+    uintptr_t esp1;
     U32 ss1;
-    U32 *esp2;
+    uintptr_t esp2;
     U32 ss2;
     U32 cr3;
-    U32 (*eip) (void);
+    uintptr_t eip;
     U32 eflags;
     U32 eax;
     U32 ecx;
@@ -40,6 +40,7 @@ struct OsTss {
 #define OS_SELECTOR_TSS ((OS_GDT_TSS_IDX << 3) + (OS_TI_GDT << 2) + OS_RPL0)
 
 extern void OsTssConfig(void);
+extern void OsTssUpdateEsp0(uintptr_t esp0);
 
 OS_INLINE void OsLoadTss(void)
 {

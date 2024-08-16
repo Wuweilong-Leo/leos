@@ -7,6 +7,8 @@
 #define OS_TASK_NAME_MAX_SIZE 0x10
 #define OS_TASK_MAX_NUM 32
 #define OS_TASK_ARG_NUM 4
+/* 任务栈大小要4K对齐 */
+#define OS_TASK_KERNEL_STACK_SIZE 0x1000
 
 typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 
@@ -17,7 +19,14 @@ enum OsTaskStatus {
   OS_TASK_READY,
   OS_TASK_SEM_PENDING,
   OS_TASK_IN_DELAY,
-  OS_TASK_IN_SUSPEND
+  OS_TASK_IN_SUSPEND,
+  OS_TASK_WAITING_EVENT,
+};
+
+// 两种任务类型，线程和进程
+enum OsTaskType {
+  OS_TASK_THREAD,
+  OS_TASK_PROCESS
 };
 
 /* 任务控制块 */
@@ -39,8 +48,9 @@ struct OsTaskCb {
   struct OsList delayListNode;
   U32 eventMsk;
   U32 curEvent;
-  uintptr_t pgDir;
-  struct OsMemPool usrVirMemPool; /* 用户虚拟内存池 */
+  enum OsTaskType tskType;
+  uintptr_t pgDir; /* 进程页目录，线程为NULL */
+  struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 
 struct OsTaskCreateParam {

@@ -14,9 +14,11 @@ INC_DIR += $(CUR_DIR)/arch/timer/i386
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/gdt
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/pgt
 INC_DIR += $(CUR_DIR)/arch/cpu/i386/tss
+INC_DIR += $(CUR_DIR)/arch/cpu/i386/
 INC_DIR += $(CUR_DIR)/arch/io/i386
 INC_DIR += $(CUR_DIR)/lib/include/
 INC_DIR += $(CUR_DIR)/kernel/sched
+INC_DIR += $(CUR_DIR)/kernel/task/process
 INC_DIR += $(CUR_DIR)/dev/print
 INC_DIR += $(CUR_DIR)/dev/include
 INC_DIR += $(CUR_DIR)/debug/include
@@ -30,6 +32,7 @@ SUB_DIR += $(CUR_DIR)/kernel/sched
 SUB_DIR += $(CUR_DIR)/kernel/task
 SUB_DIR += $(CUR_DIR)/kernel/mem
 SUB_DIR += $(CUR_DIR)/kernel/ipc/sem
+SUB_DIR += $(CUR_DIR)/kernel/task/process
 SUB_DIR += $(CUR_DIR)/arch/boot/i386
 SUB_DIR += $(CUR_DIR)/arch/boot
 SUB_DIR += $(CUR_DIR)/arch/io/i386
@@ -43,6 +46,7 @@ SUB_DIR += $(CUR_DIR)/lib/btmp
 SUB_DIR += $(CUR_DIR)/arch/cpu/i386
 SUB_DIR += $(CUR_DIR)/dev/print
 SUB_DIR += $(CUR_DIR)/debug
+SUB_DIR += $(CUR_DIR)/arch/cpu/i386/
 
 C_SRCS := $(foreach dir, $(SUB_DIR), $(wildcard $(dir)/*.c))
 C_SRCS_NO_DIR := $(notdir $(C_SRCS))
@@ -64,6 +68,9 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/sched/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/task/%.c 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/task/process/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/mem/%.c 
@@ -106,6 +113,9 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/boot/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/%.S 
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/arch/cpu/i386/%.c 
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/ipc/sem/%.c

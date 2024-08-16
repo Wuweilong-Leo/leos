@@ -95,13 +95,21 @@ OS_INLINE bool OsSemHasPendingTsk(struct OsSemCb *semCb)
     return !OsListIsEmpty(&semCb->pendList);
 }
 
+OS_INLINE struct OsTaskCb *OsSemPopFirstPendingTsk(struct OsSemCb *semCb)
+{
+    struct OsList *pendListNode;
+    
+    pendListNode = OsListPopHead(&semCb->pendList);
+    return OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, 
+                                    pendListNode);
+}
+
 OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave;
     struct OsTaskCb *curTsk;
     struct OsTaskCb *pendTsk;
-    struct OsList *pendListNode;
 
     intSave = OsIntLock();
 
@@ -121,9 +129,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     if (OsSemHasPendingTsk(semCb)) {
         /* 有任务阻塞在此信号量 */
         /* 取出第一个信号量阻塞的任务 */ 
-        pendListNode = OsListPopHead(&semCb->pendList);
-        pendTsk = OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, 
-                                           pendListNode);
+        pendTsk = OsSemPopFirstPendingTsk(semCb);
         /* 加回到就绪队列 */
         OsSchedAddTskToRdyListTail(pendTsk);
         pendTsk->status = OS_TASK_READY;

@@ -3,6 +3,7 @@
 #include "os_cpu_i386.h"
 #include "os_debug_external.h"
 #include "os_pgt.h"
+#include "os_sched_external.h"
 
 OS_SEC_KERNEL_DATA struct OsMemPool g_kernelPhyMemPool;
 OS_SEC_KERNEL_DATA struct OsMemPool g_usrPhyMemPool;
@@ -87,8 +88,6 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
         return NULL;
     }
 
-    OS_DEBUG_KPRINT("OsMemPoolGetFreePgs: idx = 0x%x\n", idx);
-
     addr = (uintptr_t)((U32)pool->base + idx * OS_PG_SIZE);
 
     for (i = 0; i < cnt; i++) {
@@ -98,15 +97,24 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
     return addr;
 }
 
-/* 内核申请内存 */
-OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgs(U32 cnt)
+OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
 {
-    U32 i;
-    uintptr_t virAddrBase;
-    uintptr_t phyAddr;
+    struct OsMemPool *virMemPool;
+    struct OsMemPool *phyMemPool;
     U32 virAddr;
+    uintptr_t virAddrBase;
+    U32 i;
+    uintptr_t phyAddr;
 
-    virAddrBase = OsMemPoolGetFreePgs(&g_kernelVirMemPool, cnt);
+    if (flag == OS_MEM_KERNEL) {
+        virMemPool = &g_kernelVirMemPool;
+        phyMemPool = &g_kernelPhyMemPool;
+    } else {
+        virMemPool = &OS_RUNNING_TASK()->usrVirMemPool;
+        phyMemPool = &g_usrPhyMemPool;
+    }
+
+    virAddrBase = OsMemPoolGetFreePgs(virMemPool, cnt);
     if (virAddrBase == NULL) {
         OS_DEBUG_PRINT_STR("OsMemKernelAllocPgs: OsMemPoolGetFreePgs failed\n");
         return NULL;
@@ -114,7 +122,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgs(U32 cnt)
 
     virAddr = (U32)virAddrBase;
     for (i = 0; i < cnt; i++) {
-        phyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
+        phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
         if (phyAddr == NULL) {
             OS_DEBUG_PRINT_STR("OsMemKernelAllocPgs: OsMemPoolGetFreePgs failed\n");
             return NULL;
@@ -126,4 +134,65 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgs(U32 cnt)
     }
 
     return virAddrBase;
+}
+
+/* 内核申请内存 */
+OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgs(U32 cnt)
+{
+    return OsMemAllocPgs(OS_MEM_KERNEL, cnt);
+}
+
+/* 用户申请内存 */
+OS_SEC_KERNEL_TEXT uintptr_t OsMemUsrAllocPgs(U32 cnt)
+{
+    return OsMemAllocPgs(OS_MEM_USR, cnt);
+}
+
+OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t virAddr)
+{
+    struct OsMemPool *virMemPool;
+    struct OsPhyPool *phyMemPool;
+    uintptr_t phyAddr;
+    U32 idx;
+
+    if (flag == OS_MEM_KERNEL) {
+        virMemPool = &g_kernelVirMemPool;
+        phyMemPool = &g_kernelPhyMemPool;
+    } else {
+        virMemPool = &OS_RUNNING_TASK()->usrVirMemPool;
+        phyMemPool = &g_usrPhyMemPool;
+    }
+
+    idx = ((U32)virAddr - (U32)virMemPool->base) / OS_PG_SIZE;
+    /* 这个地址已经被分配出去了 */
+    if (OsBtmpGet(&virMemPool->btmp, idx) != 0) {
+        OS_DEBUG_KPRINT("%s", "vaddr has been allocated\n");
+        return NULL;
+    }
+
+    phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
+    if (phyAddr == NULL) {
+        OS_DEBUG_PRINT_STR("OsMemAllocPgByAddr: OsMemPoolGetFreePgs failed\n");
+        return NULL;
+    }
+
+    /* 进行虚实映射 */
+    OsMapVir2Phy(virAddr, phyAddr);
+
+    /* 虚拟地址位图置1 */
+    OsBtmpSet(&virMemPool->btmp, idx); 
+
+    return virAddr;
+}
+
+/* 指定一个地址分配内存 */
+OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgByAddr(uintptr_t virAddr)
+{
+    return OsMemAllocPgByAddr(OS_MEM_KERNEL, virAddr);
+}
+
+/* 指定一个地址分配内存 */
+OS_SEC_KERNEL_TEXT uintptr_t OsMemUsrAllocPgByAddr(uintptr_t virAddr)
+{
+    return OsMemAllocPgByAddr(OS_MEM_USR, virAddr);
 }

@@ -73,7 +73,7 @@ OS_SEC_LOADER_TEXT void OsModGdt(void)
 {
     /* 修改显存地址 */
     g_gdt[3].baseHighByte = 0xc0;
-
+    
     /* 修改gdt基地址 */
     g_gdtInfo.gdtBase += 0xc0000000;
 }
@@ -111,7 +111,7 @@ OS_SEC_KERNEL_TEXT void OsBuildUsrGdtEntry(void)
     OsTssConfig();
 
     /* 用户代码段 */
-    OsBuildGdtEntry(OS_GDT_USR_CODE_ENTRY_IDX, 0x0U, 0xFFFFFFF,
+    OsBuildGdtEntry(OS_GDT_USR_CODE_ENTRY_IDX, 0x0U, 0xFFFFFFFF,
                     (OS_GDT_ENTRY_ATTR_TYPE_TEXT | OS_GDT_ENTRY_ATTR_TYPE_TEXT_NCOR |
                     OS_GDT_ENTRY_ATTR_TYPE_TEXT_XO | OS_GDT_ENTRY_ATTR_TYPE_NV),
                     OS_GDT_ENTRY_ATTR_S_NOT_SYS, OS_GDT_ENTRY_ATTR_DPL_3, OS_GDT_ENTRY_ATTR_P, 

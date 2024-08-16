@@ -1,0 +1,3 @@
+#ifndef OS_EVENT_EXTERNAL_H
+#define OS_EVENT_EXTERNAL_H
+#endif
