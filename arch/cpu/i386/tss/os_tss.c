@@ -15,7 +15,8 @@ OS_SEC_KERNEL_TEXT void OsTssConfig(void)
 }
 
 /* 专门用来更新内核栈 */
-OS_SEC_KERNEL_TEXT void OsTssUpdateEsp0(uintptr_t esp0)
+OS_SEC_KERNEL_TEXT void OsTssUpdateEsp0(U32 ss0, uintptr_t esp0)
 {
     g_tss.esp0 = esp0;
+    g_tss.ss0 = ss0;
 }

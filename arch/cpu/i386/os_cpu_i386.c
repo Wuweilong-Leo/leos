@@ -36,7 +36,7 @@ OS_SEC_KERNEL_TEXT void OsConfigPgdForTskSwitch(struct OsTaskCb *tsk)
 OS_SEC_KERNEL_TEXT void OsConfigTssForTskSwitch(struct OsTaskCb *tsk)
 {
     if (tsk->tskType == OS_TASK_PROCESS) {
-        OsTssUpdateEsp0((uintptr_t)((U32)tsk->kernelStkTop + 
+        OsTssUpdateEsp0(OS_SELECTOR_K_DATA, (uintptr_t)((U32)tsk->kernelStkTop + 
                         OS_TASK_KERNEL_STACK_SIZE));      
     }
 }
