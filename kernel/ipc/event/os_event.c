@@ -21,7 +21,7 @@ OS_SEC_KERNEL_TEXT U32 OsEventRead(U32 event)
 
     /* 预期的事件没有发生 */
     if (tsk->eventMsk & tsk->curEvent != tsk->eventMsk) {
-        OsSchedDelTskFromRdyList(tsk);
+        OsDequeTskFromRdyList(tsk);
         tsk->status = OS_TASK_WAITING_EVENT;
         OsTaskSchedule();
     }
@@ -52,7 +52,7 @@ OS_SEC_KERNEL_TEXT U32 OsEventWrite(U32 tskId, U32 event)
     tsk->curEvent |= event;
 
     if (tsk->eventMsk & tsk->curEvent == tsk->eventMsk) {
-        OsSchedAddTskToRdyListTail(tsk);
+        OsEnqueTskToRdyListTail(tsk);
         tsk->status = OS_TASK_READY;
         OsTaskSchedule();
     }

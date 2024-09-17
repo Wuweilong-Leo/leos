@@ -76,7 +76,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
         OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
 
         /* 从就绪队列里删除 */
-        OsSchedDelTskFromRdyList(curTsk);
+        OsDequeTskFromRdyList(curTsk);
         curTsk->status = OS_TASK_SEM_PENDING;
 
         /* 触发调度 */
@@ -131,7 +131,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         /* 取出第一个信号量阻塞的任务 */ 
         pendTsk = OsSemPopFirstPendingTsk(semCb);
         /* 加回到就绪队列 */
-        OsSchedAddTskToRdyListTail(pendTsk);
+        OsEnqueTskToRdyListTail(pendTsk);
         pendTsk->status = OS_TASK_READY;
 
         /* 可能阻塞的是高优先级的任务，尝试触发调度 */

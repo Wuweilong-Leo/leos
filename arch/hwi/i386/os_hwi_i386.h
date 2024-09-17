@@ -59,6 +59,7 @@ OS_INLINE enum OsIntStatus OsGetIntStatus(void)
     return (eflag & 0x200)? OS_INT_ON : OS_INT_OFF;
 }
 
+// 只能在内核态使用
 OS_INLINE enum OsIntStatus OsIntLock(void)
 {
     enum OsIntStatus intSave = OsGetIntStatus();
@@ -68,6 +69,7 @@ OS_INLINE enum OsIntStatus OsIntLock(void)
     return intSave;
 }
 
+// 只能在内核态使用
 OS_INLINE void OsIntRestore(enum OsIntStatus intSave)
 {
     if (intSave == OS_INT_OFF) {
@@ -77,6 +79,7 @@ OS_INLINE void OsIntRestore(enum OsIntStatus intSave)
     }
 }
 
+// 只能在内核态使用
 OS_INLINE enum OsIntStatus OsIntUnlock(void)
 {
     enum OsIntStatus intSave = OsGetIntStatus();

@@ -50,14 +50,17 @@ OS_SEC_KERNEL_TEXT void OsSchedConfig(void)
     for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         OsListInit(&rq->rdyList[i]);
     }
-    OsListInit(&rq->delayList);
+    OsListInit(&rq->dlyList);
     rq->intCount = 0;
     rq->scheduler = &g_mfqsScheduler;
     rq->needSched = FALSE;
 }
 
-/* 外部关中断 */
-OS_SEC_KERNEL_TEXT void OsSchedAddTskToRdyListTail(struct OsTaskCb *tsk)
+/*
+ *  外部关中断
+ *  就绪队列尾部入队
+ */
+OS_SEC_KERNEL_TEXT void OsEnqueTskToRdyListTail(struct OsTaskCb *tsk)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 tskPrio = tsk->prio;
@@ -72,7 +75,11 @@ OS_SEC_KERNEL_TEXT void OsSchedAddTskToRdyListTail(struct OsTaskCb *tsk)
     }
 }
 
-OS_SEC_KERNEL_TEXT void OsSchedDelTskFromRdyList(struct OsTaskCb* tsk)
+/*
+ *  外部关中断
+ *  就绪队列出队
+ */
+OS_SEC_KERNEL_TEXT void OsDequeTskFromRdyList(struct OsTaskCb* tsk)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 prio = tsk->prio;
@@ -101,15 +108,19 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
     struct OsTaskCb *nextTsk = curTsk;
 
-    if (rq->needSched && OS_HWI_NOT_ACTIVE(rq->uniFlag)) {
-        rq->needSched = FALSE;
-        nextTsk = scheduler->pickNextTsk();
-        nextTsk->status = OS_TASK_RUNNING;
-        /* 任务切换时的必要的架构配置 */
-        OsConfigArchForTskSwitch(nextTsk);
-        rq->runningTsk = nextTsk;
+    // 内核进行系统操作时不要切任务，正常中断返回即可
+    if (!OS_SYS_ACTIVE(rq->uniFlag)) {
+        if (rq->needSched) {
+            rq->needSched = FALSE;
+            nextTsk = scheduler->pickNextTsk();
+            nextTsk->status = OS_TASK_RUNNING;
+            /* 任务切换时的必要的架构配置 */
+            OsConfigArchForTskSwitch(nextTsk);
+            rq->runningTsk = nextTsk;
+        }
     }
 
+    // 如果不需要切换任务，直接切回原任务
     OsLoadTsk(nextTsk);
 }
 

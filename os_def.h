@@ -7,13 +7,14 @@ typedef unsigned long long U64;
 typedef char S8;
 typedef short S16;
 typedef int S32;
-typedef U8 bool;
-typedef unsigned long *uintptr_t;
+typedef _Bool bool;
+typedef unsigned long uintptr_t;
 #define TRUE 1
 #define FALSE 0
 #define NULL ((void *)0)
 #define OS_OK 0
-
+#define OS_U64_MAX 0xFFFFFFFFFFFFFFFFULL
+#define OS_U32_MAX 0xFFFFFFFFU
 #define OS_GET_BYTE_BY_IDX(num, byteIdx) (((num) >> (byteIdx)) & 0xFF)
 #define OS_ROUND_UP(a, b) (((a) + (b) - 1) & (~(U32)(((b) - 1)))) 
 
@@ -21,6 +22,8 @@ typedef unsigned long *uintptr_t;
 #define OS_INLINE static __attribute__((always_inline))
 #define OS_STRUCT_PACKED __attribute__((packed))
 #define OS_EMBED_ASM(...) __asm__ volatile(__VA_ARGS__)
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 /* 段 */
 #define OS_SEC_BOOT_TEXT __attribute__((section(".os.boot.text")))

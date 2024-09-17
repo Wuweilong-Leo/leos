@@ -40,7 +40,7 @@ struct OsTss {
 #define OS_SELECTOR_TSS ((OS_GDT_TSS_IDX << 3) + (OS_TI_GDT << 2) + OS_RPL0)
 
 extern void OsTssConfig(void);
-extern void OsTssUpdateEsp0(uintptr_t esp0);
+extern void OsTssUpdateEsp0(U32 ss0, uintptr_t esp0);
 
 OS_INLINE void OsLoadTss(void)
 {

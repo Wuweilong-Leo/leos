@@ -61,10 +61,6 @@ OS_INLINE struct OsList *OsListPopHead(struct OsList *list)
 {
     struct OsList *firstNode;
 
-    if (OsListIsEmpty(list)) {
-        return NULL;
-    }
-
     firstNode = OS_LIST_GET_FIRST_NODE(list);
     
     OsListRemoveNode(firstNode);

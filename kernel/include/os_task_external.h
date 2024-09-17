@@ -4,11 +4,18 @@
 #include "os_list_external.h"
 #include "os_mem_external.h"
 
+#define OS_TASK_LOWEST_PRIO 31
+#define OS_TASK_PRIO_MAX_NUM (OS_TASK_LOWEST_PRIO + 1)
+
 #define OS_TASK_NAME_MAX_SIZE 0x10
 #define OS_TASK_MAX_NUM 32
 #define OS_TASK_ARG_NUM 4
 /* 任务栈大小要4K对齐 */
 #define OS_TASK_KERNEL_STACK_SIZE 0x1000
+
+#define OS_TASK_GET_CB(tskId) (&g_tskCbArray[(tskId)])
+#define OS_TASK_IS_RDY(tskCb) ((tskCb)->status == OS_TASK_READY)
+#define OS_TASK_IS_RUNNING(tskCb) ((tskCb)->status == OS_TASK_RUNNING)
 
 typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 
@@ -39,13 +46,13 @@ struct OsTaskCb {
   void *arg[OS_TASK_ARG_NUM];
   enum OsTaskStatus status;
   U32 prio;
-  U32 ticks;
-  U32 delayTicks;
+  U64 timeSliceTicks; // 时间片的tick数
+  U64 expiredTick; // 延时到期时的tick刻度
   char name[OS_TASK_NAME_MAX_SIZE];
   struct OsList rdyListNode;
   struct OsList pendListNode;
   struct OsList semList; /* 拥有的信号量链表 */
-  struct OsList delayListNode;
+  struct OsList dlyListNode;
   U32 eventMsk;
   U32 curEvent;
   enum OsTaskType tskType;
@@ -81,12 +88,19 @@ extern U32 OsTaskDelay(U32 ticks);
 
 extern struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
 
-#define OS_TASK_GET_CB(tskId) (&g_tskCbArray[(tskId)])
-#define OS_TASK_IS_RDY(tskCb) ((tskCb)->status == OS_TASK_READY)
-#define OS_TASK_IS_RUNNING(tskCb) ((tskCb)->status == OS_TASK_RUNNING)
-
-OS_INLINE U32 OsTaskGetInitialTick(U32 prio)
+OS_INLINE void OsTaskAdjustPrio(struct OsTaskCb *tsk)
 {
-    return prio + 1;
+    tsk->prio = (tsk->prio + 1) % OS_TASK_PRIO_MAX_NUM;
+}
+
+// 时间片跟优先级挂钩，优先级越高时间片越短
+OS_INLINE U32 OsTaskCalTimeSlice(struct OsTaskCb *tsk)
+{
+    return tsk->prio + 1;
+}
+
+OS_INLINE void OsTaskSetTimeSlice(struct OsTaskCb *tsk, U32 timeSlice)
+{
+    tsk->timeSliceTicks = timeSlice;
 }
 #endif

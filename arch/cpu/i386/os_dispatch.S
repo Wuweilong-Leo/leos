@@ -27,6 +27,7 @@ OsLoadTsk:
     movl 4(%esp), %eax
     movl 0(%eax), %esp
 
+// 这里不止切到进程会跑，只是这里切进程恰好要从这里走
 OsSwitch2Process:
     popl %eax
     cmp $OS_ALL_SAVE_FLAG, %eax

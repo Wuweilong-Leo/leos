@@ -8,6 +8,7 @@
 #include "os_task_external.h"
 #include "os_context_i386.h"
 #include "os_sys.h"
+#include "os_tick_external.h"
 
 /*
  * i386中断异常都根据IDT，走一个流程
@@ -98,9 +99,9 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum, uintptr_t context)
     OsHwiHandlerFunc isr = g_hwiForm[hwiNum].isr;
     
     rq->intCount++;
-    rq->uniFlag |= OS_HWI_ACTIVE_MSK;
+    OS_UNI_FLAG_SET_MSK(OS_HWI_ACTIVE_MSK);
     isr(hwiNum, context);
-    rq->uniFlag &= ~OS_HWI_ACTIVE_MSK;
+    OS_UNI_FLAG_CLR_MSK(OS_HWI_ACTIVE_MSK);
     rq->intCount--;
 }
 
@@ -117,7 +118,7 @@ static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum, uintptr_t context)
 
     kprintf("exc type: %s\n", g_excNameTab[excNum]);
     
-    OS_EMBED_ASM("movl %%cr2, %0":"=a"(cr2)::);
+    OS_EMBED_ASM("movl %%cr2, %0":"=&a"(cr2)::);
     kprintf("cr2 : 0x%x\n", cr2);
 
     kprintf("excCs : 0x%x\n", (U32)excInfo->cs);
@@ -194,9 +195,10 @@ OS_SEC_KERNEL_TEXT void OsHwiConfig(void)
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");
 }
 
-/* 中断尾巴 */
+// 中断尾部
 OS_SEC_KERNEL_TEXT void OsHwiTail(void)
 {
+    OsTickDispatcher();
     OsSchedMain();
 }
 

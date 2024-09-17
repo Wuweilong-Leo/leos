@@ -4,7 +4,7 @@
 #include "os_cpu_i386.h"
 #include "os_task_external.h"
 
-extern void OsTaskEntry(U32 tskId);
+extern void OsTaskCommonEntry(U32 tskId);
 
 struct OsAllSaveContext {
     U32 saveFlag;
@@ -52,7 +52,7 @@ OS_INLINE void OsSetContext(uintptr_t stkMemBase, U32 stkSize, struct OsTaskCb* 
 
     fastSaveContext = (struct OsFastSaveContext *)stkBot;
     fastSaveContext->saveFlag = OS_FAST_SAVE_FLAG;
-    fastSaveContext->eip = OsTaskEntry;
+    fastSaveContext->eip = OsTaskCommonEntry;
     fastSaveContext->tskId = tskCb->pid;
     tskCb->stkPtr = (uintptr_t)stkBot;
 }
