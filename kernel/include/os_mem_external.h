@@ -1,10 +1,21 @@
 #ifndef OS_MEM_EXTERNAL_H
 #define OS_MEM_EXTERNAL_H
 #include "os_btmp_external.h"
+#include "os_mem_fsc_internal.h"
+#include "os_list_external.h"
+
+struct OsMemCtrl {
+    struct OsList listNode;
+    uintptr_t memBase;
+    size_t memSize;
+    struct OsFscMemCtrl *fscCtrl;
+};
+
 struct OsMemPool {
     struct OsBtmp btmp;
     uintptr_t base;
-    U32 size;
+    size_t size;
+    struct OsList memCtrlList;
 };
 
 #define OS_KERNEL_MEM_VIR_ADDR_START 0xc0000000
@@ -24,5 +35,6 @@ extern void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase,
 extern struct OsMemPool g_kernelPhyMemPool;
 extern struct OsMemPool g_usrPhyMemPool;
 extern struct OsMemPool g_kernelVirMemPool;
+void *OsMemKernelAlloc(size_t size, U32 align);
 
 #endif

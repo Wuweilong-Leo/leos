@@ -9,6 +9,7 @@ typedef short S16;
 typedef int S32;
 typedef _Bool bool;
 typedef unsigned long uintptr_t;
+typedef unsigned long size_t;
 #define TRUE 1
 #define FALSE 0
 #define NULL ((void *)0)
@@ -16,7 +17,8 @@ typedef unsigned long uintptr_t;
 #define OS_U64_MAX 0xFFFFFFFFFFFFFFFFULL
 #define OS_U32_MAX 0xFFFFFFFFU
 #define OS_GET_BYTE_BY_IDX(num, byteIdx) (((num) >> (byteIdx)) & 0xFF)
-#define OS_ROUND_UP(a, b) (((a) + (b) - 1) & (~(U32)(((b) - 1)))) 
+#define OS_ROUND_UP(a, b) ((((uintptr_t)(a)) + ((uintptr_t)(b)) - 1) & (~(((uintptr_t)(b)) - 1))) 
+#define OS_ROUND_DOWN(a, b) (((uintptr_t)(a)) & (~(((uintptr_t)(b)) - 1)))
 
 /* 强制内联 */
 #define OS_INLINE static __attribute__((always_inline))

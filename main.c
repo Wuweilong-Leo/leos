@@ -31,7 +31,26 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     OsPrintStr("hello kernel\n");
     OsConfigAll();
     
-    OsSchedSwitchIdle();
+    size_t size = 500;
+    void *addr = OsMemKernelAlloc(0x500, 0x10);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+    size = 0x2064;
+    addr = OsMemKernelAlloc(size, 256);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+    size = 0x3074;
+    addr = OsMemKernelAlloc(size, 256);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+    size = 0x512;
+    addr = OsMemKernelAlloc(size, 256);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+    size = 0x4000;
+    addr = OsMemKernelAlloc(size, 256);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+
+    size = 0x20;
+    addr = OsMemKernelAlloc(size, 256);
+    kprintf("addr = 0x%x\n, size = 0x%x\n", (U32)addr, size);
+    // OsSchedSwitchIdle();
 
     /* never comes here */
     while (1) {}

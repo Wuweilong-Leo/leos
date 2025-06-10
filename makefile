@@ -24,6 +24,7 @@ INC_DIR += $(CUR_DIR)/dev/print
 INC_DIR += $(CUR_DIR)/dev/include
 INC_DIR += $(CUR_DIR)/debug/include
 INC_DIR += $(CUR_DIR)/kernel/mem
+INC_DIR += $(CUR_DIR)/kernel/mem/fsc
 INC_DIR += $(CUR_DIR)/lib/btmp
 
 INCS = $(foreach dir, $(INC_DIR), -I$(dir))		   
@@ -32,6 +33,7 @@ SUB_DIR := $(CUR_DIR)
 SUB_DIR += $(CUR_DIR)/kernel/sched
 SUB_DIR += $(CUR_DIR)/kernel/task
 SUB_DIR += $(CUR_DIR)/kernel/mem
+SUB_DIR += $(CUR_DIR)/kernel/mem/fsc
 SUB_DIR += $(CUR_DIR)/kernel/tick
 SUB_DIR += $(CUR_DIR)/kernel/ipc/sem
 SUB_DIR += $(CUR_DIR)/kernel/task/process
@@ -124,6 +126,9 @@ $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/ipc/sem/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 $(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/tick/%.c
+	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
+
+$(OBJ_DIR)/%.o: $(CUR_DIR)/kernel/mem/fsc/%.c
 	gcc $(COMPILE_FLAG) $(INCS) $< -o $@
 
 clean:

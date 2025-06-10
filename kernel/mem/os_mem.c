@@ -4,6 +4,7 @@
 #include "os_debug_external.h"
 #include "os_pgt.h"
 #include "os_sched_external.h"
+#include "os_mem_fsc_internal.h"
 
 OS_SEC_KERNEL_DATA struct OsMemPool g_kernelPhyMemPool;
 OS_SEC_KERNEL_DATA struct OsMemPool g_usrPhyMemPool;
@@ -19,6 +20,7 @@ OS_SEC_KERNEL_TEXT void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBa
 
     OsBtmpInit(&memPool->btmp, btmpBase, 
                OS_ROUND_UP(memSize, OS_PG_SIZE) / OS_PG_SIZE);
+    OsListInit(&memPool->memCtrlList);
 }
 
 static OS_SEC_KERNEL_TEXT void OsPrintMemPoolInfo(struct OsMemPool *memPool, char *poolName) 
@@ -195,4 +197,41 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemKernelAllocPgByAddr(uintptr_t virAddr)
 OS_SEC_KERNEL_TEXT uintptr_t OsMemUsrAllocPgByAddr(uintptr_t virAddr)
 {
     return OsMemAllocPgByAddr(OS_MEM_USR, virAddr);
+}
+
+OS_SEC_KERNEL_TEXT void *OsMemKernelAlloc(size_t size, U32 align)
+{
+    struct OsList *memCtrlListNode;
+    struct OsList *memCtrlList = &g_kernelVirMemPool.memCtrlList;
+    struct OsMemCtrl *memCtrl;
+    void *addr;
+    U32 pgNum;
+
+    OS_LIST_FOR_EACH(memCtrlList, memCtrlListNode) {
+        memCtrl = OS_LIST_GET_STRUCT_ENTRY(struct OsMemCtrl, listNode, memCtrlListNode);
+        addr = OsMemFscAlloc(memCtrl->fscCtrl, size, align);
+        if (addr != NULL) {
+            return addr;
+        }
+    }
+
+    // 要重新映射，因为还有内存头存在，多申请1页
+    pgNum = (OS_ROUND_UP(size, OS_PG_SIZE) / OS_PG_SIZE) + 1;
+    addr = OsMemKernelAllocPgs(pgNum);
+    if (addr == NULL) {
+        return NULL;
+    }
+
+    memCtrl = (uintptr_t)addr;
+    memCtrl->memBase = addr;
+    memCtrl->memSize = OS_PG_SIZE * pgNum;
+    OsListAddTail(memCtrlList, &memCtrl->listNode);
+    memCtrl->fscCtrl = OsMemFscInitPt((uintptr_t)(memCtrl + 1), memCtrl->memSize - sizeof(struct OsMemCtrl));
+    if (memCtrl->fscCtrl == NULL) {
+        return NULL;
+    }
+
+    addr = OsMemFscAlloc(memCtrl->fscCtrl, size, align);
+
+    return addr;
 }
