@@ -51,7 +51,7 @@ OS_SEC_KERNEL_TEXT struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t si
     ptCtrl = (struct OsMemFscCtrl *)OS_ROUND_UP(addr, 4);
     ptSize = (size_t)OS_ROUND_DOWN(size, 4);
     blk = (struct OsMemFscHead *)(ptCtrl + 1);
-    blkSize = (uintptr_t)ptCtrl + ptSize - (uintptr_t)blk;
+    blkSize = (uintptr_t)ptCtrl + ptSize - (uintptr_t)blk - OS_MEM_FSC_HEAD_SIZE; // 此处再预留个尾巴占位
 
     for (i = 0; i < OS_MEM_FSC_SIZE_NUM; i++) {
         freeList = OsMemFscGetFreeList(ptCtrl, i);
@@ -63,7 +63,8 @@ OS_SEC_KERNEL_TEXT struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t si
     blk->preSize = 0;
     blk->size = blkSize;
     OsMemFscFreeListInsertBlk(ptCtrl, blk);
-
+    ptCtrl->totalSize = blkSize;
+    ptCtrl->freeSize = blkSize;
     return ptCtrl;
 }
 
@@ -171,6 +172,7 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     size_t realSize;
     uintptr_t usrAddr;
     size_t leftBlkSize = 0;
+    size_t rightBlkSize;
 
     alignSize = OS_ROUND_UP(size, 4); // 保证所有操作都4字节对齐
     // 已经按照4字节对齐，如果对齐的话最大补齐也只可能是align - 4，这个大小算出来是偏大的
@@ -193,8 +195,12 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     realSize = OS_MEM_FSC_HEAD_SIZE + alignSize + OS_MEM_FSC_TAIL_MAGIC_SIZE;
 
     // 尝试切割右块，切不了，大小要算入本块
-    if (!OsMemFscTrySplitRightBlk(ptCtrl, rightBlk, nextBlk - rightBlk)) {
-        realSize += nextBlk - rightBlk;
+    rightBlkSize = nextBlk - rightBlk;
+    if (!OsMemFscTrySplitRightBlk(ptCtrl, rightBlk, rightBlkSize)) {
+        realSize += rightBlkSize;
+        ((struct OsMemFscHead *)nextBlk)->preSize = 0;
+    } else {
+        ((struct OsMemFscHead *)nextBlk)->preSize = rightBlkSize;
     }
 
     // 尝试切割左块，切不了，大小要算入本块
@@ -209,11 +215,12 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     OsMemFscSetTailMagic(realBlk, realSize);
     usrAddr = realBlk + OS_MEM_FSC_HEAD_SIZE + leftBlkSize;
     OsMemFscSetOffset(realBlk, usrAddr);
+    ptCtrl->freeSize -= realSize;
 
     return (void *)usrAddr;
 }
 
-OS_INLINE struct OsMemFscHead *OsMemFscGetHead(uintptr_t addr)
+OS_SEC_KERNEL_TEXT struct OsMemFscHead *OsMemFscGetHead(uintptr_t addr)
 {
     return (struct OsMemFscHead *)(addr - (uintptr_t)(*(U32 *)(addr - 4)));
 }
@@ -248,9 +255,11 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
 {
     struct OsMemFscHead *memHead;
     struct OsMemFscCtrl *ctrl;
+    size_t size;
 
     memHead = OsMemFscGetHead((uintptr_t)addr);
     ctrl = memHead->ctrl;
+    size = memHead->size;
 
     OsMemFscTryMergeRight(ctrl, memHead);
 
@@ -259,5 +268,6 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     }
 
     OsMemFscFreeListInsertBlk(ctrl, memHead);
+    memHead->ctrl->freeSize += size;
     memHead->ctrl = NULL;
 }

@@ -23,9 +23,13 @@ struct OsMemFscHead {
 struct OsMemFscCtrl {
     U32 btmp;
     struct OsMemFscHead freeList[OS_MEM_FSC_SIZE_NUM];
+    size_t totalSize;
+    size_t freeSize;
+    void *memCtrl;
 };
 
 extern struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t size);
 extern void *OsMemFscAlloc(struct OsMemFscCtrl *ctrl, size_t size, U32 align);
 extern void OsMemFscFree(void *addr);
+extern struct OsMemFscHead *OsMemFscGetHead(uintptr_t addr);
 #endif
