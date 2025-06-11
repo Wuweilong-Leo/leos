@@ -266,7 +266,7 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     if (OsMemFscTryMergeLeft(ctrl, memHead)) {
         memHead = (struct OsMemFscHead *)((uintptr_t)memHead - memHead->preSize);   
     }
-
+    ((struct OsMemFscHead *)((uintptr_t)memHead + memHead->size))->preSize = memHead->size;
     OsMemFscFreeListInsertBlk(ctrl, memHead);
     memHead->ctrl->freeSize += size;
     memHead->ctrl = NULL;
