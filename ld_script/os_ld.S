@@ -1,7 +1,7 @@
 MEMORY
 {
     LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 1024
-    KERNEL_STACK_MEM(rwx): ORIGIN = 0x00002000, LENGTH = 0x4000
+    BOOT_STACK_MEM(rwx): ORIGIN = 0x00002000, LENGTH = 0x4000
 	MBR_MEM(rwx): ORIGIN = 0x00007C00, LENGTH = 512
 /* 编译出来是C000D000起始，实际上加载到D000，然后通过页表映射到实际物理地址 */
     KERNEL_MEM(rwx) : ORIGIN = 0xC000D000, LENGTH = 0x60000
@@ -44,13 +44,13 @@ SECTIONS
         _os_pg_tab_end = .;
     } > PG_TAB_MEM
 
-    .KERNEL_STACK :
+    .BOOT_STACK :
     {
         . = ALIGN(4);
-        _os_kernel_sp_start = .;
+        _os_boot_sp_start = .;
         . += 0x4000;
-        _os_kernel_sp_end = .;
-    } > KERNEL_STACK_MEM
+        _os_boot_sp_end = .;
+    } > BOOT_STACK_MEM
 
     .KERNEL_TEXT : 
     {
@@ -64,6 +64,10 @@ SECTIONS
         _os_kernel_bss_start = .;
         *(.os.kernel.bss)
         _os_kernel_bss_end = .;
+        . = ALIGN(16);
+        _os_kernel_sp_start = .;
+        . += 0X4000;
+        _os_kernel_sp_end = .;
     } > KERNEL_MEM
 
     .KERNEL_DATA : 

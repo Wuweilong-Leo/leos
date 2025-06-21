@@ -3,6 +3,7 @@
 #include "os_def.h"
 #include "os_sched_external.h"
 extern U64 g_uniTicks;
+extern U32 g_noRespondTicks;
 extern void OsTickIsr(void);
 extern void OsTickDispatcher(void);
 extern void OsRefreshNearestTick(struct OsRunQue *rq);

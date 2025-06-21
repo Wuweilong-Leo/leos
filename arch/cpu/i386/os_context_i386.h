@@ -39,6 +39,28 @@ struct OsFastSaveContext {
     U32 tskId;
 };
 
+struct OsExcSaveContext {
+    U32 cr2;
+    U32 edi;
+    U32 esi;
+    U32 ebp;
+    U32 espDummy;
+    U32 ebx;
+    U32 edx;
+    U32 ecx;
+    U32 eax;
+    U32 gs;
+    U32 fs;
+    U32 es;
+    U32 ds;
+    U32 errCode;
+    uintptr_t eip;
+    U32 cs;
+    U32 eflags;
+    uintptr_t esp;
+    U32 ss;
+};
+
 extern void OsSwitch2Process(void);
 
 OS_INLINE void OsSetContext(uintptr_t stkMemBase, U32 stkSize, struct OsTaskCb* tskCb)

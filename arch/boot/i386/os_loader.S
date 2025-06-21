@@ -31,7 +31,7 @@ OsPmodeStart:
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %ss
-    movl $_os_kernel_sp_end, %esp
+    movl $_os_boot_sp_end, %esp
     movw $OS_SELECTOR_K_VEDIO, %ax
     movw %ax, %gs
 
@@ -58,7 +58,7 @@ OsPmodeStart:
 
     ljmp $OS_SELECTOR_K_CODE, $OsEnterKernel
 OsEnterKernel:
-    addl $0xc0000000, %esp
+    movl $_os_kernel_sp_end, %esp
     call main 
 
 

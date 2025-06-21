@@ -14,65 +14,69 @@
  * i386中断异常都根据IDT，走一个流程
  * 前20个中断号其实是异常号
  */
-OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_MAX_NUM];
-OS_SEC_KERNEL_DATA struct OsIdtEntry g_idt[OS_HWI_MAX_NUM];
-OS_SEC_KERNEL_DATA OsHwiVector g_hwiVectorTab[OS_HWI_MAX_NUM] = {
-    OS_HWI_VECTOR(0x00),
-    OS_HWI_VECTOR(0x01),
-    OS_HWI_VECTOR(0x02),
-    OS_HWI_VECTOR(0x03),
-    OS_HWI_VECTOR(0x04),
-    OS_HWI_VECTOR(0x05),
-    OS_HWI_VECTOR(0x06),
-    OS_HWI_VECTOR(0x07),
-    OS_HWI_VECTOR(0x08),
-    OS_HWI_VECTOR(0x09),
-    OS_HWI_VECTOR(0x0a),
-    OS_HWI_VECTOR(0x0b),
-    OS_HWI_VECTOR(0x0c),
-    OS_HWI_VECTOR(0x0d),
-    OS_HWI_VECTOR(0x0e),
-    OS_HWI_VECTOR(0x0f),
-    OS_HWI_VECTOR(0x10),
-    OS_HWI_VECTOR(0x11),
-    OS_HWI_VECTOR(0x12),
-    OS_HWI_VECTOR(0x13),
-    OS_HWI_VECTOR(0x14),
-    OS_HWI_VECTOR(0x15),
-    OS_HWI_VECTOR(0x16),
-    OS_HWI_VECTOR(0x17),
-    OS_HWI_VECTOR(0x18),
-    OS_HWI_VECTOR(0x19),
-    OS_HWI_VECTOR(0x1a),
-    OS_HWI_VECTOR(0x1b),
-    OS_HWI_VECTOR(0x1c),
-    OS_HWI_VECTOR(0x1d),
-    OS_HWI_VECTOR(0x1e),
-    OS_HWI_VECTOR(0x1f),
+OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_NUM];
+OS_SEC_KERNEL_DATA struct OsIdtEntry g_idt[OS_EXC_NUM + OS_HWI_NUM];
+OS_SEC_KERNEL_DATA OsExcVector g_excVectorTab[OS_EXC_NUM] = {
+    OS_EXC_VECTOR(0x00),
+    OS_EXC_VECTOR(0x01),
+    OS_EXC_VECTOR(0x02),
+    OS_EXC_VECTOR(0x03),
+    OS_EXC_VECTOR(0x04),
+    OS_EXC_VECTOR(0x05),
+    OS_EXC_VECTOR(0x06),
+    OS_EXC_VECTOR(0x07),
+    OS_EXC_VECTOR(0x08),
+    OS_EXC_VECTOR(0x09),
+    OS_EXC_VECTOR(0x0a),
+    OS_EXC_VECTOR(0x0b),
+    OS_EXC_VECTOR(0x0c),
+    OS_EXC_VECTOR(0x0d),
+    OS_EXC_VECTOR(0x0e),
+    OS_EXC_VECTOR(0x0f),
+    OS_EXC_VECTOR(0x10),
+    OS_EXC_VECTOR(0x11),
+    OS_EXC_VECTOR(0x12),
+    OS_EXC_VECTOR(0x13),
+    OS_EXC_VECTOR(0x14),
+    OS_EXC_VECTOR(0x15),
+    OS_EXC_VECTOR(0x16),
+    OS_EXC_VECTOR(0x17),
+    OS_EXC_VECTOR(0x18),
+    OS_EXC_VECTOR(0x19),
+    OS_EXC_VECTOR(0x1a),
+    OS_EXC_VECTOR(0x1b),
+    OS_EXC_VECTOR(0x1c),
+    OS_EXC_VECTOR(0x1d),
+    OS_EXC_VECTOR(0x1e),
+    OS_EXC_VECTOR(0x1f),
+};
+
+OS_SEC_KERNEL_DATA OsHwiVector g_hwiVectorTab[OS_HWI_NUM] = {
     OS_HWI_VECTOR(0x20),
 };
 
-OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_MAX_NUM] = {
-    "DEVIDE ZERO EXC",
-    "DEBUG EXC",
-    "NMI",
-    "BREAK POINT EXC",
-    "OVERFLOW EXC",
-    "BOUND RANGE EXCEEDED EXC",
-    "INVALID OPCODE EXC",
-    "DEVICE NOT AVAILABLE EXC"
-    "DOUBLE FAULT EXC",
-    "COPROCESSOR SEGMENT OVERRUN",
-    "INVALID TSS EXC",
-    "SEGMENT NOT PRESENT",
-    "STACK FAULT EXC",
-    "GENERAL PROTECTION EXC",
-    "PAGE FAULT EXC",
-    "INTEL RESERVE", // 15为intel保留项，未使用
-    "FPU FLOATING POINT ERR",
-    "ALIGNMENT CHECK EXC",
-    "MACHINE CHECK EXC",
-    "SIMD FLOATING POINT EXC"
+OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_NUM] = {
+    [OS_EXC_TYPE_DIVIDE_ERROR] = "DEVIDE ZERO EXC",
+    [OS_EXC_TYPE_DEBUG] = "DEBUG EXC",
+    [OS_EXC_TYPE_NMI] = "NMI",
+    [OS_EXC_TYPE_BREAKPOINT] = "BREAK POINT EXC",
+    [OS_EXC_TYPE_OVERFLOW] = "OVERFLOW EXC",
+    [OS_EXC_TYPE_BOUND_RANGE] = "BOUND RANGE EXCEEDED EXC",
+    [OS_EXC_TYPE_INVALID_OPCODE] = "INVALID OPCODE EXC",
+    [OS_EXC_TYPE_DEVICE_NOT_AVAIL] = "DEVICE NOT AVAILABLE EXC",
+    [OS_EXC_TYPE_DOUBLE_FAULT] = "DOUBLE FAULT EXC",
+    [OS_EXC_TYPE_COPROC_SEG_OVERRUN] = "COPROCESSOR SEGMENT OVERRUN",
+    [OS_EXC_TYPE_INVALID_TSS] = "INVALID TSS EXC",
+    [OS_EXC_TYPE_SEGMENT_NOT_PRESENT] = "SEGMENT NOT PRESENT",
+    [OS_EXC_TYPE_STACK_FAULT] = "STACK FAULT EXC",
+    [OS_EXC_TYPE_GPF] = "GENERAL PROTECTION EXC",
+    [OS_EXC_TYPE_PAGE_FAULT] = "PAGE FAULT EXC",
+    [OS_EXC_TYPE_RESERVED] = "INTEL RESERVE", // 15为intel保留项，未使用
+    [OS_EXC_TYPE_FPU_ERROR] = "FPU FLOATING POINT ERR",
+    [OS_EXC_TYPE_ALIGNMENT_CHECK] = "ALIGNMENT CHECK EXC",
+    [OS_EXC_TYPE_MACHINE_CHECK] = "MACHINE CHECK EXC",
+    [OS_EXC_TYPE_SIMD_FP] = "SIMD FLOATING POINT EXC",
+    [OS_EXC_TYPE_SIMD_FP + 1 ... OS_EXC_MAX] = NULL
 };
 
 OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {
@@ -80,67 +84,82 @@ OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {
     .idtBase = g_idt
 };
 
-static OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum, uintptr_t context)
+OS_INLINE U32 OsExcNum2Idx(U32 excNum)
+{
+    return excNum - OS_EXC_MIN;
+}
+
+static OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum)
 {
     (void)hwiNum;
-    (void)context;
     return;
+}
+
+OS_INLINE U32 OsHwiNum2Idx(U32 hwiNum)
+{
+    return hwiNum - OS_HWI_MIN;
 }
 
 OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr)
 {
-    g_hwiForm[hwiNum].isr = isr;
+    g_hwiForm[OsHwiNum2Idx(hwiNum)].isr = isr;
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum, uintptr_t context)
+OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
-    OsHwiHandlerFunc isr = g_hwiForm[hwiNum].isr;
+    OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(hwiNum)].isr;
     
     rq->intCount++;
     OS_UNI_FLAG_SET_MSK(OS_HWI_ACTIVE_MSK);
-    isr(hwiNum, context);
+    isr(hwiNum);
     OS_UNI_FLAG_CLR_MSK(OS_HWI_ACTIVE_MSK);
     rq->intCount--;
 }
 
-static OS_SEC_KERNEL_TEXT void OsExcDefHandler(U32 excNum, uintptr_t context)
+OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
 {
-    U32 cr0;
-    U32 cr1;
-    U32 cr2; /* CR2, page fault异常的地址 */
-    struct OsAllSaveContext *excInfo = (struct OsAllSaveContext *)context;
+    char *excName = g_excNameTab[OsExcNum2Idx(excName)];
 
-    OS_EMBED_ASM("cli");
-    
-    OS_ASSERT(excNum < OS_EXC_MAX_NUM);
-
-    kprintf("exc type: %s\n", g_excNameTab[excNum]);
-    
-    OS_EMBED_ASM("movl %%cr2, %0":"=&a"(cr2)::);
-    kprintf("cr2 : 0x%x\n", cr2);
-
-    kprintf("excCs : 0x%x\n", (U32)excInfo->cs);
-    kprintf("excEip : 0x%x\n", (U32)excInfo->eip);
-    kprintf("excEax : 0x%x\n", (U32)excInfo->eax);
-    kprintf("excEbx : 0x%x\n", (U32)excInfo->ebx);
-    kprintf("excEcx : 0x%x\n", (U32)excInfo->ecx);
-    kprintf("excEdx : 0x%x\n", (U32)excInfo->edx);
-    kprintf("excEbp : 0x%x\n", (U32)excInfo->ebp);
-    kprintf("curTsk: 0x%x\n", OS_RUNNING_TASK()->pid);
-    kprintf("curTskStkPtr : 0x%x\n", (U32)OS_RUNNING_TASK()->stkPtr);
-    kprintf("curTskKernelStkTop: 0x%x\n", (U32)OS_RUNNING_TASK()->kernelStkTop);
+    if (excName != NULL) {
+        kprintf("exc type: %s, exc addr: 0x%x, exc pc 0x%x",
+                excName, context->cr2, context->eip);
+    } else {
+        kprintf("unknown exc type!!!\n");
+    }
 
     while (1) {}
 }
 
-static OS_SEC_KERNEL_TEXT void OsExcConfig(void)
+OS_INLINE bool OsExcPgFaultTriggeredByKernel(U32 errCode)
 {
-    U32 i;
+    return (errCode & 0x4) == 0;
+}
 
-    for (i = 0; i < OS_EXC_MAX_NUM; i++) {
-        g_hwiForm[i].isr = OsExcDefHandler;
+OS_SEC_KERNEL_TEXT void OsExcHandleKernelPgFault(uintptr_t errAddr)
+{
+    uintptr_t pgBase;
+
+    // errAddr那一页并未映射
+    pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
+    OsMemKernelAllocPgByAddr(pgBase);
+
+}
+
+OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
+{
+    if (excNum > OS_EXC_MAX) {
+        kprintf("excNum invalid, excNum = 0x%x\n", excNum);
+        while (1) {}
+    }
+
+    if (excNum == OS_EXC_TYPE_PAGE_FAULT && 
+        OsExcPgFaultTriggeredByKernel(context->errCode)) {
+        OsExcHandleKernelPgFault(context->cr2);
+        kprintf("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip, context->cr2);
+    } else {
+        OsExcReport(excNum, context);
     }
 }
 
@@ -165,7 +184,7 @@ OS_INLINE void OsHwiPicInit(void)
 
 }
 
-static OS_SEC_KERNEL_TEXT void OsHwiBuildIdtEntry(struct OsIdtEntry *entry,
+static OS_SEC_KERNEL_TEXT void OsBuildIdtEntry(struct OsIdtEntry *entry,
                                                   U8 attr, OsHwiVector vecFunc)
 {
     entry->funcOffsetLowWord = (U32)vecFunc & 0xFFFF;
@@ -175,18 +194,36 @@ static OS_SEC_KERNEL_TEXT void OsHwiBuildIdtEntry(struct OsIdtEntry *entry,
     entry->funcOffsetHighWord = ((U32)vecFunc >> 16) & 0xFFFF;
 }
 
+static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)
+{
+    U32 i;
+
+    // 注册异常的统一钩子
+    for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++) {
+        OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_excVectorTab[OsExcNum2Idx(i)]);
+    }
+}
+
+
+static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
+{
+    U32 i;
+
+    // 注册异常的统一钩子
+    for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++) {
+        OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[OsHwiNum2Idx(i)]);
+        OsHwiCreate(i, OsHwiDefHandler);
+    }
+}
+
 OS_SEC_KERNEL_TEXT void OsHwiConfig(void)
 {
     U32 i;
 
     OS_DEBUG_PRINT_STR("OsHwiConfig start\n");
 
-    for (i = 0; i < OS_HWI_MAX_NUM; i++) {
-        OsHwiBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[i]);
-        g_hwiForm[i].isr = OsHwiDefHandler;
-    }
-
-    OsExcConfig();
+    OsExcRegIdt();
+    OsHwiRegIdt();
 
     OsHwiPicInit();
 
@@ -198,7 +235,24 @@ OS_SEC_KERNEL_TEXT void OsHwiConfig(void)
 // 中断尾部
 OS_SEC_KERNEL_TEXT void OsHwiTail(void)
 {
-    OsTickDispatcher();
+    // 中断尾部处理ticks
+    struct OsRunQue *rq = OS_RUN_QUE();
+    enum OsIntStatus intSave;
+
+    if (UNLIKELY(g_noRespondTicks > 0)) {
+        if (OS_TICK_ACTIVE(rq->uniFlag)) {
+            return;
+        }
+        OS_UNI_FLAG_SET_MSK(OS_TICK_ACTIVE_MSK);
+        do {
+            intSave = OsIntUnlock();
+            OsTickDispatcher();
+            OsIntRestore(intSave);
+            g_noRespondTicks--;
+        } while (g_noRespondTicks > 0);
+        OS_UNI_FLAG_CLR_MSK(OS_TICK_ACTIVE_MSK);
+    }
+
     OsSchedMain();
 }
 

@@ -4,20 +4,34 @@
 extern uintptr_t _os_bss_table_start;
 extern uintptr_t _os_bss_table_end;
 
+struct OsBssInfo {
+    uintptr_t bssStart;
+    uintptr_t bssEnd;
+};
+
 OS_SEC_KERNEL_TEXT void OsBssInit(void)
 {
-    uintptr_t bssTabStart = &_os_bss_table_start;
-    uintptr_t bssTabEnd = (U32)bssTabStart + 4;
+    struct OsBssInfo *bssTab = (struct OsBssInfo *)(uintptr_t)&_os_bss_table_start;
+    size_t bssTabSize = (uintptr_t)&_os_bss_table_end - (uintptr_t)&_os_bss_table_start;
+    U32 bssTabNum;
+    U32 i;
     uintptr_t bssStart;
     uintptr_t bssEnd;
 
-    while (bssTabEnd < &_os_bss_table_end) {
-        bssStart = (uintptr_t)*((U32 *)bssTabStart);
-        bssEnd = (uintptr_t)*((U32 *)bssTabEnd);
+    if (bssTabSize % sizeof(struct OsBssInfo) != 0) {
+        return;
+    }
 
-        memset(bssStart, 0, (U32)bssEnd - (U32)bssStart);
+    bssTabNum = bssTabSize / sizeof(struct OsBssInfo);
 
-        bssTabStart += 4;
-        bssTabEnd += 4;
+    for (i = 0; i < bssTabNum; i++) {
+        bssStart = bssTab[i].bssStart;
+        bssEnd = bssTab[i].bssEnd;
+
+        if (bssEnd <= bssStart) {
+            continue;
+        }
+
+        memset(bssStart, 0, bssEnd - bssStart);
     }
 }

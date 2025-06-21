@@ -95,7 +95,7 @@ OS_SEC_KERNEL_TEXT struct OsMemFscHead *OsMemFscFuzzySearch(struct OsMemFscCtrl 
 OS_SEC_KERNEL_TEXT void *OsMemFscExactSearch(struct OsMemFscCtrl *ptCtrl, size_t allocSize, 
                                              size_t alignSize, U32 align)
 {
-    U32 idx = OsMemFscSize2Idx(allocSize);
+    U32 idx = OsMemFscSize2Idx(allocSize - 1);
     struct OsMemFscHead *curBlk;
     struct OsMemFscHead *freeList = OsMemFscGetFreeList(ptCtrl, idx);
     

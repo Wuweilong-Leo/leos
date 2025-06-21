@@ -11,7 +11,7 @@ OsMbr:
     movw %ax, %es
     movw %ax, %ss
     movw %ax, %fs
-    movw $_os_kernel_sp_end, %sp
+    movw $_os_boot_sp_end, %sp
     movw $OS_VIDEO_MEM_GS, %ax
     movw %ax, %gs
 /* 

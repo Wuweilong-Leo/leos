@@ -139,8 +139,6 @@ OS_SEC_KERNEL_TEXT uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr)
 {
     uintptr_t pte = OsGetPteVirAddr(vaddr);
 
-    OS_DEBUG_KPRINT("OsGetPaddrByVaddr: *pte = 0x%x\n", *(U32 *)pte);
-
     return (uintptr_t)(((*(U32 *)pte) & 0xfffff000) + ((U32)vaddr & 0xfff));
 }
 

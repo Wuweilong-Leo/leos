@@ -94,29 +94,10 @@ OS_SEC_KERNEL_TEXT void OsTickHandleTimeSlice(void)
 // 中断尾部处理ticks
 OS_SEC_KERNEL_TEXT void OsTickDispatcher(void)
 {
-    struct OsRunQue *rq = OS_RUN_QUE();
-    enum OsIntStatus intSave;
-
-    while (UNLIKELY(g_noRespondTicks > 0)) {
-        if (OS_TICK_ACTIVE(rq->uniFlag)) {
-            // tick已经在处理了，不用再进tick处理
-            return;
-        }
-        OS_UNI_FLAG_SET_MSK(OS_TICK_ACTIVE_MSK);
-        /*
-         * 这里中断先不开，因为中断会把上下文保存在tcb里，
-         * 嵌套以后会把tcb里记录的上个中断的栈指针给冲掉，
-         */
-        // intSave = OsIntUnlock();
-        // 处理时间片
-        OsTickHandleTimeSlice();
-        // 扫描延时的任务
-        OsTickScanTsks(rq);
-        // 恢复关中断
-        // OsIntRestore(intSave);
-        OS_UNI_FLAG_CLR_MSK(OS_TICK_ACTIVE_MSK);
-        g_noRespondTicks--;
-    }
+    // 处理时间片
+    OsTickHandleTimeSlice();
+    // 扫描延时的任务
+    OsTickScanTsks(OS_RUN_QUE());
 }
 
 OS_SEC_KERNEL_TEXT void OsTickIsr(void)
