@@ -141,9 +141,13 @@ OS_SEC_KERNEL_TEXT void OsExcHandleKernelPgFault(uintptr_t errAddr)
 {
     uintptr_t pgBase;
 
-    // errAddr那一页并未映射
-    pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
-    OsMemKernelAllocPgByAddr(pgBase);
+    if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE && errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
+        // errAddr那一页并未映射
+        pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
+        OsMemKernelAllocPgByAddr(pgBase);
+    } else {
+        while (1) {}
+    }
 
 }
 

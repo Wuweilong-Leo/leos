@@ -33,9 +33,31 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     OsPrintStr("hello kernel\n");
     OsConfigAll();
     
-    *(U32 *)(0xC1100000) = 1;
-    kprintf("*(U32 *)(0xC1100000) = 0x%x\n", *(U32 *)(0xC1100000));
+    void *mem = OsMemKernelAlloc(0x100, 4);
+    kprintf("mem = 0x%x\n", (U32)mem);
+    *(U32 *)mem = 1;
+    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
 
+    mem = OsMemKernelAlloc(0x100, 4);
+    kprintf("mem = 0x%x\n", (U32)mem);
+    *(U32 *)mem = 1;
+    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
+
+    mem = OsMemKernelAlloc(0x100, 0x1000);
+    kprintf("mem = 0x%x\n", (U32)mem);
+    *(U32 *)mem = 1;
+    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
+
+    mem = OsMemKernelAlloc(0x200, 256);
+    kprintf("mem = 0x%x\n", (U32)mem);
+    *(U32 *)mem = 1;
+    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
+
+    mem = OsMemKernelAlloc(0x200, 16);
+    kprintf("mem = 0x%x\n", (U32)mem);
+    *(U32 *)mem = 1;
+    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
+    
     /* never comes here */
     while (1) {}
 

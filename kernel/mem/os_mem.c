@@ -11,6 +11,7 @@ OS_SEC_KERNEL_DATA struct OsMemPool g_usrPhyMemPool;
 OS_SEC_KERNEL_DATA struct OsMemPool g_kernelVirMemPool;
 /* 每个btmp默认先给一页大小 */
 OS_SEC_KERNEL_BSS U8 g_memPoolBtmp[OS_MEM_BTMP_MAX_NUM][OS_PG_SIZE];
+OS_SEC_KERNEL_BSS struct OsMemFscCtrl *g_kernelMemPtCtrl;
 
 OS_SEC_KERNEL_TEXT void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, 
                                       U32 memSize, U8 *btmpBase)
@@ -56,6 +57,7 @@ OS_SEC_KERNEL_TEXT void OsMemConfig(void)
     U32 freeUsrPhyMemPgNum;
     U32 freeKernelPhyMemBase;
     U32 freeUsrPhyMemBase;
+    struct OsMemFscCtrl *kernelMemCtrl;
 
     OS_DEBUG_PRINT_STR("OsMemConfig start\n");
     freePhyMemSize = OS_GET_FREE_PHY_MEM_SIZE(OS_USED_PHY_MEM_SIZE);
@@ -68,12 +70,15 @@ OS_SEC_KERNEL_TEXT void OsMemConfig(void)
                   freeKernelPhyMemSize, (U8 *)g_memPoolBtmp[0]);    
     OsMemPoolInit(&g_usrPhyMemPool, (uintptr_t)freeUsrPhyMemBase,
                   freeUsrPhyMemSize, (U8 *)g_memPoolBtmp[1]);
-    OsMemPoolInit(&g_kernelVirMemPool, (uintptr_t)OS_KERNEL_VIR_MEM_BASE,
-                  1024 * 1024 * 32, (U8 *)g_memPoolBtmp[2]);
+    OsMemPoolInit(&g_kernelVirMemPool, (uintptr_t)OS_KERNEL_VIR_HEAP_MEM_BASE,
+                  OS_KERNEL_VIR_HEAP_MEM_SIZE, (U8 *)g_memPoolBtmp[2]);
 
-    OsPrintMemPoolInfo(&g_kernelPhyMemPool, "kernelPhyMemPool");
-    OsPrintMemPoolInfo(&g_usrPhyMemPool, "usrPhyMemPool");
-    OsPrintMemPoolInfo(&g_kernelVirMemPool, "kernelVirMemPool");
+    g_kernelMemPtCtrl = OsMemFscInitPt(OS_KERNEL_VIR_HEAP_MEM_BASE, OS_KERNEL_VIR_HEAP_MEM_SIZE);
+    kprintf("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
+
+    // OsPrintMemPoolInfo(&g_kernelPhyMemPool, "kernelPhyMemPool");
+    // OsPrintMemPoolInfo(&g_usrPhyMemPool, "usrPhyMemPool");
+    // OsPrintMemPoolInfo(&g_kernelVirMemPool, "kernelVirMemPool");
 
     OS_DEBUG_PRINT_STR("OsMemConfig end\n");
 }
@@ -201,37 +206,10 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemUsrAllocPgByAddr(uintptr_t virAddr)
 
 OS_SEC_KERNEL_TEXT void *OsMemKernelAlloc(size_t size, U32 align)
 {
-    struct OsList *memCtrlListNode;
-    struct OsList *memCtrlList = &g_kernelVirMemPool.memCtrlList;
-    struct OsMemCtrl *memCtrl;
-    void *addr;
-    U32 pgNum;
+    return OsMemFscAlloc(g_kernelMemPtCtrl, size, align);
+}
 
-    OS_LIST_FOR_EACH(memCtrlList, memCtrlListNode) {
-        memCtrl = OS_LIST_GET_STRUCT_ENTRY(struct OsMemCtrl, listNode, memCtrlListNode);
-        addr = OsMemFscAlloc(memCtrl->fscCtrl, size, align);
-        if (addr != NULL) {
-            return addr;
-        }
-    }
-
-    // 要重新映射，因为还有内存头存在，多申请1页
-    pgNum = (OS_ROUND_UP(size, OS_PG_SIZE) / OS_PG_SIZE) + 1;
-    addr = OsMemKernelAllocPgs(pgNum);
-    if (addr == NULL) {
-        return NULL;
-    }
-
-    memCtrl = (uintptr_t)addr;
-    memCtrl->memBase = addr;
-    memCtrl->memSize = OS_PG_SIZE * pgNum;
-    OsListAddTail(memCtrlList, &memCtrl->listNode);
-    memCtrl->fscCtrl = OsMemFscInitPt((uintptr_t)(memCtrl + 1), memCtrl->memSize - sizeof(struct OsMemCtrl));
-    if (memCtrl->fscCtrl == NULL) {
-        return NULL;
-    }
-
-    addr = OsMemFscAlloc(memCtrl->fscCtrl, size, align);
-
-    return addr;
+OS_SEC_KERNEL_TEXT void OsMemKernelFree(void *addr)
+{
+    return OsMemFscFree(addr);
 }
