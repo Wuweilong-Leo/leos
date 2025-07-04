@@ -22,10 +22,12 @@ OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum)
     kprintf("OsTimerIsr\n");
 }
 
-OS_SEC_KERNEL_TEXT void OsTimerConfig(void)
+OS_SEC_KERNEL_TEXT U32 OsTimerConfigInit(void)
 {
-  OS_DEBUG_PRINT_STR("OsTimerConfig start\n");
+  OS_DEBUG_PRINT_STR("OsTimerConfigInit start\n");
   OsTimerSetFreq(COUNTER0_PORT, COUNTER0_NO, READ_WRITE_LATCH, COUNTER_MODE, COUNTER0_VALUE);
   (void)OsHwiCreate(0x20, OsTimerIsr);
-  OS_DEBUG_PRINT_STR("OsTimerConfig end\n");
+  OS_DEBUG_PRINT_STR("OsTimerConfigInit end\n");
+
+  return OS_OK;
 }

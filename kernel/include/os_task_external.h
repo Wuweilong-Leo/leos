@@ -10,25 +10,17 @@
 #define OS_TASK_NAME_MAX_SIZE 0x10
 #define OS_TASK_MAX_NUM 32
 #define OS_TASK_ARG_NUM 4
-/* 任务栈大小要4K对齐 */
 #define OS_TASK_KERNEL_STACK_SIZE 0x1000
 
 #define OS_TASK_GET_CB(tskId) (&g_tskCbArray[(tskId)])
-#define OS_TASK_IS_RDY(tskCb) ((tskCb)->status == OS_TASK_READY)
-#define OS_TASK_IS_RUNNING(tskCb) ((tskCb)->status == OS_TASK_RUNNING)
 
 typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 
-enum OsTaskStatus {
-  OS_TASK_NOT_CREATE,
-  OS_TASK_NOT_RESUME,
-  OS_TASK_RUNNING,
-  OS_TASK_READY,
-  OS_TASK_SEM_PENDING,
-  OS_TASK_IN_DELAY,
-  OS_TASK_IN_SUSPEND,
-  OS_TASK_WAITING_EVENT,
-};
+#define OS_TASK_STATUS_USED 0x1U
+#define OS_TASK_STATUS_READY 0x2U
+#define OS_TASK_STATUS_RUNNING 0x4U
+#define OS_TASK_STATUS_PENDING 0x8U
+#define OS_TASK_STATUS_IN_DELAY 0x10U
 
 // 两种任务类型，线程和进程
 enum OsTaskType {
@@ -44,7 +36,7 @@ struct OsTaskCb {
   U32 pid;
   OsTaskEntryFunc entry;
   void *arg[OS_TASK_ARG_NUM];
-  enum OsTaskStatus status;
+  U32 status;
   U32 prio;
   U64 timeSliceTicks; // 时间片的tick数
   U64 expiredTick; // 延时到期时的tick刻度
@@ -78,15 +70,15 @@ struct OsTaskCreateParam {
 #define OS_TASK_SET_PRIO_PARAM_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
 
 extern void OsTaskIdleEntry(void);
-extern void OsTaskConfig(void);
-extern U32 OsTaskCreateIdle(U32 *tskId);
+extern U32 OsTaskConfigInit(void);
+extern U32 OsTaskCreateIdle(void);
 extern U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId);
 extern U32 OsTaskResume(U32 tskId);
 extern void OsTaskSchedule();
 extern U32 OsTaskSuspend(U32 tskId);
 extern U32 OsTaskDelay(U32 ticks);
 
-extern struct OsTaskCb g_tskCbArray[OS_TASK_MAX_NUM];
+extern struct OsTaskCb *g_tskCbArray;
 
 OS_INLINE void OsTaskAdjustPrio(struct OsTaskCb *tsk)
 {

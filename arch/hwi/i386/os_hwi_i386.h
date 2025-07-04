@@ -162,6 +162,6 @@ extern void OS_EXC_VECTOR(0x1f) (void);
 extern void OS_HWI_VECTOR(0x20) (void);
 
 extern U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr);
-extern void OsHwiConfig(void);
+extern void OsHwiConfigInit(void);
 
 #endif

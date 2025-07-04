@@ -16,5 +16,5 @@ struct OsSemCb {
 extern U32 OsSemCreate(U32 val, U32 *semId);
 extern U32 OsSemPend(U32 semId);
 extern U32 OsSemPost(U32 semId);
-extern void OsSemConfig(void);
+extern U32 OsSemConfigInit(void);
 #endif

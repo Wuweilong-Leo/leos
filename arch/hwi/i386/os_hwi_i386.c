@@ -120,11 +120,13 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 
 OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
 {
-    char *excName = g_excNameTab[OsExcNum2Idx(excName)];
-
+    // char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
+    char *excName = "1";
     if (excName != NULL) {
-        kprintf("exc type: %s, exc addr: 0x%x, exc pc 0x%x",
-                excName, context->cr2, context->eip);
+        kprintf("exc num: 0x%x, exc type: %s, exc addr: 0x%x, exc cs: 0x%x, exc pc 0x%x, \
+                eax: 0x%x, ebx: 0x%x, ecx: 0x%x, edx: 0x%x\n",
+                excNum, excName, context->cr2, context->cs, context->eip, 
+                context->eax, context->ebx, context->ecx, context->edx);
     } else {
         kprintf("unknown exc type!!!\n");
     }
@@ -137,18 +139,18 @@ OS_INLINE bool OsExcPgFaultTriggeredByKernel(U32 errCode)
     return (errCode & 0x4) == 0;
 }
 
-OS_SEC_KERNEL_TEXT void OsExcHandleKernelPgFault(uintptr_t errAddr)
+OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 {
     uintptr_t pgBase;
 
     if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE && errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
         // errAddr那一页并未映射
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
-        OsMemKernelAllocPgByAddr(pgBase);
+        return OsMemKernelAllocPgByAddr(pgBase) != NULL;
     } else {
-        while (1) {}
+        kprintf("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (U32)errAddr);
+        return FALSE;
     }
-
 }
 
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
@@ -160,10 +162,13 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
 
     if (excNum == OS_EXC_TYPE_PAGE_FAULT && 
         OsExcPgFaultTriggeredByKernel(context->errCode)) {
-        OsExcHandleKernelPgFault(context->cr2);
-        kprintf("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip, context->cr2);
+        if (!OsExcHandleKernelPgFault(context->cr2)) {
+            kprintf("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip, context->cr2);
+            while (1) {}
+        }
     } else {
         OsExcReport(excNum, context);
+        while (1) {}
     }
 }
 
@@ -220,10 +225,8 @@ static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
     }
 }
 
-OS_SEC_KERNEL_TEXT void OsHwiConfig(void)
+OS_SEC_KERNEL_TEXT void OsHwiConfigInit(void)
 {
-    U32 i;
-
     OS_DEBUG_PRINT_STR("OsHwiConfig start\n");
 
     OsExcRegIdt();
@@ -245,6 +248,7 @@ OS_SEC_KERNEL_TEXT void OsHwiTail(void)
 
     if (UNLIKELY(g_noRespondTicks > 0)) {
         if (OS_TICK_ACTIVE(rq->uniFlag)) {
+            kprintf("tick active\n");
             return;
         }
         OS_UNI_FLAG_SET_MSK(OS_TICK_ACTIVE_MSK);

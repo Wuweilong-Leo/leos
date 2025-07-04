@@ -127,3 +127,9 @@ OS_SEC_KERNEL_TEXT void OsBuildUsrGdtEntry(void)
     /* 加载tss */
     OsLoadTss();  
 }
+
+OS_SEC_KERNEL_TEXT U32 OsUsrConfigInit(void)
+{
+    OsBuildUsrGdtEntry();
+    return OS_OK;
+}

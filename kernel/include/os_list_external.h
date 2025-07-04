@@ -7,19 +7,15 @@ struct OsList {
     struct OsList *next;
 };
 
-/* 获取结构体内元素的偏移 */
-#define OFFSET(structType, elem) ((U32)(&(((structType *)0)->elem)))
-
-/* 通过元素地址获取结构体的首地址 */
-#define OS_LIST_GET_STRUCT_ENTRY(structType, elemName, elemAddr)               \
-  ((structType *)((U32)(elemAddr) - OFFSET(structType, elemName)))
-
 #define OS_LIST_FOR_EACH(list, tmpNode)                                        \
   for ((tmpNode) = (list)->next; (tmpNode) != (list); (tmpNode) = (tmpNode)->next)
 
-#define OS_LIST_GET_FIRST_NODE(list) ((list)->next)
-
 #define OS_LIST_INIT(list) {&(list), &(list)}
+
+OS_INLINE struct OsList *OsListGetFirstNode(struct OsList *list)
+{
+    return list->next;
+}
 
 OS_INLINE void OsListInit(struct OsList *list)
 {
@@ -61,7 +57,7 @@ OS_INLINE struct OsList *OsListPopHead(struct OsList *list)
 {
     struct OsList *firstNode;
 
-    firstNode = OS_LIST_GET_FIRST_NODE(list);
+    firstNode = OsListGetFirstNode(list);
     
     OsListRemoveNode(firstNode);
 

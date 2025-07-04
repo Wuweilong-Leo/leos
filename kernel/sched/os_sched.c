@@ -3,6 +3,7 @@
 #include "string.h"
 #include "os_debug_external.h"
 #include "os_sys.h"
+#include "os_base_external.h"
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
@@ -35,12 +36,12 @@ OS_SEC_KERNEL_TEXT struct OsTaskCb *OsSchedPickHighestPrioTsk(void)
     struct OsList *rdyListNode;
 
     rdyList = &OS_RUN_QUE()->rdyList[highestPrio];
-    rdyListNode = OS_LIST_GET_FIRST_NODE(rdyList);
+    rdyListNode = OsListGetFirstNode(rdyList);
 
-    return OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, rdyListNode, rdyListNode);
+    return OS_GET_STRUCT_ENTRY(struct OsTaskCb, rdyListNode, rdyListNode);
 }
 
-OS_SEC_KERNEL_TEXT void OsSchedConfig(void)
+OS_SEC_KERNEL_TEXT U32 OsSchedConfigInit(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 i;
@@ -54,13 +55,15 @@ OS_SEC_KERNEL_TEXT void OsSchedConfig(void)
     rq->intCount = 0;
     rq->scheduler = &g_mfqsScheduler;
     rq->needSched = FALSE;
+
+    return OS_OK;
 }
 
 /*
  *  外部关中断
  *  就绪队列尾部入队
  */
-OS_SEC_KERNEL_TEXT void OsEnqueTskToRdyListTail(struct OsTaskCb *tsk)
+OS_SEC_KERNEL_TEXT void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 tskPrio = tsk->prio;
@@ -70,16 +73,18 @@ OS_SEC_KERNEL_TEXT void OsEnqueTskToRdyListTail(struct OsTaskCb *tsk)
 
     rq->rdyListMsk |= (1 << tskPrio);
 
-    if (tskPrio < OS_RUNNING_TASK()->prio) {
+    if (tskPrio < rq->runningTsk->prio) {
         rq->needSched = TRUE;
     }
+
+    tsk->status |= OS_TASK_STATUS_READY;
 }
 
 /*
  *  外部关中断
  *  就绪队列出队
  */
-OS_SEC_KERNEL_TEXT void OsDequeTskFromRdyList(struct OsTaskCb* tsk)
+OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb* tsk)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 prio = tsk->prio;
@@ -94,6 +99,8 @@ OS_SEC_KERNEL_TEXT void OsDequeTskFromRdyList(struct OsTaskCb* tsk)
     if (tsk == rq->runningTsk) {
         rq->needSched = TRUE;
     }
+
+    tsk->status &= ~OS_TASK_STATUS_READY;
 }
 
 OS_SEC_KERNEL_TEXT void OsSchedModifyTskPrio(struct OsTaskCb *tsk)
@@ -113,10 +120,13 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
         if (rq->needSched) {
             rq->needSched = FALSE;
             nextTsk = scheduler->pickNextTsk();
-            nextTsk->status = OS_TASK_RUNNING;
-            /* 任务切换时的必要的架构配置 */
-            OsConfigArchForTskSwitch(nextTsk);
-            rq->runningTsk = nextTsk;
+            if (nextTsk != curTsk) {
+                curTsk->status &= ~OS_TASK_STATUS_RUNNING;
+                nextTsk->status |= OS_TASK_STATUS_RUNNING;
+                /* 任务切换时的必要的架构配置 */
+                OsConfigArchForTskSwitch(nextTsk);
+                rq->runningTsk = nextTsk;
+            }
         }
     }
 
@@ -124,23 +134,24 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     OsLoadTsk(nextTsk);
 }
 
-OS_SEC_KERNEL_TEXT void OsSchedSwitchIdle(void)
+static OS_SEC_KERNEL_TEXT void OsSchedPrepare(void)
 {
-    U32 idleTskId;
-    struct OsTaskCb *idleTskCb;
-    struct OsRunQue *rq = OS_RUN_QUE();
-
-    /* 创建idle task */
-    if (OsTaskCreateIdle(&idleTskId) != OS_OK) {
-        OS_DEBUG_KPRINT("%s\n", "create idle err\n");
-        return;
+    // 创建idle任务
+    if (OsTaskCreateIdle() != OS_OK) {
+        while (1);
     }
+}
 
-    idleTskCb = OS_TASK_GET_CB(idleTskId);
+OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
+{
+    struct OsTaskCb *tskCb;
+    struct OsRunQue *rq = OS_RUN_QUE();
+    
+    OsSchedPrepare();
 
-    rq->idleTsk = idleTskCb;
-    rq->runningTsk = idleTskCb;
-    idleTskCb->status = OS_TASK_RUNNING;
+    tskCb = OsSchedPickHighestPrioTsk();
+    rq->runningTsk = tskCb;
+    tskCb->status |= OS_TASK_STATUS_RUNNING;
 
-    OsLoadTsk(idleTskCb);
+    OsLoadTsk(tskCb);
 }

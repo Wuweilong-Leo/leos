@@ -35,3 +35,9 @@ OS_SEC_KERNEL_TEXT void OsBssInit(void)
         memset(bssStart, 0, bssEnd - bssStart);
     }
 }
+
+OS_SEC_KERNEL_TEXT U32 OsBssConfigInit(void)
+{
+    OsBssInit();
+    return OS_OK;
+}

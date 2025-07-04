@@ -63,10 +63,10 @@ struct OsExcSaveContext {
 
 extern void OsSwitch2Process(void);
 
-OS_INLINE void OsSetContext(uintptr_t stkMemBase, U32 stkSize, struct OsTaskCb* tskCb)
+OS_INLINE void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb* tskCb)
 {
-    U32 stkBot = (U32)stkMemBase + stkSize;
-    U32 stkTop = (U32)stkMemBase;
+    uintptr_t stkBot = stkMemBase + stkSize;
+    uintptr_t stkTop = stkMemBase;
     struct OsFastSaveContext *fastSaveContext;
 
     stkBot -= sizeof(struct OsAllSaveContext);
@@ -76,6 +76,6 @@ OS_INLINE void OsSetContext(uintptr_t stkMemBase, U32 stkSize, struct OsTaskCb* 
     fastSaveContext->saveFlag = OS_FAST_SAVE_FLAG;
     fastSaveContext->eip = OsTaskCommonEntry;
     fastSaveContext->tskId = tskCb->pid;
-    tskCb->stkPtr = (uintptr_t)stkBot;
+    tskCb->stkPtr = stkBot;
 }
 #endif

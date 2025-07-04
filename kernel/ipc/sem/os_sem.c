@@ -3,17 +3,29 @@
 #include "os_task_external.h"
 #include "os_hwi_i386.h"
 #include "os_sched_external.h"
+#include "os_base_external.h"
 
 OS_SEC_KERNEL_DATA struct OsList g_semFreeList = OS_LIST_INIT(g_semFreeList);  
-OS_SEC_KERNEL_BSS struct OsSemCb g_semCbArray[OS_SEM_MAX_NUM];
+OS_SEC_KERNEL_BSS struct OsSemCb *g_semCbArray;
+OS_SEC_KERNEL_BSS U32 g_semMaxNum;
 
-OS_SEC_KERNEL_TEXT void OsSemConfig(void)
+OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
 {
     U32 i;
     struct OsSemCb *semCb;
     struct OsList *freeListNode;
+    size_t size;
 
-    for (i = 0; i < OS_SEM_MAX_NUM; i++) {
+    g_semMaxNum = OS_SEM_MAX_NUM;
+    size = g_semMaxNum * sizeof(struct OsSemCb);
+    g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
+    if (g_semCbArray == NULL) {
+        while (1) {}
+    }
+
+    memset(g_semCbArray, 0, size);
+
+    for (i = 0; i < g_semMaxNum; i++) {
         semCb = &g_semCbArray[i];
         freeListNode = &semCb->freeListNode;
 
@@ -30,28 +42,26 @@ OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
         return NULL;
     }
 
-    return OS_LIST_GET_STRUCT_ENTRY(struct OsSemCb, freeListNode, 
-                                    OS_LIST_GET_FIRST_NODE(&g_semFreeList));
+    return OS_GET_STRUCT_ENTRY(struct OsSemCb, freeListNode, 
+                               OsListPopHead(&g_semFreeList));
 }
 
 OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 *semId)
 {
     struct OsSemCb *semCb;
+    enum OsIntStatus intSave = OsIntLock();
 
     semCb = OsSemGetFreeCb();
     if (semCb == NULL) {
-        OS_DEBUG_KPRINT("%s", "OsSemCreate: OsSemGetFreeCb failed\n");
+        OsIntRestore(intSave);
+        return OS_SEM_CREATE_NO_FREE_CB;
     }
     
     semCb->val = semCnt;
     semCb->semCnt = semCnt;
     *semId = semCb->semId;
+    OsIntRestore(intSave);
     return OS_OK;
-}
-
-OS_INLINE bool OsSemIsHeldByTsk(struct OsSemCb *semCb, struct OsTaskCb *tsk)
-{
-    return OsListFindNode(&tsk->semList, &semCb->semListNode);
 }
 
 OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
@@ -66,7 +76,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     /* 暂时不可重入 */
-    if (OsSemIsHeldByTsk(semCb, curTsk)) {
+    if (OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
         OsIntRestore(intSave);
         return OS_SEM_PEND_TSK_ALREADY_HOLD_SEM;
     }
@@ -76,10 +86,10 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
         OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
 
         /* 从就绪队列里删除 */
-        OsDequeTskFromRdyList(curTsk);
-        curTsk->status = OS_TASK_SEM_PENDING;
+        OsSchedRdyListDequeTsk(curTsk);
+        curTsk->status |= OS_TASK_STATUS_PENDING;
 
-        /* 触发调度 */
+        // 切出去后，只有信号量大于0时才会切回来
         OsTaskSchedule();
     }
     
@@ -88,20 +98,6 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     OsIntRestore(intSave);
 
     return OS_OK;
-}
-
-OS_INLINE bool OsSemHasPendingTsk(struct OsSemCb *semCb)
-{
-    return !OsListIsEmpty(&semCb->pendList);
-}
-
-OS_INLINE struct OsTaskCb *OsSemPopFirstPendingTsk(struct OsSemCb *semCb)
-{
-    struct OsList *pendListNode;
-    
-    pendListNode = OsListPopHead(&semCb->pendList);
-    return OS_LIST_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, 
-                                    pendListNode);
 }
 
 OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
@@ -117,22 +113,28 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     /* 没持有就释放是非法的 */
-    if (!OsSemIsHeldByTsk(semCb, curTsk)) {
+    if (!OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
         OsIntRestore(intSave);
         return OS_SEM_POST_TSK_NOT_HOLD_SEM;
+    }
+
+    if (semCb->val == semCb->semCnt) {
+        OsIntRestore(intSave);
+        return OS_SEM_POST_IS_FULL;
     }
 
     semCb->val++;
     /* 取消任务持有信号量 */
     OsListRemoveNode(&semCb->semListNode);
 
-    if (OsSemHasPendingTsk(semCb)) {
+    if (!OsListIsEmpty(&semCb->pendList)) {
         /* 有任务阻塞在此信号量 */
-        /* 取出第一个信号量阻塞的任务 */ 
-        pendTsk = OsSemPopFirstPendingTsk(semCb);
+        /* 取出第一个信号量阻塞的任务 */
+        pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, 
+                                      OsListPopHead(&semCb->pendList));
         /* 加回到就绪队列 */
-        OsEnqueTskToRdyListTail(pendTsk);
-        pendTsk->status = OS_TASK_READY;
+        OsSchedRdyListEnqueTsk(pendTsk);
+        pendTsk->status &= OS_TASK_STATUS_PENDING;
 
         /* 可能阻塞的是高优先级的任务，尝试触发调度 */
         OsTaskSchedule();

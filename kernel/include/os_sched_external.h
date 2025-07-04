@@ -30,11 +30,10 @@ extern struct OsRunQue g_runQue;
 #define OS_UNI_FLAG_SET_MSK(msk) (OS_RUN_QUE()->uniFlag |= (msk))
 #define OS_UNI_FLAG_CLR_MSK(msk) (OS_RUN_QUE()->uniFlag &= ~(msk))
 
-extern void OsSchedSwitchIdle(void);
-extern void OsSchedConfig(void);
+extern U32 OsSchedConfigInit(void);
 extern struct OsTaskCb *OsSchedPickHighestPrioTsk(void);
 extern void OsSchedMain(void);
-extern void OsEnqueTskToRdyListTail(struct OsTaskCb *tsk);
-extern void OsDequeTskFromRdyList(struct OsTaskCb* tsk);
+extern void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk);
+extern void OsSchedRdyListDequeTsk(struct OsTaskCb* tsk);
 extern void OsSchedModifyTskPrio(struct OsTaskCb *tsk);
 #endif

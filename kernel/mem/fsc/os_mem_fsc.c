@@ -1,5 +1,6 @@
 #include "os_mem_fsc_internal.h"
 #include "os_base_external.h"
+#include "os_hwi_i386.h"
 
 OS_INLINE struct OsMemFscHead *OsMemFscGetFreeList(struct OsMemFscCtrl *ctrl, U32 idx)
 {
@@ -174,15 +175,18 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     uintptr_t usrAddr;
     size_t leftBlkSize = 0;
     size_t rightBlkSize;
+    enum OsIntStatus intSave;
 
     alignSize = OS_ROUND_UP(size, 4); // 保证所有操作都4字节对齐
     // 已经按照4字节对齐，如果对齐的话最大补齐也只可能是align - 4，这个大小算出来是偏大的
     allocSize = alignSize + (align - 4) + OS_MEM_FSC_HEAD_SIZE + OS_MEM_FSC_TAIL_MAGIC_SIZE;
 
+    intSave = OsIntLock();
     blk = OsMemFscFuzzySearch(ptCtrl, allocSize);
     if (blk == NULL) {
         blk = OsMemFscExactSearch(ptCtrl, allocSize, alignSize, align);
         if (blk == NULL) {
+            OsIntRestore(intSave);
             return NULL;
         }
     }
@@ -218,6 +222,7 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     OsMemFscSetOffset(realBlk, usrAddr);
     ptCtrl->freeSize -= realSize;
 
+    OsIntRestore(intSave);
     return (void *)usrAddr;
 }
 
@@ -257,6 +262,7 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     struct OsMemFscHead *memHead;
     struct OsMemFscCtrl *ctrl;
     size_t size;
+    enum OsIntStatus intSave = OsIntLock();
 
     memHead = OsMemFscGetHead((uintptr_t)addr);
     ctrl = memHead->ctrl;
@@ -271,4 +277,6 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     OsMemFscFreeListInsertBlk(ctrl, memHead);
     memHead->ctrl->freeSize += size;
     memHead->ctrl = NULL;
+    OsIntRestore(intSave);
+    return;
 }

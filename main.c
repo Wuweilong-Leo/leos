@@ -8,55 +8,15 @@
 #include "os_sched_external.h"
 #include "os_gdt.h"
 
-extern void OsBssInit(void);
-extern U32 OsSysConfigInit(void);
-
-OS_SEC_KERNEL_TEXT void OsConfigAll(void)
-{
-    OS_DEBUG_PRINT_STR("OsModuleConfig start\n");
-    OsBssInit();
-    OsSysConfigInit();
-    OsBuildUsrGdtEntry();
-    OsHwiConfig();
-    OsMemConfig();
-    OsSchedConfig();
-    OsTaskConfig();
-    OsTimerConfig();
-    OsSemConfig();
-    OS_DEBUG_PRINT_STR("OsModuleConfig end\n");
-
-}
+extern U32 OsConfigInit(void);
 
 OS_SEC_KERNEL_TEXT S32 main(void)
 {
     (void)OsIntLock();
     OsPrintStr("hello kernel\n");
-    OsConfigAll();
+    OsConfigInit();
     
-    void *mem = OsMemKernelAlloc(0x100, 4);
-    kprintf("mem = 0x%x\n", (U32)mem);
-    *(U32 *)mem = 1;
-    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
-
-    mem = OsMemKernelAlloc(0x100, 4);
-    kprintf("mem = 0x%x\n", (U32)mem);
-    *(U32 *)mem = 1;
-    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
-
-    mem = OsMemKernelAlloc(0x100, 0x1000);
-    kprintf("mem = 0x%x\n", (U32)mem);
-    *(U32 *)mem = 1;
-    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
-
-    mem = OsMemKernelAlloc(0x200, 256);
-    kprintf("mem = 0x%x\n", (U32)mem);
-    *(U32 *)mem = 1;
-    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
-
-    mem = OsMemKernelAlloc(0x200, 16);
-    kprintf("mem = 0x%x\n", (U32)mem);
-    *(U32 *)mem = 1;
-    kprintf("*(U32 *)mem = 0x%x\n", *(U32 *)mem);
+    OsSchedSwitchFirstTsk();
     
     /* never comes here */
     while (1) {}

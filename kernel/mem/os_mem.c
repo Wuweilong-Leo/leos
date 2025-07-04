@@ -48,7 +48,7 @@ static OS_SEC_KERNEL_TEXT void OsPrintMemPoolInfo(struct OsMemPool *memPool, cha
     OS_DEBUG_PRINT_STR("mem pool info end\n");
 }
 
-OS_SEC_KERNEL_TEXT void OsMemConfig(void)
+OS_SEC_KERNEL_TEXT U32 OsMemConfigInit(void)
 {
     U32 freePhyMemSize;
     U32 freeKernelPhyMemSize;
@@ -76,11 +76,8 @@ OS_SEC_KERNEL_TEXT void OsMemConfig(void)
     g_kernelMemPtCtrl = OsMemFscInitPt(OS_KERNEL_VIR_HEAP_MEM_BASE, OS_KERNEL_VIR_HEAP_MEM_SIZE);
     kprintf("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
 
-    // OsPrintMemPoolInfo(&g_kernelPhyMemPool, "kernelPhyMemPool");
-    // OsPrintMemPoolInfo(&g_usrPhyMemPool, "usrPhyMemPool");
-    // OsPrintMemPoolInfo(&g_kernelVirMemPool, "kernelVirMemPool");
-
     OS_DEBUG_PRINT_STR("OsMemConfig end\n");
+    return OS_OK;
 }
 
 OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt)

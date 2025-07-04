@@ -25,7 +25,7 @@ struct OsMemPool {
 #define OS_KERNEL_VIR_HEAP_MEM_BASE 0xC0100000
 #define OS_KERNEL_VIR_HEAP_MEM_SIZE (32 * 1024 * 1024)
 
-extern void OsMemConfig(void);
+extern U32 OsMemConfigInit(void);
 extern uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt);
 extern uintptr_t OsMemKernelAllocPgs(U32 cnt);
 extern uintptr_t OsMemUsrAllocPgs(U32 cnt);

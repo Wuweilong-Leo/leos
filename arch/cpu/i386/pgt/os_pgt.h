@@ -27,8 +27,15 @@ struct OS_STRUCT_PACKED OsPgtEntry {
 /* 虚拟地址在对应的页表的索引 */
 #define OS_PTE_IDX(addr) (((addr) & 0x003FF000U) >> 12)
 
-#define OS_PTE_EXIST(pteVaddr) (((*(pteVaddr)) & OS_PG_P) != 0)
-#define OS_PDE_EXIST(pdeVaddr) (((*(pdeVaddr)) & OS_PG_P) != 0)
+OS_INLINE bool OsPteIsExisted(uintptr_t pteVaddr)
+{
+    return ((*((U32 *)pteVaddr)) & OS_PG_P) != 0;
+}
+
+OS_INLINE bool OsPdeIsExisted(uintptr_t pdeVaddr)
+{
+    return ((*((U32 *)pdeVaddr)) & OS_PG_P) != 0;
+}
 
 extern struct OsPgtEntry g_pgd[OS_PGD_ENTRY_NUM];
 extern struct OsPgtEntry g_pgt[256][OS_PGD_ENTRY_NUM];

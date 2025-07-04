@@ -18,4 +18,11 @@ OS_INLINE U32 OsGetLmb(U32 val)
 
     return idx;
 }
+
+/* 获取结构体内元素的偏移 */
+#define OS_OFFSET(structType, elem) ((uintptr_t)(&(((structType *)0)->elem)))
+
+/* 通过元素地址获取结构体的首地址 */
+#define OS_GET_STRUCT_ENTRY(structType, elemName, elemAddr)               \
+  ((structType *)((uintptr_t)(elemAddr) - OS_OFFSET(structType, elemName)))
 #endif

@@ -21,7 +21,7 @@ OS_INLINE void OsCleanPgd(void)
 
 OS_SEC_LOADER_TEXT void OsSetupPgt(void) 
 {
-    struct OsPgtEntry *pgd = g_pgd;
+    struct OsPgtEntry *pgd = &g_pgd[0];
     U32 addr = 0;
     U32 i;
     U32 firstPgtBase = &g_pgt[0][0];
@@ -30,11 +30,11 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
     OsCleanPgd();
 
     /* 把虚拟地址1M和3G+1M都映射到物理地址的1M内，都指向第一张页表 */
-    *(U32 *)((U32)pgd + 0)= firstPgtBase | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
-    *(U32 *)((U32)pgd + 0xc00) = firstPgtBase | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
+    *(U32 *)((uintptr_t)pgd + 0)= firstPgtBase | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
+    *(U32 *)((uintptr_t)pgd + 0xc00) = firstPgtBase | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
     /* 最后一个页目录项指向页目录本身 */
-    *(U32 *)((U32)pgd + 4092) = (U32)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
+    *(U32 *)((uintptr_t)pgd + 4092) = (U32)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
     /* 给第一张页表每个页表项赋值，完成1M映射 */
     for (i = 0; i < 256; i++) {
@@ -83,8 +83,8 @@ OS_SEC_LOADER_TEXT void OsReadDiskM32(U32 secId, U32 secNum, uintptr_t dst)
 OS_INLINE uintptr_t OsGetPteVirAddr(uintptr_t vaddr) 
 {
     uintptr_t pte;
-    pte = (uintptr_t)(0xFFC00000 + (((U32)vaddr & 0xFFC00000) >> 10) +
-                      OS_PTE_IDX((U32)vaddr) * 4);
+    pte = (uintptr_t)(0xFFC00000 + ((vaddr & 0xFFC00000) >> 10) +
+                      OS_PTE_IDX(vaddr) * 4);
     return pte;
 }
 
@@ -92,31 +92,30 @@ OS_INLINE uintptr_t OsGetPteVirAddr(uintptr_t vaddr)
 OS_INLINE uintptr_t OsGetPdeVirAddr(uintptr_t vaddr)
 {
     uintptr_t pde;
-    pde = (uintptr_t)(0xFFFFF000 + OS_PDE_IDX((U32)vaddr) * 4);
+    pde = (uintptr_t)(0xFFFFF000 + OS_PDE_IDX(vaddr) * 4);
     return pde;
 }
 
 OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
 {
-    U32 *pteVaddr;
-    U32 *pdeVaddr;
+    uintptr_t pteVaddr;
+    uintptr_t pdeVaddr;
     uintptr_t ptPhyAddr;
 
     /* 
      * 如果虚拟地址确定，虚拟地址的页目录和页表也能确定，
      * 先找到此虚拟内存的对应的页目录和页表虚拟地址
      */
-    pteVaddr = (U32 *)OsGetPteVirAddr(virAddr);
-    pdeVaddr = (U32 *)OsGetPdeVirAddr(virAddr);
+    pteVaddr = OsGetPteVirAddr(virAddr);
+    pdeVaddr = OsGetPdeVirAddr(virAddr);
 
     /* 如果页目录项已存在，则对应页表已经存在，只用更改页表项 */
-    if (OS_PDE_EXIST(pdeVaddr)) {
+    if (OsPdeIsExisted(pdeVaddr)) {
         /* 如果页表项还不存在，添加页表项 */
-        if (!OS_PTE_EXIST(pteVaddr)) {
-            *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        if (!OsPteIsExisted(pteVaddr)) {
+            *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
         } else {
             OS_DEBUG_PRINT_STR("pte repeat\n");
-            *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
         }
     } else {
         /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
@@ -126,11 +125,11 @@ OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
          * 因为页目录的最后一项是本身地址，一旦把页表物理地址写入页目录, 
          * 无论内核态还是用户态，都可以通过pteVaddr来访问页表项了
          */
-        *pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        *(U32 *)pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
         /* 把整张页表初始化为0 */
-        memset((uintptr_t)((U32)pteVaddr & 0xFFFFF000), 0, OS_PG_SIZE);
+        memset(pteVaddr & 0xFFFFF000, 0, OS_PG_SIZE);
         /* 写入页表项 */
-        *pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
     }
 }
 

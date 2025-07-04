@@ -3,6 +3,7 @@
 #include "os_sys.h"
 #include "os_hwi_i386.h"
 #include "os_task_external.h"
+#include "os_base_external.h"
 
 // 系统ticks
 OS_SEC_KERNEL_BSS U64 g_uniTicks;
@@ -18,10 +19,11 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
     // 有任务到期了
     if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick >= g_uniTicks)) {
         // 弹出第一个到期任务
-        expiredTsk = OS_POP_FIRST_TSK_FROM_DLY_LIST(&rq->dlyList);
+        expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode,
+                                         OsListPopHead(&rq->dlyList));
 
         // 加回到就绪队列
-        OsEnqueTskToRdyListTail(expiredTsk);
+        OsSchedRdyListEnqueTsk(expiredTsk);
 
         OsIntRestore(intSave);
         return TRUE;        
@@ -39,13 +41,13 @@ OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
     enum OsIntStatus intSave = OsIntLock();
 
     if (OsListIsEmpty(&rq->dlyList)) {
-        // 没任务在延时了，把nearestTick清除
-        rq->nearestTick = 0;
         OsIntRestore(intSave);
         return;
     }
 
-    firstTsk = OS_GET_FIRST_TSK_IN_DLY_LIST(&rq->dlyList);
+    // 获取延时链上第一个任务
+    firstTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode,
+                                   OsListGetFirstNode(&rq->dlyList));
     rq->nearestTick = firstTsk->expiredTick;
 
     OsIntRestore(intSave);
@@ -54,19 +56,9 @@ OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
 
 OS_SEC_KERNEL_TEXT void OsTickScanTsks(struct OsRunQue *rq)
 {
-    bool goOn = FALSE;
-
-    do {
-        if (OsTickTryHandleExpiredTsk(rq)) {
-            OsRefreshNearestTick(rq);
-            goOn = TRUE;
-        } 
-    } while (goOn);
-}
-
-OS_INLINE bool OsTimeSliceOver(struct OsTaskCb *tsk)
-{
-    return tsk->timeSliceTicks == 0;
+    while (OsTickTryHandleExpiredTsk(rq)) {
+        OsRefreshNearestTick(rq);
+    }
 }
 
 OS_SEC_KERNEL_TEXT void OsTickHandleTimeSlice(void)
@@ -76,14 +68,13 @@ OS_SEC_KERNEL_TEXT void OsTickHandleTimeSlice(void)
 
     curTsk->timeSliceTicks--;
     // 时间片耗尽是冷分支
-    if (UNLIKELY(OsTimeSliceOver(curTsk))) {
+    if (UNLIKELY(curTsk->timeSliceTicks == 0)) {
         // 任务先出队
-        OsDequeTskFromRdyList(curTsk);
+        OsSchedRdyListDequeTsk(curTsk);
         // 调整任务优先级，时间片轮转
         OsTaskAdjustPrio(curTsk);
         // 加回到就绪队列
-        OsEnqueTskToRdyListTail(curTsk);
-        curTsk->status = OS_TASK_READY;
+        OsSchedRdyListEnqueTsk(curTsk);
         // 重新设置时间片
         OsTaskSetTimeSlice(curTsk, OsTaskCalTimeSlice(curTsk));
     }
@@ -103,6 +94,6 @@ OS_SEC_KERNEL_TEXT void OsTickDispatcher(void)
 OS_SEC_KERNEL_TEXT void OsTickIsr(void)
 {
     // 中断服务程序中要快速处理，其它操作留到中断尾部
-    OS_INC_UNI_TICKS();
-    OS_INC_NO_RESPOND_TICKS();
+    g_uniTicks++;
+    g_noRespondTicks++;
 }
