@@ -19,7 +19,7 @@ OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum)
 {
     (void)hwiNum;
     OsTickIsr();
-    kprintf("OsTimerIsr\n");
+    OS_DEBUG_KPRINT("OsTimerIsr\n");
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTimerConfigInit(void)

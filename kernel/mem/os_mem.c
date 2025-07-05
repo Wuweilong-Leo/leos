@@ -74,7 +74,7 @@ OS_SEC_KERNEL_TEXT U32 OsMemConfigInit(void)
                   OS_KERNEL_VIR_HEAP_MEM_SIZE, (U8 *)g_memPoolBtmp[2]);
 
     g_kernelMemPtCtrl = OsMemFscInitPt(OS_KERNEL_VIR_HEAP_MEM_BASE, OS_KERNEL_VIR_HEAP_MEM_SIZE);
-    kprintf("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
+    OS_DEBUG_KPRINT("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
 
     OS_DEBUG_PRINT_STR("OsMemConfig end\n");
     return OS_OK;

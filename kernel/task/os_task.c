@@ -60,9 +60,10 @@ OS_SEC_KERNEL_TEXT void Process1(void *para1, void *param2)
 
 OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
 {
-    OsIntLock();
     while (1) {
-        kprintf("idle\n");
+        OsIntLock();
+        OS_DEBUG_KPRINT("idle\n");
+        OsIntUnlock();
     }
 }
 

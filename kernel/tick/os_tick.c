@@ -13,7 +13,6 @@ OS_SEC_KERNEL_BSS U32 g_noRespondTicks;
 OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
 {
     enum OsIntStatus intSave = OsIntLock();
-    struct OsList *dlyListNode;
     struct OsTaskCb *expiredTsk;
 
     // 有任务到期了
@@ -37,7 +36,6 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
 OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
 {
     struct OsTaskCb *firstTsk;
-    struct OsList *dlyListNode;
     enum OsIntStatus intSave = OsIntLock();
 
     if (OsListIsEmpty(&rq->dlyList)) {
@@ -54,8 +52,9 @@ OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
     return;  
 }
 
-OS_SEC_KERNEL_TEXT void OsTickScanTsks(struct OsRunQue *rq)
-{
+OS_SEC_KERNEL_TEXT void OsTickScanTsks(void)
+{   
+    struct OsRunQue *rq = OS_RUN_QUE();
     while (OsTickTryHandleExpiredTsk(rq)) {
         OsRefreshNearestTick(rq);
     }
@@ -88,7 +87,7 @@ OS_SEC_KERNEL_TEXT void OsTickDispatcher(void)
     // 处理时间片
     OsTickHandleTimeSlice();
     // 扫描延时的任务
-    OsTickScanTsks(OS_RUN_QUE());
+    OsTickScanTsks();
 }
 
 OS_SEC_KERNEL_TEXT void OsTickIsr(void)

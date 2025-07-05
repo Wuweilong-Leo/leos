@@ -27,8 +27,6 @@ extern struct OsRunQue g_runQue;
 
 #define OS_RUN_QUE() (&g_runQue)
 #define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)
-#define OS_UNI_FLAG_SET_MSK(msk) (OS_RUN_QUE()->uniFlag |= (msk))
-#define OS_UNI_FLAG_CLR_MSK(msk) (OS_RUN_QUE()->uniFlag &= ~(msk))
 
 extern U32 OsSchedConfigInit(void);
 extern struct OsTaskCb *OsSchedPickHighestPrioTsk(void);
