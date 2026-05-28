@@ -40,11 +40,6 @@ struct OS_STRUCT_PACKED OsIdtInfo {
     U32 idtBase;
 };
 
-enum OsIntStatus {
-    OS_INT_OFF,
-    OS_INT_ON
-};
-
 enum OsExcType {
     OS_EXC_TYPE_DIVIDE_ERROR = 0,      // 除法错误（除零）
     OS_EXC_TYPE_DEBUG = 1,             // 调试异常

@@ -4,6 +4,7 @@
 #include "os_debug_external.h"
 #include "os_sys.h"
 #include "os_base_external.h"
+#include "os_cpu.h"
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 

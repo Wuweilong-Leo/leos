@@ -1,10 +1,10 @@
 #include "os_process_internal.h"
 #include "os_task_external.h"
-#include "os_hwi_i386.h"
+#include "os_hwi.h"
 #include "string.h"
 #include "os_sched_external.h"
 #include "os_context_i386.h"
-#include "os_cpu_i386.h"
+#include "os_cpu.h"
 #include "os_mem_external.h"
 #include "os_debug_external.h"
 

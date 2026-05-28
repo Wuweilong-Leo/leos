@@ -1,7 +1,7 @@
 #include "os_sem_internal.h"
 #include "os_debug_external.h"
 #include "os_task_external.h"
-#include "os_hwi_i386.h"
+#include "os_hwi.h"
 #include "os_sched_external.h"
 #include "os_base_external.h"
 

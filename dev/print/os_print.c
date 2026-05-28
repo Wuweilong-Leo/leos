@@ -1,7 +1,7 @@
 #include "os_def.h"
 #include "os_print_internal.h"
 #include "string.h"
-#include "os_hwi_i386.h"
+#include "os_hwi.h"
 
 OS_INLINE void OsPrintCleanLastLine(void)
 {

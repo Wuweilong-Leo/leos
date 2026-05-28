@@ -1,6 +1,5 @@
 #ifndef OS_CPU_I386_H
 #define OS_CPU_I386_H
-#define OS_PG_SIZE 4096
 /* pc一开始在此处，bios把mbr程序搬到此地址，开始执行mbr */
 #define OS_MBR_BASE 0x7C00
 /* 显存的起始地址 */

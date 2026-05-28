@@ -1,5 +1,5 @@
 #include "os_gdt.h"
-#include "os_cpu_i386.h"
+#include "os_cpu.h"
 #include "os_tss.h"
 OS_SEC_GDT_DATA struct OsGdtEntry g_gdt[OS_GDT_ENTRY_MAX_NUM] = {
     /* reserved */

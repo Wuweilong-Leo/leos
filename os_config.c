@@ -1,5 +1,6 @@
 #include "os_def.h"
 #include "os_sys.h"
+#include "os_hwi.h"
 
 typedef U32 (*OsConfigInitFunc)(void);
 
@@ -12,7 +13,6 @@ extern U32 OsBssConfigInit(void);
 extern U32 OsMemConfigInit(void);
 extern U32 OsSysConfigInit(void);
 extern U32 OsUsrConfigInit(void);
-extern U32 OsHwiConfigInit(void);
 extern U32 OsSchedConfigInit(void);
 extern U32 OsTaskConfigInit(void);
 extern U32 OsTimerConfigInit(void);

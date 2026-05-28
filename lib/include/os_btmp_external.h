@@ -1,7 +1,7 @@
 #ifndef OS_BTMP_EXTERNAL_H
 #define OS_BTMP_EXTERNAL_H
 #include "os_def.h"
-#include "os_cpu_i386.h"
+#include "os_cpu.h"
 
 struct OsBtmp {
     U32 byteLen;

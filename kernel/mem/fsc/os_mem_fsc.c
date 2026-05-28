@@ -1,6 +1,6 @@
 #include "os_mem_fsc_internal.h"
 #include "os_base_external.h"
-#include "os_hwi_i386.h"
+#include "os_hwi.h"
 
 OS_INLINE struct OsMemFscHead *OsMemFscGetFreeList(struct OsMemFscCtrl *ctrl, U32 idx)
 {

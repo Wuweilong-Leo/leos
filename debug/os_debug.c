@@ -4,7 +4,7 @@
 #include "os_sched_external.h"
 #include "os_task_external.h"
 #include "os_debug_external.h"
-#include "os_hwi_i386.h"
+#include "os_hwi.h"
 
 OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(char *filename, U32 line, const char *func,
                       const char *cond) {

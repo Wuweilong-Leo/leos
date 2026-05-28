@@ -1,6 +1,6 @@
 #include "os_def.h"
 #include "os_mem_internal.h"
-#include "os_cpu_i386.h"
+#include "os_cpu.h"
 #include "os_debug_external.h"
 #include "os_pgt.h"
 #include "os_sched_external.h"
