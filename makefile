@@ -7,7 +7,7 @@ MAP_DIR := $(CUR_DIR)/build/map
 $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR) $(MAP_DIR))
 
 # 编译选项
-COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -c
+COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -fno-stack-protector -c
 
 # 包含目录
 INC_DIR := $(CUR_DIR) \
