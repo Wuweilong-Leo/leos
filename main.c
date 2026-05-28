@@ -1,6 +1,6 @@
 #include "os_def.h"
 #include "os_print_external.h"
-#include "os_timer_i386.h"
+#include "os_timer.h"
 #include "os_hwi.h"
 #include "os_debug_external.h"
 #include "os_mem_external.h"

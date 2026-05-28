@@ -4,7 +4,7 @@
 #include "os_list_external.h"
 #include "os_mem_external.h"
 #include "os_hwi.h"
-#include "os_context_i386.h"
+#include "os_cpu.h"
 #include "os_debug_external.h"
 #include "os_sys.h"
 #include "string.h"

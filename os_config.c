@@ -1,6 +1,7 @@
 #include "os_def.h"
 #include "os_sys.h"
 #include "os_hwi.h"
+#include "os_timer.h"
 
 typedef U32 (*OsConfigInitFunc)(void);
 
@@ -15,7 +16,6 @@ extern U32 OsSysConfigInit(void);
 extern U32 OsUsrConfigInit(void);
 extern U32 OsSchedConfigInit(void);
 extern U32 OsTaskConfigInit(void);
-extern U32 OsTimerConfigInit(void);
 extern U32 OsSemConfigInit(void);
 
 OS_SEC_KERNEL_DATA struct OsConfigInitInfo g_configInitTab[] = {

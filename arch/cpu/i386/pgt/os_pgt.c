@@ -36,8 +36,8 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
     /* 最后一个页目录项指向页目录本身 */
     *(U32 *)((uintptr_t)pgd + 4092) = (U32)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
-    /* 给第一张页表每个页表项赋值，完成1M映射 */
-    for (i = 0; i < 256; i++) {
+    /* 给第一张页表每个页表项赋值，完成2M映射 */
+    for (i = 0; i < 512; i++) {
         *(U32 *)(&g_pgt[0][i]) = addr | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
         addr += OS_PG_SIZE;   
     }

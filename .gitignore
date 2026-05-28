@@ -1,0 +1,4 @@
+/build/
+/cmake-build/
+/bochs/
+*.ps1

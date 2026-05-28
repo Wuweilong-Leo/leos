@@ -1,6 +1,7 @@
 #ifndef OS_HWI_H
 #define OS_HWI_H
 #include "os_def.h"
+#include "os_target.h"
 
 enum OsIntStatus {
     OS_INT_OFF,
@@ -15,7 +16,7 @@ extern void OsHwiConfigInit(void);
 #if defined(ARCH_i386)
 #include "os_hwi_i386.h"
 #else
-#error "Unsupported architecture. Define ARCH_i386."
+#error "Unsupported architecture. Define ARCH_i386 in os_target.h."
 #endif
 
 #endif

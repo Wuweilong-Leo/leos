@@ -8,7 +8,6 @@ set(CMAKE_C_COMPILER gcc)
 
 # 强制 32 位编译，freestanding 环境（不依赖标准库），关闭栈保护器
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -std=c11 -ffreestanding -fno-stack-protector")
-add_compile_definitions(ARCH_i386)
 
 # =============================================================================
 # 头文件包含路径

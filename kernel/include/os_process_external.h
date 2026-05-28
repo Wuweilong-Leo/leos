@@ -7,6 +7,7 @@ typedef void (*OsProcessEntryFunc) (void *arg1, void *arg2);
 
 #define OS_PROCESS_PARAM_NUM 0x2
 #define OS_PROCESS_NAME_MAX_SIZE OS_TASK_NAME_MAX_SIZE
+#define OS_PROCESS_USR_STACK_BASE (0xC0000000 - OS_PG_SIZE)
 
 struct OsProcessCreateParam {
     OsProcessEntryFunc entryFunc;
