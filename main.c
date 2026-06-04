@@ -24,7 +24,6 @@ OS_SEC_KERNEL_TEXT void TestTaskA(void *para1, void *param2, void *param3, void 
     U32 count = 0;
     VgaPutChar(2, 0, 'A', 0x0E);
     while (1) {
-        /* 显示计数（简单16进制） */
         VgaPutChar(2, 2, "0123456789ABCDEF"[(count >> 4) & 0xF], 0x0E);
         VgaPutChar(2, 3, "0123456789ABCDEF"[count & 0xF], 0x0E);
         count++;
@@ -97,7 +96,8 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     param.entryFunc = TestTaskC;
     OsTaskCreate(&param, &tskIdC);
 
-    /* 直接入就绪队列 */
+    /* 入就绪队列但不触发调度（OsTaskResume会触发OsTaskSchedule，
+       在main初始化未完成时切换上下文会导致page fault） */
     tskCb = OS_TASK_GET_CB(tskIdA);
     OsSchedRdyListEnqueTsk(tskCb);
     tskCb = OS_TASK_GET_CB(tskIdB);
@@ -105,6 +105,7 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     tskCb = OS_TASK_GET_CB(tskIdC);
     OsSchedRdyListEnqueTsk(tskCb);
 
+    /* 由 OsSchedSwitchFirstTsk 统一做第一次调度 */
     OsSchedSwitchFirstTsk();
     
     while (1) {}

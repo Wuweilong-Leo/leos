@@ -169,8 +169,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
-    if ((tskCb->status & OS_TASK_STATUS_USED) != 0) {
-        OS_LOG_ERROR("OsTaskResume: task %u status illegal, status=0x%x\n", tskId, tskCb->status);
+    if ((tskCb->status & OS_TASK_STATUS_READY) != 0) {
+        OS_LOG_ERROR("OsTaskResume: task %u already ready, status=0x%x\n", tskId, tskCb->status);
         OsIntRestore(intSave);
         return OS_TASK_RESUME_TSK_STATUS_ILL;
     }
