@@ -176,7 +176,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     }
 
     OsSchedRdyListEnqueTsk(tskCb);
-    tskCb->status |= OS_TASK_STATUS_READY;
 
     OsTaskSchedule();
 
