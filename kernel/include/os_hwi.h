@@ -10,7 +10,7 @@ enum OsIntStatus {
 
 /* 通用中断 API 声明 */
 extern U32 OsHwiCreate(U32 hwiNum, void (*isr)(U32));
-extern void OsHwiConfigInit(void);
+extern U32 OsHwiConfigInit(void);
 
 /* 架构相关 inline 实现由下方条件编译引入 */
 #if defined(ARCH_i386)

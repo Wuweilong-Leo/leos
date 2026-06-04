@@ -81,7 +81,7 @@ OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_NUM] = {
 
 OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {
     .idtLmit = sizeof(g_idt) - 1,
-    .idtBase = g_idt
+    .idtBase = (U32)g_idt
 };
 
 OS_INLINE U32 OsExcNum2Idx(U32 excNum)
@@ -120,8 +120,7 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 
 OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
 {
-    // char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
-    char *excName = "1";
+    char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
     if (excName != NULL) {
         OS_DEBUG_KPRINT("exc num: 0x%x, exc type: %s, exc addr: 0x%x, exc cs: 0x%x, exc pc 0x%x, \
                 eax: 0x%x, ebx: 0x%x, ecx: 0x%x, edx: 0x%x\n",
@@ -156,7 +155,7 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
 {
     if (excNum > OS_EXC_MAX) {
-        OS_DEBUG_KPRINT("excNum invalid, excNum = 0x%x\n", excNum);
+        OS_LOG_ERROR("OsExcDispatcher: excNum 0x%x out of range (max 0x%x)\n", excNum, OS_EXC_MAX);
         while (1) {}
     }
 
@@ -225,7 +224,7 @@ static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
     }
 }
 
-OS_SEC_KERNEL_TEXT void OsHwiConfigInit(void)
+OS_SEC_KERNEL_TEXT U32 OsHwiConfigInit(void)
 {
     OS_DEBUG_PRINT_STR("OsHwiConfig start\n");
 
@@ -237,6 +236,7 @@ OS_SEC_KERNEL_TEXT void OsHwiConfigInit(void)
     OS_EMBED_ASM("lidt %0"::"m"(g_idtInfo):);
 
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");
+    return OS_OK;
 }
 
 // 中断尾部

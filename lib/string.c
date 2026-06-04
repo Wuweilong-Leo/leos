@@ -29,11 +29,14 @@ OS_SEC_KERNEL_TEXT S32 memcmp(void *s1, void *s2, U32 size) {
 }
 
 OS_SEC_KERNEL_TEXT char *strcpy(char *dst, const char *src) {
+  char *ret = dst;
   while (*src != 0) {
     *dst = *src;
     dst++;
     src++;
   }
+  *dst = '\0';
+  return ret;
 }
 
 OS_SEC_KERNEL_TEXT U32 strlen(const char *str) {

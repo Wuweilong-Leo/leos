@@ -22,8 +22,8 @@ struct OsMemPool {
 #define OS_USR_MEM_VIR_ADDR_START 0x8048000
 /* 用户最多申请1M */
 #define OS_USR_VIR_MEM_SIZE (OS_KERNEL_MEM_VIR_ADDR_START - OS_USR_MEM_VIR_ADDR_START)
-#define OS_KERNEL_VIR_HEAP_MEM_BASE 0xC0100000
-#define OS_KERNEL_VIR_HEAP_MEM_SIZE (32 * 1024 * 1024)
+#define OS_KERNEL_VIR_HEAP_MEM_BASE 0xC0200000
+#define OS_KERNEL_VIR_HEAP_MEM_SIZE (4 * 1024 * 1024)
 
 extern U32 OsMemConfigInit(void);
 extern uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt);

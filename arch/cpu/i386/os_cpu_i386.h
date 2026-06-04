@@ -11,7 +11,7 @@
 /* loader的起始扇区号 */
 #define OS_LOADER_START_SEC_ID 0x2
 /* loader的sec数 */
-#define OS_LOADER_SEC_NUM 2
+#define OS_LOADER_SEC_NUM 4
 /* 端口号 */
 #define OS_DISK_SEC_CNT_PORT 0x1F2
 #define OS_DISK_LBA_LOW_PORT 0x1F3

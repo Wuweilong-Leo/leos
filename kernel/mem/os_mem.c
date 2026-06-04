@@ -73,6 +73,16 @@ OS_SEC_KERNEL_TEXT U32 OsMemConfigInit(void)
     OsMemPoolInit(&g_kernelVirMemPool, (uintptr_t)OS_KERNEL_VIR_HEAP_MEM_BASE,
                   OS_KERNEL_VIR_HEAP_MEM_SIZE, (U8 *)g_memPoolBtmp[2]);
 
+    /* 为虚拟堆映射所有物理页，OsMemFscInitPt需要整个区域可写 */
+    {
+        U32 heapPages = OS_KERNEL_VIR_HEAP_MEM_SIZE / OS_PG_SIZE;
+        U32 mapOffset;
+        for (mapOffset = 0; mapOffset < heapPages * OS_PG_SIZE; mapOffset += OS_PG_SIZE) {
+            OsMapVir2Phy((uintptr_t)OS_KERNEL_VIR_HEAP_MEM_BASE + mapOffset,
+                         OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1));
+        }
+    }
+
     g_kernelMemPtCtrl = OsMemFscInitPt(OS_KERNEL_VIR_HEAP_MEM_BASE, OS_KERNEL_VIR_HEAP_MEM_SIZE);
     OS_DEBUG_KPRINT("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
 
@@ -88,7 +98,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
     U32 i;
 
     if (!OsBtmpScan(btmp, cnt, 0, &idx)) {
-        OS_DEBUG_PRINT_STR("OsMemPoolGetFreePg: free pages not enough\n");
+        OS_LOG_WARN("OsMemPoolGetFreePgs: pool 0x%x needs %u pages, not enough\n", (U32)pool->base, cnt);
         return NULL;
     }
 
@@ -109,6 +119,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
     uintptr_t virAddrBase;
     U32 i;
     uintptr_t phyAddr;
+    U32 allocated = 0;
 
     if (flag == OS_MEM_KERNEL) {
         virMemPool = &g_kernelVirMemPool;
@@ -119,22 +130,44 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
     }
 
     virAddrBase = OsMemPoolGetFreePgs(virMemPool, cnt);
-    if (virAddrBase == NULL) {
-        OS_DEBUG_PRINT_STR("OsMemKernelAllocPgs: OsMemPoolGetFreePgs failed\n");
-        return NULL;
+    if (virAddrBase == (uintptr_t)NULL) {
+        OS_LOG_ERROR("OsMemAllocPgs: virMemPool get free pgs failed, cnt=%u\n", cnt);
+        return (uintptr_t)NULL;
     }
 
     virAddr = (U32)virAddrBase;
     for (i = 0; i < cnt; i++) {
         phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
-        if (phyAddr == NULL) {
-            OS_DEBUG_PRINT_STR("OsMemKernelAllocPgs: OsMemPoolGetFreePgs failed\n");
-            return NULL;
-        }  
-
+        if (phyAddr == (uintptr_t)NULL) {
+            OS_LOG_ERROR("OsMemAllocPgs: phyMemPool alloc page %u/%u failed, rollback\n", allocated, cnt);
+            /* 回滚：清除已映射的页表项并释放物理页 */
+            virAddr = (U32)virAddrBase;
+            for (i = 0; i < allocated; i++) {
+                /* 页表项虚拟地址 = 0xFFC00000 + (vaddr>>10) + PTE索引*4 */
+                U32 pdeIdx = virAddr >> 22;
+                U32 pteIdx = (virAddr >> 12) & 0x3FF;
+                U32 pteVaddr = 0xFFC00000 + (pdeIdx << 12) + pteIdx * 4;
+                U32 pteVal = *(U32 *)pteVaddr;
+                if ((pteVal & 1) != 0) {
+                    phyAddr = pteVal & 0xFFFFF000;
+                    *(U32 *)pteVaddr = 0;
+                    U32 phyIdx = (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE;
+                    OsBtmpClear(&phyMemPool->btmp, phyIdx);
+                }
+                virAddr += OS_PG_SIZE;
+            }
+            /* 回滚：释放虚拟页 */
+            {
+                U32 virIdx = ((U32)virAddrBase - (U32)virMemPool->base) / OS_PG_SIZE;
+                for (i = 0; i < cnt; i++) {
+                    OsBtmpClear(&virMemPool->btmp, virIdx + i);
+                }
+            }
+            return (uintptr_t)NULL;
+        }
         OsMapVir2Phy((uintptr_t)virAddr, phyAddr);
-
         virAddr += OS_PG_SIZE;
+        allocated++;
     }
 
     return virAddrBase;
@@ -155,7 +188,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemUsrAllocPgs(U32 cnt)
 OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t virAddr)
 {
     struct OsMemPool *virMemPool;
-    struct OsPhyPool *phyMemPool;
+    struct OsMemPool *phyMemPool;
     uintptr_t phyAddr;
     U32 idx;
 
@@ -170,13 +203,13 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
     idx = ((U32)virAddr - (U32)virMemPool->base) / OS_PG_SIZE;
     /* 这个地址已经被分配出去了 */
     if (OsBtmpGet(&virMemPool->btmp, idx) != 0) {
-        OS_DEBUG_KPRINT("%s", "vaddr has been allocated\n");
+        OS_LOG_WARN("OsMemAllocPgByAddr: vaddr 0x%x already allocated\n", (U32)virAddr);
         return NULL;
     }
 
     phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
-    if (phyAddr == NULL) {
-        OS_DEBUG_PRINT_STR("OsMemAllocPgByAddr: OsMemPoolGetFreePgs failed\n");
+    if (phyAddr == (uintptr_t)NULL) {
+        OS_LOG_ERROR("OsMemAllocPgByAddr: phyMemPool get free pgs failed, vaddr=0x%x\n", (U32)virAddr);
         return NULL;
     }
 

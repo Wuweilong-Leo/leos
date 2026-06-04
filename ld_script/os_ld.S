@@ -1,6 +1,6 @@
 MEMORY
 {
-    LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 1024
+    LOADER_MEM(rwx): ORIGIN = 0x00001000, LENGTH = 2048
     BOOT_STACK_MEM(rwx): ORIGIN = 0x00002000, LENGTH = 0x4000
 	MBR_MEM(rwx): ORIGIN = 0x00007C00, LENGTH = 512
 /* 编译出来是C000D000起始，实际上加载到D000，然后通过页表映射到实际物理地址 */
@@ -17,6 +17,9 @@ SECTIONS
     {   
         . = ALIGN(4);
         _os_loader_start = .;
+        /* 实模式代码必须在开头（加载到 0x1000） */
+        *(.os.loader.text.real)
+        /* 32 位保护模式代码 */
         *(.os.loader.text)
         *(.os.loader.data)
         *(.os.loader.bss)

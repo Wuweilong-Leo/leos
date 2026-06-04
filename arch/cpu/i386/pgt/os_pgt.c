@@ -49,34 +49,120 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
     }
 }
 
-/* 保护模式下加载磁盘数据 */
-OS_SEC_LOADER_TEXT void OsReadDiskM32(U32 secId, U32 secNum, uintptr_t dst)
+/* 保护模式下加载磁盘数据 (LBA28 端口 I/O，仅 IDE 硬盘) */
+OS_SEC_LOADER_TEXT void OsReadDiskLba28(U32 secId, U32 secNum, uintptr_t dst)
 {
-    volatile U8 diskRdy;
+    volatile U8 status;
     U32 readTimes;
     U32 dstAddr = (U32)dst;
     U16 data;
 
-    OsOutw(OS_DISK_SEC_CNT_PORT, (U16)secNum);
+    /* 1. 等待 BSY=0 */
+    do {
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0x80) != 0);
 
+    /* 2. 写扇区数 */
+    OsOutb(OS_DISK_SEC_CNT_PORT, (U8)secNum);
+
+    /* 3. 写 LBA28 地址 */
     OsOutb(OS_DISK_LBA_LOW_PORT, (U8)secId);
     OsOutb(OS_DISK_LBA_MID_PORT, (U8)(secId >> 8));
     OsOutb(OS_DISK_LBA_HIGH_PORT, (U8)(secId >> 16));
 
-    OsOutb(OS_DISK_DEV_PORT, (U8)(0x0 | 0xe0));
+    /* 4. 写设备/模式: LBA 模式 (bit6=1), drive=0 (bit4=0) */
+    OsOutb(OS_DISK_DEV_PORT, (U8)(0xe0 | ((secId >> 24) & 0x0f)));
+
+    /* 4.5 等待 DRDY=1 且 BSY=0 (设备就绪) */
+    do {
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0xc0) != 0x40);  /* BSY=0, DRDY=1 */
+
+    /* 5. 发送读命令 */
     OsOutb(OS_DISK_CMD_STA_PORT, OS_DISK_CMD_RD);
 
+    /* 6. 等待 DRQ=1 (bit3) 且 BSY=0 (bit7) */
+    /* 标准 ATA 等待: 先读状态 4 次作为 400ns 延迟 */
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
     do {
-        OS_EMBED_ASM("NOP");
-        diskRdy = OsInb(OS_DISK_CMD_STA_PORT);
-    } while ((diskRdy & 0x88) != 0x08);
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0x88) != 0x08);
 
+    /* 7. 读取数据 */
     readTimes = (secNum * 512) / 2;
     do {
         data = OsInw(OS_DISK_RD_PORT);
         *(U16 *)dstAddr = data;
         dstAddr += 2;
     } while ((--readTimes) > 0);
+}
+
+/* LBA48 读取 (支持大磁盘) */
+OS_SEC_LOADER_TEXT void OsReadDiskLba48(U32 secId, U32 secNum, uintptr_t dst)
+{
+    volatile U8 status;
+    U32 readTimes;
+    U32 dstAddr = (U32)dst;
+    U16 data;
+
+    /* 1. 等待 BSY=0 */
+    do {
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0x80) != 0);
+
+    /* 2. LBA48: 先写高16位，再写低16位 */
+    /* 高位 (LBA48 扩展) */
+    OsOutb(0x1F1, 0);                   /* Features = 0 */
+    OsOutb(OS_DISK_SEC_CNT_PORT, (U8)0);  /* Sector count high = 0 */
+    OsOutb(OS_DISK_LBA_LOW_PORT, (U8)(secId >> 24));
+    OsOutb(OS_DISK_LBA_MID_PORT, (U8)(secId >> 32));
+    OsOutb(OS_DISK_LBA_HIGH_PORT, (U8)(secId >> 40));
+
+    /* 低位 */
+    OsOutb(0x1F1, 0);                   /* Features = 0 */
+    OsOutb(OS_DISK_SEC_CNT_PORT, (U8)secNum);
+    OsOutb(OS_DISK_LBA_LOW_PORT, (U8)secId);
+    OsOutb(OS_DISK_LBA_MID_PORT, (U8)(secId >> 8));
+    OsOutb(OS_DISK_LBA_HIGH_PORT, (U8)(secId >> 16));
+
+    /* 3. 设备/模式: LBA48 (bit6=1) */
+    OsOutb(OS_DISK_DEV_PORT, (U8)(0x40 | 0xe0));
+
+    /* 3.5 等待 DRDY=1 且 BSY=0 */
+    do {
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0xc0) != 0x40);
+
+    /* 4. 发送 LBA48 读命令 */
+    OsOutb(OS_DISK_CMD_STA_PORT, 0x24);
+
+    /* 5. 等待 DRQ=1 且 BSY=0 */
+    /* 标准 ATA 等待: 先读状态 4 次作为 400ns 延迟 */
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
+    OsInb(OS_DISK_CMD_STA_PORT);
+    do {
+        status = OsInb(OS_DISK_CMD_STA_PORT);
+    } while ((status & 0x88) != 0x08);
+
+    /* 6. 读取数据 */
+    readTimes = (secNum * 512) / 2;
+    do {
+        data = OsInw(OS_DISK_RD_PORT);
+        *(U16 *)dstAddr = data;
+        dstAddr += 2;
+    } while ((--readTimes) > 0);
+}
+
+/* 保护模式磁盘读取: 先试 LBA48, 失败试 LBA28 */
+OS_SEC_LOADER_TEXT void OsReadDiskM32(U32 secId, U32 secNum, uintptr_t dst)
+{
+    /* 先试 LBA28 (简单可靠) */
+    OsReadDiskLba28(secId, secNum, dst);
 }
 
 /* 根据虚拟地址找此虚拟地址对应的页表的虚拟地址 */

@@ -4,6 +4,7 @@
 #include "os_hwi.h"
 #include "os_sched_external.h"
 #include "os_base_external.h"
+#include "string.h"
 
 OS_SEC_KERNEL_DATA struct OsList g_semFreeList = OS_LIST_INIT(g_semFreeList);  
 OS_SEC_KERNEL_BSS struct OsSemCb *g_semCbArray;
@@ -20,6 +21,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
     size = g_semMaxNum * sizeof(struct OsSemCb);
     g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
     if (g_semCbArray == NULL) {
+        OS_LOG_ERROR("OsSemConfigInit: alloc semCbArray failed, size=%u\n", (U32)size);
         while (1) {}
     }
 
@@ -53,6 +55,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 *semId)
 
     semCb = OsSemGetFreeCb();
     if (semCb == NULL) {
+        OS_LOG_ERROR("OsSemCreate: no free sem CB\n");
         OsIntRestore(intSave);
         return OS_SEM_CREATE_NO_FREE_CB;
     }
@@ -77,6 +80,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
 
     /* 暂时不可重入 */
     if (OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
+        OS_LOG_ERROR("OsSemPend: task %u already holds sem %u\n", curTsk->pid, semId);
         OsIntRestore(intSave);
         return OS_SEM_PEND_TSK_ALREADY_HOLD_SEM;
     }
@@ -114,11 +118,13 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 
     /* 没持有就释放是非法的 */
     if (!OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
+        OS_LOG_ERROR("OsSemPost: task %u does not hold sem %u\n", curTsk->pid, semId);
         OsIntRestore(intSave);
         return OS_SEM_POST_TSK_NOT_HOLD_SEM;
     }
 
     if (semCb->val == semCb->semCnt) {
+        OS_LOG_WARN("OsSemPost: sem %u is full (val=%u)\n", semId, semCb->val);
         OsIntRestore(intSave);
         return OS_SEM_POST_IS_FULL;
     }
@@ -134,7 +140,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
                                       OsListPopHead(&semCb->pendList));
         /* 加回到就绪队列 */
         OsSchedRdyListEnqueTsk(pendTsk);
-        pendTsk->status &= OS_TASK_STATUS_PENDING;
+        pendTsk->status &= ~OS_TASK_STATUS_PENDING;
 
         /* 可能阻塞的是高优先级的任务，尝试触发调度 */
         OsTaskSchedule();

@@ -7,7 +7,7 @@ MAP_DIR := $(CUR_DIR)/build/map
 $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR) $(MAP_DIR))
 
 # 编译选项
-COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -fno-stack-protector -c
+COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -fno-stack-protector -fno-pic -fno-pie -Wno-error=int-conversion -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration -DDEBUG_ENABLE=1 -c
 
 # 包含目录
 INC_DIR := $(CUR_DIR) \

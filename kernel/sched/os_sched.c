@@ -23,8 +23,12 @@ OS_INLINE U32 OsSchedGetHighestPrio(void)
     U32 bit = 0;
 
     /* 保证总有一个任务ready */
-    while ((rq->rdyListMsk & (1 << bit)) == 0) {
+    while (bit < OS_TASK_PRIO_MAX_NUM && (rq->rdyListMsk & (1 << bit)) == 0) {
         bit++;
+    }
+
+    if (bit >= OS_TASK_PRIO_MAX_NUM) {
+        return OS_TASK_LOWEST_PRIO; /* fallback to idle */
     }
 
     return bit;
@@ -139,6 +143,7 @@ static OS_SEC_KERNEL_TEXT void OsSchedPrepare(void)
 {
     // 创建idle任务
     if (OsTaskCreateIdle() != OS_OK) {
+        OS_LOG_ERROR("OsSchedPrepare: create idle task failed\n");
         while (1);
     }
 }

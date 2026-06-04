@@ -13,6 +13,7 @@ typedef unsigned long size_t;
 #define TRUE 1
 #define FALSE 0
 #define NULL ((void *)0)
+#define NULL_U32 (0U)
 #define OS_OK 0
 #define OS_U64_MAX 0xFFFFFFFFFFFFFFFFULL
 #define OS_U32_MAX 0xFFFFFFFFU

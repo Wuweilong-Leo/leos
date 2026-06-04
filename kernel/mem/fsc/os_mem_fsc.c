@@ -1,6 +1,7 @@
 #include "os_mem_fsc_internal.h"
 #include "os_base_external.h"
 #include "os_hwi.h"
+#include "os_debug_external.h"
 
 OS_INLINE struct OsMemFscHead *OsMemFscGetFreeList(struct OsMemFscCtrl *ctrl, U32 idx)
 {
@@ -78,6 +79,9 @@ OS_SEC_KERNEL_TEXT struct OsMemFscHead *OsMemFscFuzzySearch(struct OsMemFscCtrl 
     struct OsMemFscHead *freeList;
 
     while (1) {
+        if (idx >= 32) {
+            return NULL;
+        }
         idx = OsGetLmb(((*btmp) << idx) >> idx); // 先过滤掉小的内存然后从小链表开始找
         if (idx == OS_MEM_FSC_LAST_IDX) {
             return NULL;
@@ -186,6 +190,7 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     if (blk == NULL) {
         blk = OsMemFscExactSearch(ptCtrl, allocSize, alignSize, align);
         if (blk == NULL) {
+            OS_LOG_ERROR("OsMemFscAlloc: no suitable block, size=%u align=%u\n", (U32)size, align);
             OsIntRestore(intSave);
             return NULL;
         }
@@ -242,7 +247,7 @@ OS_SEC_KERNEL_TEXT void OsMemFscTryMergeRight(struct OsMemFscCtrl *ctrl, struct 
     }
 }
 
-OS_SEC_KERNEL_TEXT bool OsMemFscTryMergeLeft(struct OsMemFscCtrl *ctrl, struct OsMemFscHead *curBlk)
+OS_SEC_KERNEL_TEXT bool OsMemFscTryMergeLeft(struct OsMemFscCtrl *ctrl, struct OsMemFscHead *curBlk, struct OsMemFscHead **mergedBlk)
 {
     struct OsMemFscHead *leftBlk;
 
@@ -251,6 +256,9 @@ OS_SEC_KERNEL_TEXT bool OsMemFscTryMergeLeft(struct OsMemFscCtrl *ctrl, struct O
         leftBlk = (struct OsMemFscHead *)((uintptr_t)curBlk - curBlk->preSize);
         OsMemFscFreeListRemoveBlk(leftBlk);
         leftBlk->size += curBlk->size;
+        if (mergedBlk != NULL) {
+            *mergedBlk = leftBlk;
+        }
         return TRUE;
     }
 
@@ -270,8 +278,9 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
 
     OsMemFscTryMergeRight(ctrl, memHead);
 
-    if (OsMemFscTryMergeLeft(ctrl, memHead)) {
-        memHead = (struct OsMemFscHead *)((uintptr_t)memHead - memHead->preSize);   
+    struct OsMemFscHead *mergedLeft = NULL;
+    if (OsMemFscTryMergeLeft(ctrl, memHead, &mergedLeft)) {
+        memHead = mergedLeft;
     }
     ((struct OsMemFscHead *)((uintptr_t)memHead + memHead->size))->preSize = memHead->size;
     OsMemFscFreeListInsertBlk(ctrl, memHead);

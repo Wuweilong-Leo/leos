@@ -46,5 +46,6 @@ OS_SEC_KERNEL_TEXT U32 OsConfigInit(void)
         if (ret != OS_OK) {
             return ret;
         }
-    } 
+    }
+    return OS_OK;
 }

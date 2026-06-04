@@ -192,7 +192,7 @@ OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
     return strlen(str);
 }
 
-OS_SEC_KERNEL_TEXT void kprintf(const char *fmt, ...)
+OS_SEC_KERNEL_TEXT S32 kprintf(const char *fmt, ...)
 {
     char buf[256] = {0};
     void *args;

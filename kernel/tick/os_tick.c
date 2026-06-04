@@ -16,7 +16,7 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
     struct OsTaskCb *expiredTsk;
 
     // 有任务到期了
-    if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick >= g_uniTicks)) {
+    if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick <= g_uniTicks)) {
         // 弹出第一个到期任务
         expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode,
                                          OsListPopHead(&rq->dlyList));
