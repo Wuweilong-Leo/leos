@@ -49,7 +49,7 @@ dd if=kernel.bin of=leos_hdd.img bs=512 seek=9 conv=notrunc
 qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32
 ```
 
-你应该能看到 VGA 屏幕上显示 `LEOS TASK TEST`，以及三个线程（A/B/C）在屏幕上显示各自的计数器。
+你应该能看到 VGA 屏幕上显示初始化日志和三个线程（A/B/C）在屏幕上显示各自的计数器。
 
 ---
 
@@ -173,7 +173,8 @@ main()
  │    ├── OsMemConfigInit()   ← 初始化内存管理 + 映射虚拟堆
  │    ├── OsHwiConfigInit()   ← 安装中断处理程序
  │    ├── OsUsrConfigInit()   ← 用户态配置
- │    └── ...
+ │    ├── OsSemConfigInit()   ← 初始化信号量
+    └── OsAppConfigInit()    ← APP测试模块（创建TaskA/B/C）
  ├── 创建测试线程 TaskA/B/C
  ├── OsSchedSwitchFirstTsk() ← 切换到最高优先级就绪任务
  └── （永远不会返回）
@@ -286,6 +287,10 @@ leos/
 │   └── ipc/sem/           ← 信号量
 ├── dev/                   ← 设备驱动
 │   └── print/             ← kprintf 内核打印
+├── test/                  ← 测试模块
+│   ├── os_test.h          ← 测试框架头文件
+│   ├── os_test_app.c      ← APP 初始化入口（configInit 表调用）
+│   └── os_test_task.c     ← 任务调度测试（TaskA/B/C）
 ├── debug/                 ← 调试打印宏
 ├── lib/                   ← C 库函数（memset, strcpy 等）
 ├── ld_script/             ← 链接脚本

@@ -10,6 +10,7 @@ enum OsMid {
     OS_MID_USR,
     OS_MID_SCHED,
     OS_MID_TIMER,
+    OS_MID_APP,
 };
 
 #define OS_HWI_ACTIVE_MSK 0x00000001U

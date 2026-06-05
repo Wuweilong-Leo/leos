@@ -34,6 +34,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/kernel/mem
     ${CMAKE_SOURCE_DIR}/kernel/mem/fsc
     ${CMAKE_SOURCE_DIR}/lib/btmp
+    ${CMAKE_SOURCE_DIR}/test
 )
 
 include_directories(${LEOS_INC_DIRS})
@@ -64,6 +65,7 @@ set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/arch/cpu/i386
     ${CMAKE_SOURCE_DIR}/dev/print
     ${CMAKE_SOURCE_DIR}/debug
+    ${CMAKE_SOURCE_DIR}/test
 )
 
 # 收集所有 .c 文件

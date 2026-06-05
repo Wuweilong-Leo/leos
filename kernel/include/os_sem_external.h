@@ -13,7 +13,7 @@ struct OsSemCb {
     struct OsList semListNode;
 };
 
-extern U32 OsSemCreate(U32 val, U32 *semId);
+extern U32 OsSemCreate(U32 val, U32 maxCnt, U32 *semId);
 extern U32 OsSemPend(U32 semId);
 extern U32 OsSemPost(U32 semId);
 extern U32 OsSemConfigInit(void);

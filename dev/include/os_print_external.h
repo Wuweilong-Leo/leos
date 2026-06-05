@@ -4,5 +4,7 @@
 extern void OsPrintChar(char c);
 extern void OsPrintStr(char *str);
 extern void OsPrintHex(U32 num);
+extern void OsPrintSetCursor(U16 target);
+extern U16 OsPrintGetCursor(void);
 extern U32 kprintf(const char *fmt, ...);
 #endif

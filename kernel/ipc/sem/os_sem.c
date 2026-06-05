@@ -36,6 +36,8 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
         OsListInit(&semCb->semListNode);
         OsListAddTail(&g_semFreeList, freeListNode);
     }
+
+    return OS_OK;
 }
 
 OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
@@ -48,7 +50,7 @@ OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
                                OsListPopHead(&g_semFreeList));
 }
 
-OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 *semId)
+OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, U32 *semId)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave = OsIntLock();
@@ -61,7 +63,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 *semId)
     }
     
     semCb->val = semCnt;
-    semCb->semCnt = semCnt;
+    semCb->semCnt = maxCnt;
     *semId = semCb->semId;
     OsIntRestore(intSave);
     return OS_OK;
@@ -78,13 +80,6 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     semCb = OS_SEM_GET_CB(semId);
     curTsk = OS_RUNNING_TASK();
 
-    /* 暂时不可重入 */
-    if (OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
-        OS_LOG_ERROR("OsSemPend: task %u already holds sem %u\n", curTsk->pid, semId);
-        OsIntRestore(intSave);
-        return OS_SEM_PEND_TSK_ALREADY_HOLD_SEM;
-    }
-
     if (semCb->val == 0) {
         /* 加入到信号量pending队列 */
         OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
@@ -93,12 +88,15 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
         OsSchedRdyListDequeTsk(curTsk);
         curTsk->status |= OS_TASK_STATUS_PENDING;
 
-        // 切出去后，只有信号量大于0时才会切回来
+        /* 切出去，等 OsSemPost 唤醒 */
         OsTaskSchedule();
+
+        /* 被唤醒后直接返回 */
+        OsIntRestore(intSave);
+        return OS_OK;
     }
     
     semCb->val--;
-    OsListAddTail(&curTsk->semList, &semCb->semListNode);
     OsIntRestore(intSave);
 
     return OS_OK;
@@ -108,20 +106,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave;
-    struct OsTaskCb *curTsk;
     struct OsTaskCb *pendTsk;
 
     intSave = OsIntLock();
 
     semCb = OS_SEM_GET_CB(semId);
-    curTsk = OS_RUNNING_TASK();
-
-    /* 没持有就释放是非法的 */
-    if (!OsListFindNode(&curTsk->semList, &semCb->semListNode)) {
-        OS_LOG_ERROR("OsSemPost: task %u does not hold sem %u\n", curTsk->pid, semId);
-        OsIntRestore(intSave);
-        return OS_SEM_POST_TSK_NOT_HOLD_SEM;
-    }
 
     if (semCb->val == semCb->semCnt) {
         OS_LOG_WARN("OsSemPost: sem %u is full (val=%u)\n", semId, semCb->val);
@@ -130,14 +119,13 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     }
 
     semCb->val++;
-    /* 取消任务持有信号量 */
-    OsListRemoveNode(&semCb->semListNode);
 
     if (!OsListIsEmpty(&semCb->pendList)) {
-        /* 有任务阻塞在此信号量 */
-        /* 取出第一个信号量阻塞的任务 */
-        pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, 
+        /* 有任务阻塞在此信号量，唤醒第一个 */
+        pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode,
                                       OsListPopHead(&semCb->pendList));
+        /* 从信号量值中扣除（被唤醒的任务直接获取） */
+        semCb->val--;
         /* 加回到就绪队列 */
         OsSchedRdyListEnqueTsk(pendTsk);
         pendTsk->status &= ~OS_TASK_STATUS_PENDING;

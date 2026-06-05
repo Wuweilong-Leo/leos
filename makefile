@@ -30,7 +30,8 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/debug/include \
            $(CUR_DIR)/kernel/mem \
            $(CUR_DIR)/kernel/mem/fsc \
-           $(CUR_DIR)/lib/btmp
+           $(CUR_DIR)/lib/btmp \
+           $(CUR_DIR)/test
 
 INCS := $(addprefix -I, $(INC_DIR))
 
@@ -56,7 +57,8 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/lib/btmp \
             $(CUR_DIR)/arch/cpu/i386 \
             $(CUR_DIR)/dev/print \
-            $(CUR_DIR)/debug
+            $(CUR_DIR)/debug \
+            $(CUR_DIR)/test
 
 # 查找所有源文件
 C_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.c))
