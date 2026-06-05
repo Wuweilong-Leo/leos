@@ -90,12 +90,9 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
 
         /* 切出去，等 OsSemPost 唤醒 */
         OsTaskSchedule();
-
-        /* 被唤醒后直接返回 */
-        OsIntRestore(intSave);
-        return OS_OK;
     }
-    
+
+    /* 获取资源，val-- */
     semCb->val--;
     OsIntRestore(intSave);
 
@@ -112,20 +109,18 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 
     semCb = OS_SEM_GET_CB(semId);
 
+    /* 释放资源，val++ */
     if (semCb->val == semCb->semCnt) {
         OS_LOG_WARN("OsSemPost: sem %u is full (val=%u)\n", semId, semCb->val);
         OsIntRestore(intSave);
         return OS_SEM_POST_IS_FULL;
     }
-
     semCb->val++;
 
     if (!OsListIsEmpty(&semCb->pendList)) {
-        /* 有任务阻塞在此信号量，唤醒第一个 */
+        /* 有任务在等，唤醒第一个 */
         pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode,
                                       OsListPopHead(&semCb->pendList));
-        /* 从信号量值中扣除（被唤醒的任务直接获取） */
-        semCb->val--;
         /* 加回到就绪队列 */
         OsSchedRdyListEnqueTsk(pendTsk);
         pendTsk->status &= ~OS_TASK_STATUS_PENDING;

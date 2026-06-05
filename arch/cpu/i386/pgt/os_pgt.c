@@ -201,7 +201,7 @@ OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
         if (!OsPteIsExisted(pteVaddr)) {
             *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
         } else {
-            OS_DEBUG_PRINT_STR("pte repeat\n");
+            /* PTE 已存在，可能是预映射的页，跳过 */
         }
     } else {
         /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
