@@ -1,7 +1,7 @@
 #ifndef OS_PGT_H
 #define OS_PGT_H
 #include "os_def.h"
-struct OS_STRUCT_PACKED OsPgtEntry
+struct OsPgtEntry
 {
     U8 attrP : 1;
     U8 attrRw : 1;
@@ -12,7 +12,7 @@ struct OS_STRUCT_PACKED OsPgtEntry
     U8 rsvd2 : 2;
     U8 attrAvl : 3;
     U32 addr : 20;
-};
+} OS_STRUCT_PACKED;
 
 #define OS_PG_P    (1 << 0)
 #define OS_PG_RW_R (0 << 1)

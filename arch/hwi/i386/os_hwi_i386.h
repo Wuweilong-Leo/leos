@@ -37,11 +37,11 @@ struct OsIdtEntry
     U16 funcOffsetHighWord;
 };
 
-struct OS_STRUCT_PACKED OsIdtInfo
+struct OsIdtInfo
 {
     U16 idtLmit;
     U32 idtBase;
-};
+} OS_STRUCT_PACKED;
 
 enum OsExcType
 {
