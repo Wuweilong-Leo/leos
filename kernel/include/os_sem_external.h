@@ -2,6 +2,13 @@
 #define OS_SEM_EXTERNAL_H
 #include "os_def.h"
 #include "os_list_external.h"
+
+/* 唤醒策略 */
+enum OsSemWakePolicy {
+    OS_SEM_WAKE_FIFO = 0,   /* 先等先唤醒 */
+    OS_SEM_WAKE_PRIO = 1,   /* 高优先级先唤醒 */
+};
+
 struct OsSemCb {
     U32 semId;
     U32 val;
@@ -11,9 +18,10 @@ struct OsSemCb {
     struct OsList pendList;
     /* 被任务持有的链表节点, taskCb->semList */
     struct OsList semListNode;
+    enum OsSemWakePolicy wakePolicy;
 };
 
-extern U32 OsSemCreate(U32 val, U32 maxCnt, U32 *semId);
+extern U32 OsSemCreate(U32 val, U32 maxCnt, enum OsSemWakePolicy policy, U32 *semId);
 extern U32 OsSemPend(U32 semId);
 extern U32 OsSemPost(U32 semId);
 extern U32 OsSemConfigInit(void);

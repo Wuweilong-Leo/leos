@@ -50,7 +50,7 @@ OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
                                OsListPopHead(&g_semFreeList));
 }
 
-OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, U32 *semId)
+OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, enum OsSemWakePolicy policy, U32 *semId)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave = OsIntLock();
@@ -64,9 +64,28 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, U32 *semId)
     
     semCb->val = semCnt;
     semCb->semCnt = maxCnt;
+    semCb->wakePolicy = policy;
     *semId = semCb->semId;
     OsIntRestore(intSave);
     return OS_OK;
+}
+
+/* 按优先级插入 pend 队列：优先级数值越小（越高）排越前 */
+static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(
+    struct OsList *pendList, struct OsTaskCb *tsk)
+{
+    struct OsList *node;
+    struct OsTaskCb *pos;
+
+    OS_LIST_FOR_EACH(pendList, node) {
+        pos = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, node);
+        if (tsk->prio < pos->prio) {
+            OsListInsertPrev(&tsk->pendListNode, node);
+            return;
+        }
+    }
+    /* 优先级最低，插尾部 */
+    OsListAddTail(pendList, &tsk->pendListNode);
 }
 
 OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
@@ -81,8 +100,12 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     if (semCb->val == 0) {
-        /* 加入到信号量pending队列 */
-        OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
+        /* 加入到信号量 pending 队列 */
+        if (semCb->wakePolicy == OS_SEM_WAKE_PRIO) {
+            OsSemPendListInsertByPrio(&semCb->pendList, curTsk);
+        } else {
+            OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
+        }
 
         /* 从就绪队列里删除 */
         OsSchedRdyListDequeTsk(curTsk);
@@ -118,7 +141,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     semCb->val++;
 
     if (!OsListIsEmpty(&semCb->pendList)) {
-        /* 有任务在等，唤醒第一个 */
+        /* 有任务在等，唤醒队首（FIFO 队首即最先等待，PRIO 队首即最高优先级） */
         pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode,
                                       OsListPopHead(&semCb->pendList));
         /* 加回到就绪队列 */
