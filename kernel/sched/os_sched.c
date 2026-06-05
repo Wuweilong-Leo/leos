@@ -8,27 +8,20 @@
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
-OS_SEC_KERNEL_DATA struct OsScheduler g_rtScheduler = {
-    .pickNextTsk = OsSchedPickHighestPrioTsk
-};
+OS_SEC_KERNEL_DATA struct OsScheduler g_rtScheduler = {.pickNextTsk = OsSchedPickHighestPrioTsk};
 
 /* Multilevel Feedback Queue Scheduling */
-OS_SEC_KERNEL_DATA struct OsScheduler g_mfqsScheduler = {
-    .pickNextTsk = OsSchedPickHighestPrioTsk
-};
+OS_SEC_KERNEL_DATA struct OsScheduler g_mfqsScheduler = {.pickNextTsk = OsSchedPickHighestPrioTsk};
 
 OS_INLINE U32 OsSchedGetHighestPrio(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 bit = 0;
 
-    /* 保证总有一个任务ready */
-    while (bit < OS_TASK_PRIO_MAX_NUM && (rq->rdyListMsk & (1 << bit)) == 0) {
+    /* idle 任务永远就绪，rdyListMsk 不可能为 0，必然能找到 */
+    while ((rq->rdyListMsk & (1 << bit)) == 0)
+    {
         bit++;
-    }
-
-    if (bit >= OS_TASK_PRIO_MAX_NUM) {
-        return OS_TASK_LOWEST_PRIO; /* fallback to idle */
     }
 
     return bit;
@@ -53,7 +46,8 @@ OS_SEC_KERNEL_TEXT U32 OsSchedConfigInit(void)
 
     rq->runningTsk = NULL;
     rq->rdyListMsk = 0;
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
+    {
         OsListInit(&rq->rdyList[i]);
     }
     OsListInit(&rq->dlyList);
@@ -78,7 +72,8 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk)
 
     rq->rdyListMsk |= (1 << tskPrio);
 
-    if (tskPrio < rq->runningTsk->prio) {
+    if (tskPrio < rq->runningTsk->prio)
+    {
         rq->needSched = TRUE;
     }
 
@@ -89,7 +84,7 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk)
  *  外部关中断
  *  就绪队列出队
  */
-OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb* tsk)
+OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 prio = tsk->prio;
@@ -97,11 +92,13 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb* tsk)
 
     OsListRemoveNode(&tsk->rdyListNode);
 
-    if (OsListIsEmpty(rdyList)) {
+    if (OsListIsEmpty(rdyList))
+    {
         rq->rdyListMsk &= ~(1 << prio);
     }
 
-    if (tsk == rq->runningTsk) {
+    if (tsk == rq->runningTsk)
+    {
         rq->needSched = TRUE;
     }
 
@@ -121,11 +118,14 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     struct OsTaskCb *nextTsk = curTsk;
 
     // 内核进行系统操作时不要切任务，正常中断返回即可
-    if (!OS_SYS_ACTIVE(rq->uniFlag)) {
-        if (rq->needSched) {
+    if (!OS_SYS_ACTIVE(rq->uniFlag))
+    {
+        if (rq->needSched)
+        {
             rq->needSched = FALSE;
             nextTsk = scheduler->pickNextTsk();
-            if (nextTsk != curTsk) {
+            if (nextTsk != curTsk)
+            {
                 curTsk->status &= ~OS_TASK_STATUS_RUNNING;
                 nextTsk->status |= OS_TASK_STATUS_RUNNING;
                 /* 任务切换时的必要的架构配置 */
@@ -139,21 +139,35 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     OsLoadTsk(nextTsk);
 }
 
-static OS_SEC_KERNEL_TEXT void OsSchedPrepare(void)
+/* 将 idle 任务加入就绪队列（不走 OsSchedRdyListEnqueTsk，避免 runningTsk 判空） */
+static OS_SEC_KERNEL_TEXT void OsSchedIdleRdy(struct OsRunQue *rq)
 {
-    // 创建idle任务
-    if (OsTaskCreateIdle() != OS_OK) {
-        OS_LOG_ERROR("OsSchedPrepare: create idle task failed\n");
-        while (1);
-    }
+    struct OsTaskCb *idleTsk = rq->idleTsk;
+    struct OsList *rdyList = &rq->rdyList[idleTsk->prio];
+
+    OsListAddTail(rdyList, &idleTsk->rdyListNode);
+    rq->rdyListMsk |= (1 << idleTsk->prio);
+    idleTsk->status |= OS_TASK_STATUS_READY;
 }
 
 OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
 {
     struct OsTaskCb *tskCb;
     struct OsRunQue *rq = OS_RUN_QUE();
-    
-    OsSchedPrepare();
+
+    /* 创建 idle 任务 */
+    if (OsTaskCreateIdle() != OS_OK)
+    {
+        OS_LOG_ERROR("OsSchedSwitchFirstTsk: create idle task failed\n");
+        while (1)
+            ;
+    }
+
+    /* idle 入就绪队列 */
+    OsSchedIdleRdy(rq);
+
+    /* 先设 runningTsk，后续 OsSchedRdyListEnqueTsk 需要比较优先级 */
+    rq->runningTsk = rq->idleTsk;
 
     tskCb = OsSchedPickHighestPrioTsk();
     rq->runningTsk = tskCb;

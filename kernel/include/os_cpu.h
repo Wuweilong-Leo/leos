@@ -18,7 +18,7 @@ extern void OsProcessInitArch(struct OsTaskCb *process);
 extern void OsConfigArchForTskSwitch(struct OsTaskCb *tsk);
 
 /* 任务上下文初始化（由架构层实现） */
-extern void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb* tskCb);
+extern void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb);
 
 /* 进程入口（由架构层实现） */
 typedef void (*OsProcessEntryFunc)(void *arg1, void *arg2);

@@ -10,7 +10,7 @@
 #include "os_mem_external.h"
 #include "os_hwi.h"
 
-OS_SEC_KERNEL_TEXT void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb* tskCb)
+OS_SEC_KERNEL_TEXT void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb)
 {
     uintptr_t stkBot = stkMemBase + stkSize;
     struct OsFastSaveContext *fastSaveContext;
@@ -42,7 +42,8 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     curTsk = OS_RUNNING_TASK();
 
     /* 当前tcb里保存的栈顶指针还指向之前伪造的栈顶 */
-    stkTop = (U32)curTsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE - sizeof(struct OsAllSaveContext);
+    stkTop =
+        (U32)curTsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE - sizeof(struct OsAllSaveContext);
 
     allSaveContext = (struct OsAllSaveContext *)stkTop;
     allSaveContext->saveFlag = OS_ALL_SAVE_FLAG;
@@ -65,26 +66,32 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
 
     /* 创建用户栈 */
     memBase = OsMemUsrAllocPgByAddr((uintptr_t)OS_PROCESS_USR_STACK_BASE);
-    if (memBase == NULL) {
+    if (memBase == NULL)
+    {
         /* 申请失败直接挂死 */
         OS_DEBUG_KPRINT("%s\n", "OsProcessEntry: OsMemUsrAllocPgByAddr failed");
-        while (1) {}
+        while (1)
+        {
+        }
     }
 
     allSaveContext->esp = (uintptr_t)((U32)memBase + OS_PG_SIZE);
 
     /* 通过中断返回切到进程，我们设置过eflags，因此切出去直接开中断 */
-    OS_EMBED_ASM("mov %0, %%esp; jmp OsSwitch2Process"::"g"((U32)allSaveContext):"memory");
+    OS_EMBED_ASM("mov %0, %%esp; jmp OsSwitch2Process" ::"g"((U32)allSaveContext) : "memory");
 }
 
 OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
-{   
+{
     uintptr_t pgdir;
 
     pgdir = OsCreateProcessPgd();
-    if (pgdir == NULL) {
+    if (pgdir == NULL)
+    {
         OS_DEBUG_KPRINT("%s\n", "OsProcessInitArch: OsCreateProcessPgd failed");
-        while (1) {}
+        while (1)
+        {
+        }
     }
 
     process->pgDir = pgdir;
@@ -92,23 +99,27 @@ OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
 
 OS_SEC_KERNEL_TEXT void OsConfigPgdForTskSwitch(struct OsTaskCb *tsk)
 {
-    uintptr_t pgdPhyAddr; 
+    uintptr_t pgdPhyAddr;
 
-    if (tsk->tskType == OS_TASK_PROCESS) {
+    if (tsk->tskType == OS_TASK_PROCESS)
+    {
         /* 获取页目录的物理地址 */
         pgdPhyAddr = OsGetPaddrByVaddr(tsk->pgDir);
         // OS_DEBUG_KPRINT("OsConfigPgdForTskSwitch: pgdPhyAddr = 0x%x\n", (U32)pgdPhyAddr);
         OsLoadPgd(pgdPhyAddr);
-    } else {
+    }
+    else
+    {
         OsLoadPgd(OS_KERNEL_PGD_BASE);
     }
 }
 
 OS_SEC_KERNEL_TEXT void OsConfigTssForTskSwitch(struct OsTaskCb *tsk)
 {
-    if (tsk->tskType == OS_TASK_PROCESS) {
-        OsTssUpdateEsp0(OS_SELECTOR_K_DATA, (uintptr_t)((U32)tsk->kernelStkTop + 
-                        OS_TASK_KERNEL_STACK_SIZE));      
+    if (tsk->tskType == OS_TASK_PROCESS)
+    {
+        OsTssUpdateEsp0(OS_SELECTOR_K_DATA,
+                        (uintptr_t)((U32)tsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE));
     }
 }
 

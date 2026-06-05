@@ -28,14 +28,18 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
     g_tskMaxNum = OS_TASK_MAX_NUM;
     size = sizeof(struct OsTaskCb) * g_tskMaxNum;
     g_tskCbArray = (struct OsTaskCb *)OsMemKernelAlloc(size, 4);
-    if (g_tskCbArray == NULL) {
+    if (g_tskCbArray == NULL)
+    {
         OS_LOG_ERROR("OsTaskConfigInit: alloc tskCbArray failed\n");
-        while (1) {}
+        while (1)
+        {
+        }
     }
 
     memset(g_tskCbArray, 0, size);
 
-    for (i = 0; i < g_tskMaxNum; i++) {
+    for (i = 0; i < g_tskMaxNum; i++)
+    {
         tskCb = OS_TASK_GET_CB(i);
 
         tskCb->pid = i;
@@ -52,7 +56,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
 
 OS_SEC_KERNEL_TEXT void Process1(void *para1, void *param2, void *param3, void *param4)
 {
-    while (1) {
+    while (1)
+    {
         OsIntLock();
         OS_DEBUG_PRINT_STR("process1\n");
         OsIntUnlock();
@@ -61,7 +66,8 @@ OS_SEC_KERNEL_TEXT void Process1(void *para1, void *param2, void *param3, void *
 
 OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
 {
-    while (1) {
+    while (1)
+    {
         OsIntLock();
         OsIntUnlock();
     }
@@ -71,11 +77,12 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
 {
     struct OsList *listNode;
 
-    if (OsListIsEmpty(&g_tskFreeList)) {
+    if (OsListIsEmpty(&g_tskFreeList))
+    {
         OS_LOG_WARN("OsTaskGetFreeCb: no free task control block\n");
         return NULL;
     }
-    
+
     listNode = OsListPopHead(&g_tskFreeList);
 
     return OS_GET_STRUCT_ENTRY(struct OsTaskCb, freeListNode, listNode);
@@ -124,7 +131,7 @@ OS_INLINE void OsTaskInitKernelStack(uintptr_t stkBase, size_t stkSize)
     ((U32 *)stkBase)[0] = OS_TASK_STACK_TOP_MAGIC;
 }
 
-OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam * param, U32 *tskId)
+OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId)
 {
     U32 ret;
     struct OsTaskCb *tskCb;
@@ -134,15 +141,18 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam * param, U32 *tskId
     intSave = OsIntLock();
 
     tskCb = OsTaskGetFreeCb();
-    if (tskCb == NULL) {
+    if (tskCb == NULL)
+    {
         OS_LOG_ERROR("OsTaskCreate: no free task CB\n");
         OsIntRestore(intSave);
         return OS_TASK_CREATE_NO_FREE_CB;
     }
-    
+
     stkMemBase = (uintptr_t)OsMemKernelAlloc(OS_TASK_KERNEL_STACK_SIZE, 16);
-    if (stkMemBase == NULL) {
-        OS_LOG_ERROR("OsTaskCreate: alloc kernel stack failed, size=0x%x\n", OS_TASK_KERNEL_STACK_SIZE);
+    if (stkMemBase == NULL)
+    {
+        OS_LOG_ERROR("OsTaskCreate: alloc kernel stack failed, size=0x%x\n",
+                     OS_TASK_KERNEL_STACK_SIZE);
         OsIntRestore(intSave);
         return OS_TASK_CREATE_STK_ALLOC_FAIL;
     }
@@ -169,7 +179,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
-    if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
+    if ((tskCb->status & OS_TASK_STATUS_USED) == 0)
+    {
         OS_LOG_ERROR("OsTaskResume: task %u not created, status=0x%x\n", tskId, tskCb->status);
         OsIntRestore(intSave);
         return OS_TASK_RESUME_TSK_STATUS_ILL;
@@ -184,16 +195,10 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     return OS_OK;
 }
 
-OS_INLINE void OsTaskMakeIdleRdy(struct OsTaskCb *idleTskCb)
-{
-    OsSchedRdyListEnqueTsk(idleTskCb);
-}
-
 OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
 {
     U32 ret;
     struct OsTaskCreateParam param = {0};
-    struct OsTaskCb *idleTskCb;
     U32 idleTskId;
 
     strcpy(param.name, "idle");
@@ -201,16 +206,13 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
     param.entryFunc = OsTaskIdleEntry;
 
     ret = OsTaskCreate(&param, &idleTskId);
-    if (ret != OS_OK) {
+    if (ret != OS_OK)
+    {
         OS_LOG_ERROR("OsTaskCreateIdle: create idle task failed, ret=%u\n", ret);
         return ret;
     }
-    idleTskCb = OS_TASK_GET_CB(idleTskId);
 
-    /* 先设 runningTsk，避免 OsSchedRdyListEnqueTsk 热路径判 NULL */
-    OS_RUN_QUE()->runningTsk = idleTskCb;
-    OsTaskMakeIdleRdy(idleTskCb); // 把idle加入就绪队列但是不调度
-    OS_RUN_QUE()->idleTsk = idleTskCb;
+    OS_RUN_QUE()->idleTsk = OS_TASK_GET_CB(idleTskId);
 
     return OS_OK;
 }
@@ -219,12 +221,14 @@ OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
 
-    if (!rq->needSched) {
+    if (!rq->needSched)
+    {
         return;
     }
 
     /* 系统操作中，不要调度 */
-    if (OS_SYS_ACTIVE(rq->uniFlag)) {
+    if (OS_SYS_ACTIVE(rq->uniFlag))
+    {
         return;
     }
 
@@ -238,13 +242,18 @@ static OS_SEC_KERNEL_TEXT void OsTaskDlyListInsert(struct OsTaskCb *tsk)
     struct OsList *tmpNode;
     struct OsTaskCb *tmpTsk;
 
-    if (OsListIsEmpty(dlyList)) {
+    if (OsListIsEmpty(dlyList))
+    {
         // 空的加入尾部就行
         OsListAddTail(dlyList, &tsk->dlyListNode);
-    } else {
-        OS_LIST_FOR_EACH(dlyList, tmpNode) {
+    }
+    else
+    {
+        OS_LIST_FOR_EACH(dlyList, tmpNode)
+        {
             tmpTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, tmpNode);
-            if (tsk->expiredTick < tmpTsk->expiredTick) {
+            if (tsk->expiredTick < tmpTsk->expiredTick)
+            {
                 break;
             }
         }
@@ -261,7 +270,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
     struct OsTaskCb *tsk;
     enum OsIntStatus intSave;
 
-    if (ticks == 0) {
+    if (ticks == 0)
+    {
         OS_LOG_ERROR("OsTaskDelay: ticks cannot be 0\n");
         return OS_TASK_DELAY_PARAM_ILL;
     }

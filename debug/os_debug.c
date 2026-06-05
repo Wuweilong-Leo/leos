@@ -23,8 +23,8 @@ OS_SEC_KERNEL_TEXT enum OsLogLevel OsDebugGetLogLevel(void)
 
 /* ---- Panic ---- */
 
-OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(const char *filename, U32 line,
-                                         const char *func, const char *cond)
+OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(const char *filename, U32 line, const char *func,
+                                         const char *cond)
 {
     OsIntLock();
     kprintf("\n===== KERNEL PANIC =====\n");
@@ -33,13 +33,15 @@ OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(const char *filename, U32 line,
     kprintf("Func: %s\n", func);
     kprintf("Cond: %s\n", cond);
     kprintf("========================\n");
-    while (1) {}
+    while (1)
+    {
+    }
 }
 
 /* ---- 断言失败入口（供宏调用） ---- */
 
-OS_SEC_KERNEL_TEXT void OsDebugAssertFail(const char *filename, U32 line,
-                                           const char *func, const char *cond)
+OS_SEC_KERNEL_TEXT void OsDebugAssertFail(const char *filename, U32 line, const char *func,
+                                          const char *cond)
 {
     OsDebugPanicSpin(filename, line, func, cond);
 }
@@ -50,7 +52,8 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintList(struct OsList *list)
 {
     struct OsList *tmpNode;
 
-    OS_LIST_FOR_EACH(list, tmpNode) {
+    OS_LIST_FOR_EACH(list, tmpNode)
+    {
         kprintf("0x%x<->0x%x ", (U32)tmpNode->prev, (U32)tmpNode->next);
     }
     kprintf("[end]\n");
@@ -64,8 +67,10 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintRdyList(void)
     struct OsRunQue *rq = OS_RUN_QUE();
 
     kprintf("--- Ready Lists ---\n");
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
-        if (!OsListIsEmpty(&rq->rdyList[i])) {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
+    {
+        if (!OsListIsEmpty(&rq->rdyList[i]))
+        {
             kprintf("prio%u: ", i);
             OsDebugPrintList(&rq->rdyList[i]);
         }
@@ -76,13 +81,13 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintRdyList(void)
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintTaskInfo(struct OsTaskCb *tsk)
 {
-    if (tsk == NULL) {
+    if (tsk == NULL)
+    {
         kprintf("Task: NULL\n");
         return;
     }
-    kprintf("Task pid=%u name=%s prio=%u status=0x%x stkTop=0x%x\n",
-            tsk->pid, tsk->name, tsk->prio, tsk->status,
-            (U32)tsk->kernelStkTop);
+    kprintf("Task pid=%u name=%s prio=%u status=0x%x stkTop=0x%x\n", tsk->pid, tsk->name, tsk->prio,
+            tsk->status, (U32)tsk->kernelStkTop);
 }
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
@@ -96,12 +101,14 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
     kprintf("Idle:    ");
     OsDebugPrintTaskInfo(rq->idleTsk);
 
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
+    {
         struct OsList *node;
-        OS_LIST_FOR_EACH(&rq->rdyList[i], node) {
+        OS_LIST_FOR_EACH(&rq->rdyList[i], node)
+        {
             /* 通过 rdyListNode 偏移反推 OsTaskCb */
-            struct OsTaskCb *tsk = (struct OsTaskCb *)((U8 *)node -
-                (U32)(&((struct OsTaskCb *)0)->rdyListNode));
+            struct OsTaskCb *tsk =
+                (struct OsTaskCb *)((U8 *)node - (U32)(&((struct OsTaskCb *)0)->rdyListNode));
             OsDebugPrintTaskInfo(tsk);
         }
     }
@@ -112,13 +119,13 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintMemPool(struct OsMemPool *pool, const char *name)
 {
-    if (pool == NULL) {
+    if (pool == NULL)
+    {
         kprintf("MemPool [%s]: NULL\n", name);
         return;
     }
-    kprintf("MemPool [%s] base=0x%x size=0x%x btmp.base=0x%x btmp.bits=%u\n",
-            name, (U32)pool->base, (U32)pool->size,
-            (U32)pool->btmp.base, pool->btmp.bitNum);
+    kprintf("MemPool [%s] base=0x%x size=0x%x btmp.base=0x%x btmp.bits=%u\n", name, (U32)pool->base,
+            (U32)pool->size, (U32)pool->btmp.base, pool->btmp.bitNum);
 }
 
 /* ---- 系统状态概览 ---- */

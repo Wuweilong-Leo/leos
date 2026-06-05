@@ -7,12 +7,11 @@
 #include "os_sched_external.h"
 #include "os_tick_external.h"
 
-OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl,
-                           U8 counterMode, U16 counterVal)
+OS_INLINE void OsTimerSetFreq(U8 counterPort, U8 counterNum, U8 rwl, U8 counterMode, U16 counterVal)
 {
-  OsOutb(PIT_CONTROL_PORT, OS_TIMER_BUILD_FREQ_PORT_MODE(counterNum, rwl, counterMode));
-  OsOutb(counterPort, (U8)counterVal);
-  OsOutb(counterPort, (U8)(counterVal >> 8));
+    OsOutb(PIT_CONTROL_PORT, OS_TIMER_BUILD_FREQ_PORT_MODE(counterNum, rwl, counterMode));
+    OsOutb(counterPort, (U8)counterVal);
+    OsOutb(counterPort, (U8)(counterVal >> 8));
 }
 
 OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum)
@@ -23,10 +22,10 @@ OS_SEC_KERNEL_TEXT void OsTimerIsr(U32 hwiNum)
 
 OS_SEC_KERNEL_TEXT U32 OsTimerConfigInit(void)
 {
-  OS_DEBUG_PRINT_STR("OsTimerConfigInit start\n");
-  OsTimerSetFreq(COUNTER0_PORT, COUNTER0_NO, READ_WRITE_LATCH, COUNTER_MODE, COUNTER0_VALUE);
-  (void)OsHwiCreate(0x20, OsTimerIsr);
-  OS_DEBUG_PRINT_STR("OsTimerConfigInit end\n");
+    OS_DEBUG_PRINT_STR("OsTimerConfigInit start\n");
+    OsTimerSetFreq(COUNTER0_PORT, COUNTER0_NO, READ_WRITE_LATCH, COUNTER_MODE, COUNTER0_VALUE);
+    (void)OsHwiCreate(0x20, OsTimerIsr);
+    OS_DEBUG_PRINT_STR("OsTimerConfigInit end\n");
 
-  return OS_OK;
+    return OS_OK;
 }

@@ -17,7 +17,8 @@ OS_SEC_KERNEL_TEXT void TestTaskA(void *para1, void *param2, void *param3, void 
 {
     U32 count = 0;
     TestPutChar(2, 0, 'A');
-    while (1) {
+    while (1)
+    {
         TestPutChar(2, 2, "0123456789ABCDEF"[(count >> 4) & 0xF]);
         TestPutChar(2, 3, "0123456789ABCDEF"[count & 0xF]);
         count++;
@@ -30,7 +31,8 @@ OS_SEC_KERNEL_TEXT void TestTaskB(void *para1, void *param2, void *param3, void 
 {
     U32 count = 0;
     TestPutChar(3, 0, 'B');
-    while (1) {
+    while (1)
+    {
         TestPutChar(3, 2, "0123456789ABCDEF"[(count >> 4) & 0xF]);
         TestPutChar(3, 3, "0123456789ABCDEF"[count & 0xF]);
         count++;
@@ -43,7 +45,8 @@ OS_SEC_KERNEL_TEXT void TestTaskC(void *para1, void *param2, void *param3, void 
 {
     U32 count = 0;
     TestPutChar(4, 0, 'C');
-    while (1) {
+    while (1)
+    {
         TestPutChar(4, 2, "0123456789ABCDEF"[(count >> 4) & 0xF]);
         TestPutChar(4, 3, "0123456789ABCDEF"[count & 0xF]);
         count++;

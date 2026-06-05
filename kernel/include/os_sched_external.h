@@ -4,13 +4,15 @@
 #include "os_def.h"
 #include "os_list_external.h"
 
-typedef struct OsTaskCb * (*OsPickNextTsk) (void);
+typedef struct OsTaskCb *(*OsPickNextTsk)(void);
 
-struct OsScheduler {
+struct OsScheduler
+{
     OsPickNextTsk pickNextTsk;
 };
 
-struct OsRunQue {
+struct OsRunQue
+{
     struct OsTaskCb *runningTsk;
     struct OsTaskCb *idleTsk;
     U32 uniFlag;
@@ -25,14 +27,14 @@ struct OsRunQue {
 
 extern struct OsRunQue g_runQue;
 
-#define OS_RUN_QUE() (&g_runQue)
+#define OS_RUN_QUE()      (&g_runQue)
 #define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)
 
 extern U32 OsSchedConfigInit(void);
 extern struct OsTaskCb *OsSchedPickHighestPrioTsk(void);
 extern void OsSchedMain(void);
 extern void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk);
-extern void OsSchedRdyListDequeTsk(struct OsTaskCb* tsk);
+extern void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk);
 extern void OsSchedModifyTskPrio(struct OsTaskCb *tsk);
 extern void OsSchedSwitchFirstTsk(void);
 #endif

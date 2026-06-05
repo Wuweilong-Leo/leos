@@ -12,27 +12,29 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
     uintptr_t btmpBase;
     U32 usrMemBtmpPgNum;
 
-    usrMemBtmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE); 
+    usrMemBtmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE);
     OS_DEBUG_KPRINT("OsProcessInitVirMemPool: usrMemBtmpPgNum = 0x%x\n", usrMemBtmpPgNum);
     btmpBase = OsMemKernelAllocPgs(usrMemBtmpPgNum);
-    if (btmpBase == NULL) {
+    if (btmpBase == NULL)
+    {
         OS_DEBUG_KPRINT("%s\n", "OsProcessInitVirMemPool: OsMemKernelAllocPgs failed");
-        while (1) {}
+        while (1)
+        {
+        }
     }
 
-    OsMemPoolInit(&process->usrVirMemPool, (uintptr_t)OS_USR_MEM_VIR_ADDR_START, 
+    OsMemPoolInit(&process->usrVirMemPool, (uintptr_t)OS_USR_MEM_VIR_ADDR_START,
                   OS_USR_VIR_MEM_SIZE, (U8 *)btmpBase);
-
 }
 
-OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam,  U32 *pid)
+OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam, U32 *pid)
 {
     U32 ret;
     U32 tskId;
     enum OsIntStatus intSave;
     struct OsTaskCreateParam tskParam;
     struct OsTaskCb *tskCb;
-    
+
     tskParam.entryFunc = (OsTaskEntryFunc)OsProcessEntry;
     strcpy(tskParam.name, processParam->processName);
     /* 把进程入口作为第一个参数 */
@@ -45,7 +47,8 @@ OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam
     intSave = OsIntLock();
 
     ret = OsTaskCreate(&tskParam, &tskId);
-    if (ret != OS_OK) {
+    if (ret != OS_OK)
+    {
         OsIntRestore(intSave);
         return ret;
     }

@@ -17,38 +17,14 @@
 OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_NUM];
 OS_SEC_KERNEL_DATA struct OsIdtEntry g_idt[OS_EXC_NUM + OS_HWI_NUM];
 OS_SEC_KERNEL_DATA OsExcVector g_excVectorTab[OS_EXC_NUM] = {
-    OS_EXC_VECTOR(0x00),
-    OS_EXC_VECTOR(0x01),
-    OS_EXC_VECTOR(0x02),
-    OS_EXC_VECTOR(0x03),
-    OS_EXC_VECTOR(0x04),
-    OS_EXC_VECTOR(0x05),
-    OS_EXC_VECTOR(0x06),
-    OS_EXC_VECTOR(0x07),
-    OS_EXC_VECTOR(0x08),
-    OS_EXC_VECTOR(0x09),
-    OS_EXC_VECTOR(0x0a),
-    OS_EXC_VECTOR(0x0b),
-    OS_EXC_VECTOR(0x0c),
-    OS_EXC_VECTOR(0x0d),
-    OS_EXC_VECTOR(0x0e),
-    OS_EXC_VECTOR(0x0f),
-    OS_EXC_VECTOR(0x10),
-    OS_EXC_VECTOR(0x11),
-    OS_EXC_VECTOR(0x12),
-    OS_EXC_VECTOR(0x13),
-    OS_EXC_VECTOR(0x14),
-    OS_EXC_VECTOR(0x15),
-    OS_EXC_VECTOR(0x16),
-    OS_EXC_VECTOR(0x17),
-    OS_EXC_VECTOR(0x18),
-    OS_EXC_VECTOR(0x19),
-    OS_EXC_VECTOR(0x1a),
-    OS_EXC_VECTOR(0x1b),
-    OS_EXC_VECTOR(0x1c),
-    OS_EXC_VECTOR(0x1d),
-    OS_EXC_VECTOR(0x1e),
-    OS_EXC_VECTOR(0x1f),
+    OS_EXC_VECTOR(0x00), OS_EXC_VECTOR(0x01), OS_EXC_VECTOR(0x02), OS_EXC_VECTOR(0x03),
+    OS_EXC_VECTOR(0x04), OS_EXC_VECTOR(0x05), OS_EXC_VECTOR(0x06), OS_EXC_VECTOR(0x07),
+    OS_EXC_VECTOR(0x08), OS_EXC_VECTOR(0x09), OS_EXC_VECTOR(0x0a), OS_EXC_VECTOR(0x0b),
+    OS_EXC_VECTOR(0x0c), OS_EXC_VECTOR(0x0d), OS_EXC_VECTOR(0x0e), OS_EXC_VECTOR(0x0f),
+    OS_EXC_VECTOR(0x10), OS_EXC_VECTOR(0x11), OS_EXC_VECTOR(0x12), OS_EXC_VECTOR(0x13),
+    OS_EXC_VECTOR(0x14), OS_EXC_VECTOR(0x15), OS_EXC_VECTOR(0x16), OS_EXC_VECTOR(0x17),
+    OS_EXC_VECTOR(0x18), OS_EXC_VECTOR(0x19), OS_EXC_VECTOR(0x1a), OS_EXC_VECTOR(0x1b),
+    OS_EXC_VECTOR(0x1c), OS_EXC_VECTOR(0x1d), OS_EXC_VECTOR(0x1e), OS_EXC_VECTOR(0x1f),
 };
 
 OS_SEC_KERNEL_DATA OsHwiVector g_hwiVectorTab[OS_HWI_NUM] = {
@@ -76,13 +52,10 @@ OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_NUM] = {
     [OS_EXC_TYPE_ALIGNMENT_CHECK] = "ALIGNMENT CHECK EXC",
     [OS_EXC_TYPE_MACHINE_CHECK] = "MACHINE CHECK EXC",
     [OS_EXC_TYPE_SIMD_FP] = "SIMD FLOATING POINT EXC",
-    [OS_EXC_TYPE_SIMD_FP + 1 ... OS_EXC_MAX] = NULL
-};
+    [OS_EXC_TYPE_SIMD_FP + 1 ... OS_EXC_MAX] = NULL};
 
-OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {
-    .idtLmit = sizeof(g_idt) - 1,
-    .idtBase = (U32)g_idt
-};
+OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {.idtLmit = sizeof(g_idt) - 1,
+                                                 .idtBase = (U32)g_idt};
 
 OS_INLINE U32 OsExcNum2Idx(U32 excNum)
 {
@@ -110,7 +83,7 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(hwiNum)].isr;
-    
+
     rq->intCount++;
     rq->uniFlag |= OS_HWI_ACTIVE_MSK;
     isr(hwiNum);
@@ -121,16 +94,21 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
 {
     char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
-    if (excName != NULL) {
+    if (excName != NULL)
+    {
         OS_DEBUG_KPRINT("exc num: 0x%x, exc type: %s, exc addr: 0x%x, exc cs: 0x%x, exc pc 0x%x, \
                 eax: 0x%x, ebx: 0x%x, ecx: 0x%x, edx: 0x%x\n",
-                excNum, excName, context->cr2, context->cs, context->eip, 
-                context->eax, context->ebx, context->ecx, context->edx);
-    } else {
+                        excNum, excName, context->cr2, context->cs, context->eip, context->eax,
+                        context->ebx, context->ecx, context->edx);
+    }
+    else
+    {
         OS_DEBUG_KPRINT("unknown exc type!!!\n");
     }
 
-    while (1) {}
+    while (1)
+    {
+    }
 }
 
 OS_INLINE bool OsExcPgFaultTriggeredByKernel(U32 errCode)
@@ -142,11 +120,15 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 {
     uintptr_t pgBase;
 
-    if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE && errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
+    if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE &&
+        errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE)
+    {
         // errAddr那一页并未映射
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
         return OsMemKernelAllocPgByAddr(pgBase) != NULL;
-    } else {
+    }
+    else
+    {
         OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (U32)errAddr);
         return FALSE;
     }
@@ -154,20 +136,31 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
 {
-    if (excNum > OS_EXC_MAX) {
+    if (excNum > OS_EXC_MAX)
+    {
         OS_LOG_ERROR("OsExcDispatcher: excNum 0x%x out of range (max 0x%x)\n", excNum, OS_EXC_MAX);
-        while (1) {}
+        while (1)
+        {
+        }
     }
 
-    if (excNum == OS_EXC_TYPE_PAGE_FAULT && 
-        OsExcPgFaultTriggeredByKernel(context->errCode)) {
-        if (!OsExcHandleKernelPgFault(context->cr2)) {
-            OS_DEBUG_KPRINT("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip, context->cr2);
-            while (1) {}
+    if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode))
+    {
+        if (!OsExcHandleKernelPgFault(context->cr2))
+        {
+            OS_DEBUG_KPRINT("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip,
+                            context->cr2);
+            while (1)
+            {
+            }
         }
-    } else {
+    }
+    else
+    {
         OsExcReport(excNum, context);
-        while (1) {}
+        while (1)
+        {
+        }
     }
 }
 
@@ -189,11 +182,10 @@ OS_INLINE void OsHwiPicInit(void)
     OsOutb(OS_PIC_M_DATA, 0xfe);
     OsOutb(OS_PIC_S_DATA, 0xff);
     OS_DEBUG_PRINT_STR("OsHwiPicInit end\n");
-
 }
 
-static OS_SEC_KERNEL_TEXT void OsBuildIdtEntry(struct OsIdtEntry *entry,
-                                                  U8 attr, OsHwiVector vecFunc)
+static OS_SEC_KERNEL_TEXT void OsBuildIdtEntry(struct OsIdtEntry *entry, U8 attr,
+                                               OsHwiVector vecFunc)
 {
     entry->funcOffsetLowWord = (U32)vecFunc & 0xFFFF;
     entry->selector = OS_SELECTOR_K_CODE;
@@ -207,18 +199,19 @@ static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)
     U32 i;
 
     // 注册异常的统一钩子
-    for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++) {
+    for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++)
+    {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_excVectorTab[OsExcNum2Idx(i)]);
     }
 }
-
 
 static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
 {
     U32 i;
 
     // 注册异常的统一钩子
-    for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++) {
+    for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++)
+    {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[OsHwiNum2Idx(i)]);
         OsHwiCreate(i, OsHwiDefHandler);
     }
@@ -233,7 +226,7 @@ OS_SEC_KERNEL_TEXT U32 OsHwiConfigInit(void)
 
     OsHwiPicInit();
 
-    OS_EMBED_ASM("lidt %0"::"m"(g_idtInfo):);
+    OS_EMBED_ASM("lidt %0" ::"m"(g_idtInfo) :);
 
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");
     return OS_OK;
@@ -246,12 +239,15 @@ OS_SEC_KERNEL_TEXT void OsHwiTail(void)
     struct OsRunQue *rq = OS_RUN_QUE();
     enum OsIntStatus intSave;
 
-    if (UNLIKELY(g_noRespondTicks > 0)) {
-        if (OS_TICK_ACTIVE(rq->uniFlag)) {
+    if (UNLIKELY(g_noRespondTicks > 0))
+    {
+        if (OS_TICK_ACTIVE(rq->uniFlag))
+        {
             return;
         }
         rq->uniFlag |= OS_TICK_ACTIVE_MSK;
-        do {
+        do
+        {
             intSave = OsIntUnlock();
             OsTickDispatcher();
             OsIntRestore(intSave);
@@ -262,5 +258,3 @@ OS_SEC_KERNEL_TEXT void OsHwiTail(void)
 
     OsSchedMain();
 }
-
-

@@ -17,7 +17,8 @@ static OS_SEC_KERNEL_TEXT void TestPutChar(int row, int col, char c)
 static OS_SEC_KERNEL_TEXT void TestPutHex(int row, int col, U32 val)
 {
     int i;
-    for (i = 7; i >= 0; i--) {
+    for (i = 7; i >= 0; i--)
+    {
         U32 nibble = (val >> (i * 4)) & 0xF;
         TestPutChar(row, col + (7 - i), "0123456789ABCDEF"[nibble]);
     }
@@ -34,7 +35,8 @@ OS_SEC_KERNEL_TEXT void TestSemProducer(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(6, 0, 'P');
     TestPutChar(6, 1, ':');
 
-    while (1) {
+    while (1)
+    {
         g_testSemBuf = count;
         TestPutHex(6, 3, count);
         OsSemPost(g_testSemId);
@@ -50,7 +52,8 @@ OS_SEC_KERNEL_TEXT void TestSemConsumer(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(7, 0, 'C');
     TestPutChar(7, 1, ':');
 
-    while (1) {
+    while (1)
+    {
         OsSemPend(g_testSemId);
         val = g_testSemBuf;
         TestPutHex(7, 3, val);
@@ -69,7 +72,8 @@ OS_SEC_KERNEL_TEXT void TestMutexTaskX(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(9, 0, 'X');
     TestPutChar(9, 1, ':');
 
-    while (1) {
+    while (1)
+    {
         OsSemPend(g_testMutexId);
         g_testMutexVal += 100;
         OsSemPost(g_testMutexId);
@@ -83,7 +87,8 @@ OS_SEC_KERNEL_TEXT void TestMutexTaskY(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(10, 0, 'Y');
     TestPutChar(10, 1, ':');
 
-    while (1) {
+    while (1)
+    {
         OsSemPend(g_testMutexId);
         g_testMutexVal += 1;
         OsSemPost(g_testMutexId);
@@ -108,7 +113,7 @@ OS_SEC_KERNEL_TEXT void TestPrioTaskH(void *p1, void *p2, void *p3, void *p4)
     /* 被唤醒，记录顺序 */
     g_testPrioWakeOrder[g_testPrioWakeIdx++] = 5;
     TestPutChar(12, 0, 'H');
-    TestPutChar(12, 1, 'O');  /* H=High, first Out */
+    TestPutChar(12, 1, 'O'); /* H=High, first Out */
 }
 
 OS_SEC_KERNEL_TEXT void TestPrioTaskM(void *p1, void *p2, void *p3, void *p4)
@@ -138,7 +143,8 @@ OS_SEC_KERNEL_TEXT void TestPrioPostTask(void *p1, void *p2, void *p3, void *p4)
     OsTaskDelay(60);
 
     /* 连续 Post 3 次 */
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++)
+    {
         OsSemPost(g_testPrioSemId);
     }
 
@@ -214,7 +220,7 @@ OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
 
     memset(&param, 0, sizeof(param));
     strcpy(param.name, "PrioPost");
-    param.prio = 4;   /* 比 H 还高，确保 Post 任务先调度 */
+    param.prio = 4; /* 比 H 还高，确保 Post 任务先调度 */
     param.entryFunc = TestPrioPostTask;
     OsTaskCreate(&param, &tskIdPost);
 

@@ -22,7 +22,8 @@ static OS_SEC_KERNEL_TEXT void TestUserProcessEntry(void *arg1, void *arg2)
     /* 如果成功到达这里，说明 iret 到 Ring 3 成功了 */
     /* Ring 3 下不能调用 kprintf，只能死循环 */
     volatile U32 i = 0;
-    while (1) {
+    while (1)
+    {
         i++;
     }
 }
@@ -41,7 +42,8 @@ OS_SEC_KERNEL_TEXT U32 OsTestProcessInit(void)
     param.param[0] = NULL;
     param.param[1] = NULL;
 
-    if (OsProcessCreate(&param, &pid) != OS_OK) {
+    if (OsProcessCreate(&param, &pid) != OS_OK)
+    {
         kprintf("[PROC] create failed\n");
         return OS_OK;
     }

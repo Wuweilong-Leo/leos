@@ -11,7 +11,9 @@ OS_SEC_KERNEL_TEXT S32 main(void)
 
     /* 由 OsSchedSwitchFirstTsk 统一做第一次调度 */
     OsSchedSwitchFirstTsk();
-    
-    while (1) {}
+
+    while (1)
+    {
+    }
     return 0;
 }

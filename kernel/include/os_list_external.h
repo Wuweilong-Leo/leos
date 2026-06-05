@@ -2,15 +2,19 @@
 #define OS_LIST_EXTERNAL_H
 #include "os_def.h"
 
-struct OsList {
+struct OsList
+{
     struct OsList *prev;
     struct OsList *next;
 };
 
-#define OS_LIST_FOR_EACH(list, tmpNode)                                        \
-  for ((tmpNode) = (list)->next; (tmpNode) != (list); (tmpNode) = (tmpNode)->next)
+#define OS_LIST_FOR_EACH(list, tmpNode)                                                            \
+    for ((tmpNode) = (list)->next; (tmpNode) != (list); (tmpNode) = (tmpNode)->next)
 
-#define OS_LIST_INIT(list) {&(list), &(list)}
+#define OS_LIST_INIT(list)                                                                         \
+    {                                                                                              \
+        &(list), &(list)                                                                           \
+    }
 
 OS_INLINE struct OsList *OsListGetFirstNode(struct OsList *list)
 {
@@ -58,7 +62,7 @@ OS_INLINE struct OsList *OsListPopHead(struct OsList *list)
     struct OsList *firstNode;
 
     firstNode = OsListGetFirstNode(list);
-    
+
     OsListRemoveNode(firstNode);
 
     return firstNode;
@@ -68,12 +72,14 @@ OS_INLINE bool OsListFindNode(struct OsList *list, struct OsList *node)
 {
     struct OsList *tmpNode;
 
-    OS_LIST_FOR_EACH(list, tmpNode) {
-        if (node == tmpNode) {
+    OS_LIST_FOR_EACH(list, tmpNode)
+    {
+        if (node == tmpNode)
+        {
             return TRUE;
         }
     }
-    
+
     return FALSE;
 }
 #endif

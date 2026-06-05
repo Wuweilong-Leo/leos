@@ -15,7 +15,7 @@ OS_SEC_KERNEL_TEXT void OsBtmpSet(struct OsBtmp *btmp, U32 idx)
 {
     U32 bitOff = idx % 8;
     U32 byteOff = idx / 8;
-    
+
     btmp->base[byteOff] |= (1 << bitOff);
 }
 
@@ -24,7 +24,7 @@ OS_SEC_KERNEL_TEXT U8 OsBtmpGet(struct OsBtmp *btmp, U32 idx)
     U32 bitOff = idx % 8;
     U32 byteOff = idx / 8;
 
-    return (btmp->base[byteOff] & (1 << bitOff)) != 0 ;
+    return (btmp->base[byteOff] & (1 << bitOff)) != 0;
 }
 
 OS_SEC_KERNEL_TEXT void OsBtmpClear(struct OsBtmp *btmp, U32 idx)
@@ -36,16 +36,19 @@ OS_SEC_KERNEL_TEXT void OsBtmpClear(struct OsBtmp *btmp, U32 idx)
 }
 
 /* 连续申请cnt个为val的位, val只能为1或者0 */
-OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val,
-                                   U32 *idx) {
+OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *idx)
+{
     U32 left = 0;
     U32 right = 0;
-    
-    while (right < btmp->bitNum) {
-        if (OsBtmpGet(btmp, right) != val) {
+
+    while (right < btmp->bitNum)
+    {
+        if (OsBtmpGet(btmp, right) != val)
+        {
             left = right + 1;
         }
-        if (right - left + 1 == cnt) {
+        if (right - left + 1 == cnt)
+        {
             *idx = left;
             return TRUE;
         }

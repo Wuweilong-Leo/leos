@@ -3,7 +3,8 @@
 #include "os_def.h"
 #include "os_cpu_i386.h"
 
-struct OsTss {
+struct OsTss
+{
     U32 backlink;
     uintptr_t esp0;
     U32 ss0;
@@ -44,6 +45,6 @@ extern void OsTssUpdateEsp0(U32 ss0, uintptr_t esp0);
 
 OS_INLINE void OsLoadTss(void)
 {
-    OS_EMBED_ASM("ltr %w0"::"r"(OS_SELECTOR_TSS));
+    OS_EMBED_ASM("ltr %w0" ::"r"(OS_SELECTOR_TSS));
 }
 #endif

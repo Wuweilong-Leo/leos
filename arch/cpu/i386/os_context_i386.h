@@ -6,7 +6,8 @@
 
 extern void OsTaskCommonEntry(U32 tskId);
 
-struct OsAllSaveContext {
+struct OsAllSaveContext
+{
     U32 saveFlag;
     U32 edi;
     U32 esi;
@@ -28,18 +29,20 @@ struct OsAllSaveContext {
     U32 ss;
 };
 
-struct OsFastSaveContext {
+struct OsFastSaveContext
+{
     U32 saveFlag;
     U32 ebp;
     U32 ebx;
     U32 edi;
     U32 esi;
-    void *eip; /* 汇编代码ret后，会回到此函数 */
-    void *rsvd;    /* 必须保留，充当返回地址压栈空间 */
+    void *eip;  /* 汇编代码ret后，会回到此函数 */
+    void *rsvd; /* 必须保留，充当返回地址压栈空间 */
     U32 tskId;
 };
 
-struct OsExcSaveContext {
+struct OsExcSaveContext
+{
     U32 cr2;
     U32 edi;
     U32 esi;
@@ -63,5 +66,5 @@ struct OsExcSaveContext {
 
 extern void OsSwitch2Process(void);
 
-extern void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb* tskCb);
+extern void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb);
 #endif

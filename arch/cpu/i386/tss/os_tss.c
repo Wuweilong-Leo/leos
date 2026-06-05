@@ -10,8 +10,9 @@ OS_SEC_KERNEL_TEXT void OsTssConfig(void)
 
     /* 创建tss的描述符 */
     OsBuildGdtEntry(OS_GDT_TSS_IDX, (uintptr_t)tss, sizeof(struct OsTss) - 1, OS_GDT_TSS_ATTR_TYPE,
-                    OS_GDT_ENTRY_ATTR_S_SYS, OS_GDT_ENTRY_ATTR_DPL_0, OS_GDT_ENTRY_ATTR_P, 
-                    OS_GDT_ENTRY_ATTR_AVL, OS_GDT_ENTRY_ATTR_L_0, OS_GDT_ENTRY_ATTR_DB_0, OS_GDT_ENTRY_ATTR_G_4K);    
+                    OS_GDT_ENTRY_ATTR_S_SYS, OS_GDT_ENTRY_ATTR_DPL_0, OS_GDT_ENTRY_ATTR_P,
+                    OS_GDT_ENTRY_ATTR_AVL, OS_GDT_ENTRY_ATTR_L_0, OS_GDT_ENTRY_ATTR_DB_0,
+                    OS_GDT_ENTRY_ATTR_G_4K);
 }
 
 /* 专门用来更新内核栈 */

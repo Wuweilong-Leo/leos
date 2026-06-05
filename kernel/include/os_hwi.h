@@ -3,7 +3,8 @@
 #include "os_def.h"
 #include "os_target.h"
 
-enum OsIntStatus {
+enum OsIntStatus
+{
     OS_INT_OFF,
     OS_INT_ON
 };

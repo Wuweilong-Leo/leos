@@ -16,16 +16,16 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
     struct OsTaskCb *expiredTsk;
 
     // 有任务到期了
-    if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick <= g_uniTicks)) {
+    if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick <= g_uniTicks))
+    {
         // 弹出第一个到期任务
-        expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode,
-                                         OsListPopHead(&rq->dlyList));
+        expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, OsListPopHead(&rq->dlyList));
 
         // 加回到就绪队列
         OsSchedRdyListEnqueTsk(expiredTsk);
 
         OsIntRestore(intSave);
-        return TRUE;        
+        return TRUE;
     }
 
     // 第一个任务都没到期，不需要再尝试了
@@ -38,24 +38,25 @@ OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
     struct OsTaskCb *firstTsk;
     enum OsIntStatus intSave = OsIntLock();
 
-    if (OsListIsEmpty(&rq->dlyList)) {
+    if (OsListIsEmpty(&rq->dlyList))
+    {
         OsIntRestore(intSave);
         return;
     }
 
     // 获取延时链上第一个任务
-    firstTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode,
-                                   OsListGetFirstNode(&rq->dlyList));
+    firstTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, OsListGetFirstNode(&rq->dlyList));
     rq->nearestTick = firstTsk->expiredTick;
 
     OsIntRestore(intSave);
-    return;  
+    return;
 }
 
 OS_SEC_KERNEL_TEXT void OsTickScanTsks(void)
-{   
+{
     struct OsRunQue *rq = OS_RUN_QUE();
-    while (OsTickTryHandleExpiredTsk(rq)) {
+    while (OsTickTryHandleExpiredTsk(rq))
+    {
         OsRefreshNearestTick(rq);
     }
 }
@@ -67,7 +68,8 @@ OS_SEC_KERNEL_TEXT void OsTickHandleTimeSlice(void)
 
     curTsk->timeSliceTicks--;
     // 时间片耗尽是冷分支
-    if (UNLIKELY(curTsk->timeSliceTicks == 0)) {
+    if (UNLIKELY(curTsk->timeSliceTicks == 0))
+    {
         // 任务先出队
         OsSchedRdyListDequeTsk(curTsk);
         // 调整任务优先级，时间片轮转

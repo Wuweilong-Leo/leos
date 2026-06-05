@@ -4,14 +4,16 @@
 #include "os_mem_fsc_internal.h"
 #include "os_list_external.h"
 
-struct OsMemCtrl {
+struct OsMemCtrl
+{
     struct OsList listNode;
     uintptr_t memBase;
     size_t memSize;
     struct OsFscMemCtrl *fscCtrl;
 };
 
-struct OsMemPool {
+struct OsMemPool
+{
     struct OsBtmp btmp;
     uintptr_t base;
     size_t size;
@@ -19,9 +21,9 @@ struct OsMemPool {
 };
 
 #define OS_KERNEL_MEM_VIR_ADDR_START 0xc0000000
-#define OS_USR_MEM_VIR_ADDR_START 0x8048000
+#define OS_USR_MEM_VIR_ADDR_START    0x8048000
 /* 用户最多申请1M */
-#define OS_USR_VIR_MEM_SIZE (OS_KERNEL_MEM_VIR_ADDR_START - OS_USR_MEM_VIR_ADDR_START)
+#define OS_USR_VIR_MEM_SIZE         (OS_KERNEL_MEM_VIR_ADDR_START - OS_USR_MEM_VIR_ADDR_START)
 #define OS_KERNEL_VIR_HEAP_MEM_BASE 0xC0200000
 #define OS_KERNEL_VIR_HEAP_MEM_SIZE (4 * 1024 * 1024)
 
@@ -31,8 +33,7 @@ extern uintptr_t OsMemKernelAllocPgs(U32 cnt);
 extern uintptr_t OsMemUsrAllocPgs(U32 cnt);
 extern uintptr_t OsMemUsrAllocPgByAddr(uintptr_t virAddr);
 extern uintptr_t OsMemKernelAllocPgByAddr(uintptr_t virAddr);
-extern void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, 
-                          U32 memSize, U8 *btmpBase);
+extern void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, U32 memSize, U8 *btmpBase);
 
 extern struct OsMemPool g_kernelPhyMemPool;
 extern struct OsMemPool g_usrPhyMemPool;
