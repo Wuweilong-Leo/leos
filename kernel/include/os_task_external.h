@@ -23,15 +23,10 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 #define OS_TASK_STATUS_IN_DELAY 0x10U
 
 // 两种任务类型，线程和进程
-enum OsTaskType
-{
-    OS_TASK_THREAD,
-    OS_TASK_PROCESS
-};
+enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
 
 /* 任务控制块 */
-struct OsTaskCb
-{
+struct OsTaskCb {
     uintptr_t stkPtr;
     uintptr_t kernelStkTop;
     struct OsList freeListNode;
@@ -54,8 +49,7 @@ struct OsTaskCb
     struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 
-struct OsTaskCreateParam
-{
+struct OsTaskCreateParam {
     char name[OS_TASK_NAME_MAX_SIZE];
     U32 prio;
     OsTaskEntryFunc entryFunc;

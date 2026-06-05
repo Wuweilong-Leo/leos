@@ -3,8 +3,7 @@
 #include "os_def.h"
 #include "os_cpu.h"
 
-struct OsBtmp
-{
+struct OsBtmp {
     U32 byteLen;
     U32 bitNum;
     U8 *base;

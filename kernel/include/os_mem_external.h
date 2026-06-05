@@ -4,16 +4,14 @@
 #include "os_mem_fsc_internal.h"
 #include "os_list_external.h"
 
-struct OsMemCtrl
-{
+struct OsMemCtrl {
     struct OsList listNode;
     uintptr_t memBase;
     size_t memSize;
     struct OsFscMemCtrl *fscCtrl;
 };
 
-struct OsMemPool
-{
+struct OsMemPool {
     struct OsBtmp btmp;
     uintptr_t base;
     size_t size;

@@ -4,8 +4,7 @@
 extern uintptr_t _os_bss_table_start;
 extern uintptr_t _os_bss_table_end;
 
-struct OsBssInfo
-{
+struct OsBssInfo {
     uintptr_t bssStart;
     uintptr_t bssEnd;
 };
@@ -19,20 +18,17 @@ OS_SEC_KERNEL_TEXT void OsBssInit(void)
     uintptr_t bssStart;
     uintptr_t bssEnd;
 
-    if (bssTabSize % sizeof(struct OsBssInfo) != 0)
-    {
+    if (bssTabSize % sizeof(struct OsBssInfo) != 0) {
         return;
     }
 
     bssTabNum = bssTabSize / sizeof(struct OsBssInfo);
 
-    for (i = 0; i < bssTabNum; i++)
-    {
+    for (i = 0; i < bssTabNum; i++) {
         bssStart = bssTab[i].bssStart;
         bssEnd = bssTab[i].bssEnd;
 
-        if (bssEnd <= bssStart)
-        {
+        if (bssEnd <= bssStart) {
             continue;
         }
 

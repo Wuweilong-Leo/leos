@@ -66,12 +66,10 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
 
     /* 创建用户栈 */
     memBase = OsMemUsrAllocPgByAddr((uintptr_t)OS_PROCESS_USR_STACK_BASE);
-    if (memBase == NULL)
-    {
+    if (memBase == NULL) {
         /* 申请失败直接挂死 */
         OS_DEBUG_KPRINT("%s\n", "OsProcessEntry: OsMemUsrAllocPgByAddr failed");
-        while (1)
-        {
+        while (1) {
         }
     }
 
@@ -86,11 +84,9 @@ OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
     uintptr_t pgdir;
 
     pgdir = OsCreateProcessPgd();
-    if (pgdir == NULL)
-    {
+    if (pgdir == NULL) {
         OS_DEBUG_KPRINT("%s\n", "OsProcessInitArch: OsCreateProcessPgd failed");
-        while (1)
-        {
+        while (1) {
         }
     }
 
@@ -101,23 +97,19 @@ OS_SEC_KERNEL_TEXT void OsConfigPgdForTskSwitch(struct OsTaskCb *tsk)
 {
     uintptr_t pgdPhyAddr;
 
-    if (tsk->tskType == OS_TASK_PROCESS)
-    {
+    if (tsk->tskType == OS_TASK_PROCESS) {
         /* 获取页目录的物理地址 */
         pgdPhyAddr = OsGetPaddrByVaddr(tsk->pgDir);
         // OS_DEBUG_KPRINT("OsConfigPgdForTskSwitch: pgdPhyAddr = 0x%x\n", (U32)pgdPhyAddr);
         OsLoadPgd(pgdPhyAddr);
-    }
-    else
-    {
+    } else {
         OsLoadPgd(OS_KERNEL_PGD_BASE);
     }
 }
 
 OS_SEC_KERNEL_TEXT void OsConfigTssForTskSwitch(struct OsTaskCb *tsk)
 {
-    if (tsk->tskType == OS_TASK_PROCESS)
-    {
+    if (tsk->tskType == OS_TASK_PROCESS) {
         OsTssUpdateEsp0(OS_SELECTOR_K_DATA,
                         (uintptr_t)((U32)tsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE));
     }

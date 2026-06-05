@@ -14,8 +14,7 @@ OS_INLINE void OsCleanPgd(void)
     U8 *pgd = (U8 *)g_pgd;
     U32 i;
 
-    for (i = 0; i < sizeof(g_pgd); i++)
-    {
+    for (i = 0; i < sizeof(g_pgd); i++) {
         pgd[i] = 0;
     }
 }
@@ -38,15 +37,13 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
     *(U32 *)((uintptr_t)pgd + 4092) = (U32)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
     /* 给第一张页表每个页表项赋值，完成2M映射 */
-    for (i = 0; i < 512; i++)
-    {
+    for (i = 0; i < 512; i++) {
         *(U32 *)(&g_pgt[0][i]) = addr | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
         addr += OS_PG_SIZE;
     }
 
     addr = (U32)&g_pgt[1][0];
-    for (i = 769; i < 1023; i++)
-    {
+    for (i = 769; i < 1023; i++) {
         *(U32 *)(&pgd[i]) = addr | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
         addr += OS_PG_SIZE;
     }
@@ -61,8 +58,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba28(U32 secId, U32 secNum, uintptr_t dst)
     U16 data;
 
     /* 1. 等待 BSY=0 */
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0x80) != 0);
 
@@ -78,8 +74,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba28(U32 secId, U32 secNum, uintptr_t dst)
     OsOutb(OS_DISK_DEV_PORT, (U8)(0xe0 | ((secId >> 24) & 0x0f)));
 
     /* 4.5 等待 DRDY=1 且 BSY=0 (设备就绪) */
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0xc0) != 0x40); /* BSY=0, DRDY=1 */
 
@@ -92,15 +87,13 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba28(U32 secId, U32 secNum, uintptr_t dst)
     OsInb(OS_DISK_CMD_STA_PORT);
     OsInb(OS_DISK_CMD_STA_PORT);
     OsInb(OS_DISK_CMD_STA_PORT);
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0x88) != 0x08);
 
     /* 7. 读取数据 */
     readTimes = (secNum * 512) / 2;
-    do
-    {
+    do {
         data = OsInw(OS_DISK_RD_PORT);
         *(U16 *)dstAddr = data;
         dstAddr += 2;
@@ -116,8 +109,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba48(U32 secId, U32 secNum, uintptr_t dst)
     U16 data;
 
     /* 1. 等待 BSY=0 */
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0x80) != 0);
 
@@ -140,8 +132,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba48(U32 secId, U32 secNum, uintptr_t dst)
     OsOutb(OS_DISK_DEV_PORT, (U8)(0x40 | 0xe0));
 
     /* 3.5 等待 DRDY=1 且 BSY=0 */
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0xc0) != 0x40);
 
@@ -154,15 +145,13 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba48(U32 secId, U32 secNum, uintptr_t dst)
     OsInb(OS_DISK_CMD_STA_PORT);
     OsInb(OS_DISK_CMD_STA_PORT);
     OsInb(OS_DISK_CMD_STA_PORT);
-    do
-    {
+    do {
         status = OsInb(OS_DISK_CMD_STA_PORT);
     } while ((status & 0x88) != 0x08);
 
     /* 6. 读取数据 */
     readTimes = (secNum * 512) / 2;
-    do
-    {
+    do {
         data = OsInw(OS_DISK_RD_PORT);
         *(U16 *)dstAddr = data;
         dstAddr += 2;
@@ -206,20 +195,14 @@ OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
     pdeVaddr = OsGetPdeVirAddr(virAddr);
 
     /* 如果页目录项已存在，则对应页表已经存在，只用更改页表项 */
-    if (OsPdeIsExisted(pdeVaddr))
-    {
+    if (OsPdeIsExisted(pdeVaddr)) {
         /* 如果页表项还不存在，添加页表项 */
-        if (!OsPteIsExisted(pteVaddr))
-        {
+        if (!OsPteIsExisted(pteVaddr)) {
             *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
-        }
-        else
-        {
+        } else {
             /* PTE 已存在，可能是预映射的页，跳过 */
         }
-    }
-    else
-    {
+    } else {
         /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
         /* 页表的内存都由内核出 */
         ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
@@ -251,8 +234,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
 
     /* 进程页目录用内核的内存 */
     pgdBase = (struct OsPgtEntry *)OsMemKernelAllocPgs(1);
-    if (pgdBase == NULL)
-    {
+    if (pgdBase == NULL) {
         OS_DEBUG_KPRINT("%s", "OsCreateProcessPgd: OsMemKernelAllocPgs failed\n");
         return NULL;
     }

@@ -1,8 +1,7 @@
 #ifndef OS_PGT_H
 #define OS_PGT_H
 #include "os_def.h"
-struct OsPgtEntry
-{
+struct OsPgtEntry {
     U8 attrP : 1;
     U8 attrRw : 1;
     U8 attrUs : 1;

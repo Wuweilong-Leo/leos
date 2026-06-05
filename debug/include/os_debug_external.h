@@ -5,8 +5,7 @@
 
 /* ---- 日志级别 ---- */
 
-enum OsLogLevel
-{
+enum OsLogLevel {
     OS_LOG_NONE = 0,  /* 静默，不输出任何日志 */
     OS_LOG_ERROR = 1, /* 仅错误 */
     OS_LOG_WARN = 2,  /* 错误 + 警告 */
@@ -27,10 +26,8 @@ extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, 
 #define OS_PANIC(msg) OsDebugPanicSpin(__FILE__, __LINE__, __func__, (msg))
 
 #define OS_ASSERT(cond)                                                                            \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(cond))                                                                               \
-        {                                                                                          \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
             OsDebugAssertFail(__FILE__, __LINE__, __func__, #cond);                                \
         }                                                                                          \
     } while (0)
@@ -40,10 +37,8 @@ extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, 
 #define OS_LOG_LEVEL_CHECK(level) ((level) <= g_logLevel)
 
 #define OS_LOG(level, ...)                                                                         \
-    do                                                                                             \
-    {                                                                                              \
-        if (OS_LOG_LEVEL_CHECK(level))                                                             \
-        {                                                                                          \
+    do {                                                                                           \
+        if (OS_LOG_LEVEL_CHECK(level)) {                                                           \
             kprintf(__VA_ARGS__);                                                                  \
         }                                                                                          \
     } while (0)

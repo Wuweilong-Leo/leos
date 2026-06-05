@@ -3,11 +3,7 @@
 #include "os_def.h"
 #include "os_target.h"
 
-enum OsIntStatus
-{
-    OS_INT_OFF,
-    OS_INT_ON
-};
+enum OsIntStatus { OS_INT_OFF, OS_INT_ON };
 
 /* 通用中断 API 声明 */
 extern U32 OsHwiCreate(U32 hwiNum, void (*isr)(U32));

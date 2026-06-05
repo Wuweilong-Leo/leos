@@ -20,18 +20,15 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
     g_semMaxNum = OS_SEM_MAX_NUM;
     size = g_semMaxNum * sizeof(struct OsSemCb);
     g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
-    if (g_semCbArray == NULL)
-    {
+    if (g_semCbArray == NULL) {
         OS_LOG_ERROR("OsSemConfigInit: alloc semCbArray failed, size=%u\n", (U32)size);
-        while (1)
-        {
+        while (1) {
         }
     }
 
     memset(g_semCbArray, 0, size);
 
-    for (i = 0; i < g_semMaxNum; i++)
-    {
+    for (i = 0; i < g_semMaxNum; i++) {
         semCb = &g_semCbArray[i];
         freeListNode = &semCb->freeListNode;
 
@@ -46,8 +43,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
 
 OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
 {
-    if (OsListIsEmpty(&g_semFreeList))
-    {
+    if (OsListIsEmpty(&g_semFreeList)) {
         return NULL;
     }
 
@@ -60,8 +56,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, enum OsSemWakePolicy 
     enum OsIntStatus intSave = OsIntLock();
 
     semCb = OsSemGetFreeCb();
-    if (semCb == NULL)
-    {
+    if (semCb == NULL) {
         OS_LOG_ERROR("OsSemCreate: no free sem CB\n");
         OsIntRestore(intSave);
         return OS_SEM_CREATE_NO_FREE_CB;
@@ -85,8 +80,7 @@ static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(struct OsList *pendList
     OS_LIST_FOR_EACH(pendList, node)
     {
         pos = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, node);
-        if (tsk->prio < pos->prio)
-        {
+        if (tsk->prio < pos->prio) {
             OsListInsertPrev(&tsk->pendListNode, node);
             return;
         }
@@ -106,15 +100,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     semCb = OS_SEM_GET_CB(semId);
     curTsk = OS_RUNNING_TASK();
 
-    if (semCb->val == 0)
-    {
+    if (semCb->val == 0) {
         /* 加入到信号量 pending 队列 */
-        if (semCb->wakePolicy == OS_SEM_WAKE_PRIO)
-        {
+        if (semCb->wakePolicy == OS_SEM_WAKE_PRIO) {
             OsSemPendListInsertByPrio(&semCb->pendList, curTsk);
-        }
-        else
-        {
+        } else {
             OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
         }
 
@@ -144,16 +134,14 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     semCb = OS_SEM_GET_CB(semId);
 
     /* 释放资源，val++ */
-    if (semCb->val == semCb->semCnt)
-    {
+    if (semCb->val == semCb->semCnt) {
         OS_LOG_WARN("OsSemPost: sem %u is full (val=%u)\n", semId, semCb->val);
         OsIntRestore(intSave);
         return OS_SEM_POST_IS_FULL;
     }
     semCb->val++;
 
-    if (!OsListIsEmpty(&semCb->pendList))
-    {
+    if (!OsListIsEmpty(&semCb->pendList)) {
         /* 有任务在等，唤醒队首（FIFO 队首即最先等待，PRIO 队首即最高优先级） */
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));

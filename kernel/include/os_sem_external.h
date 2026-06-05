@@ -4,14 +4,12 @@
 #include "os_list_external.h"
 
 /* 唤醒策略 */
-enum OsSemWakePolicy
-{
+enum OsSemWakePolicy {
     OS_SEM_WAKE_FIFO = 0, /* 先等先唤醒 */
     OS_SEM_WAKE_PRIO = 1, /* 高优先级先唤醒 */
 };
 
-struct OsSemCb
-{
+struct OsSemCb {
     U32 semId;
     U32 val;
     U32 semCnt;

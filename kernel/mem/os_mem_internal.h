@@ -16,9 +16,5 @@
 #define OS_GET_PG_NUM_BY_MEM_SIZE(memSize)            (OS_ROUND_UP(memSize, OS_PG_SIZE) / OS_PG_SIZE)
 #define OS_MEM_BTMP_MAX_NUM                           3
 
-enum OsMemFlag
-{
-    OS_MEM_KERNEL,
-    OS_MEM_USR
-};
+enum OsMemFlag { OS_MEM_KERNEL, OS_MEM_USR };
 #endif

@@ -23,13 +23,11 @@ typedef void (*OsExcHandlerFunc)(U32 excNum, uintptr_t context);
 typedef void (*OsHwiVector)(void);
 typedef void (*OsExcVector)(void);
 
-struct OsHwiForm
-{
+struct OsHwiForm {
     OsHwiHandlerFunc isr;
 };
 
-struct OsIdtEntry
-{
+struct OsIdtEntry {
     U16 funcOffsetLowWord;
     U16 selector;
     U8 dcount;
@@ -37,14 +35,12 @@ struct OsIdtEntry
     U16 funcOffsetHighWord;
 };
 
-struct OsIdtInfo
-{
+struct OsIdtInfo {
     U16 idtLmit;
     U32 idtBase;
 } OS_STRUCT_PACKED;
 
-enum OsExcType
-{
+enum OsExcType {
     OS_EXC_TYPE_DIVIDE_ERROR = 0,         // 除法错误（除零）
     OS_EXC_TYPE_DEBUG = 1,                // 调试异常
     OS_EXC_TYPE_NMI = 2,                  // 不可屏蔽中断
@@ -108,12 +104,9 @@ OS_INLINE enum OsIntStatus OsIntLock(void)
 // 只能在内核态使用
 OS_INLINE void OsIntRestore(enum OsIntStatus intSave)
 {
-    if (intSave == OS_INT_OFF)
-    {
+    if (intSave == OS_INT_OFF) {
         OS_EMBED_ASM("cli");
-    }
-    else
-    {
+    } else {
         OS_EMBED_ASM("sti");
     }
 }

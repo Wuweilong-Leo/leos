@@ -19,8 +19,7 @@ OS_INLINE U32 OsSchedGetHighestPrio(void)
     U32 bit = 0;
 
     /* idle 任务永远就绪，rdyListMsk 不可能为 0，必然能找到 */
-    while ((rq->rdyListMsk & (1 << bit)) == 0)
-    {
+    while ((rq->rdyListMsk & (1 << bit)) == 0) {
         bit++;
     }
 
@@ -46,8 +45,7 @@ OS_SEC_KERNEL_TEXT U32 OsSchedConfigInit(void)
 
     rq->runningTsk = NULL;
     rq->rdyListMsk = 0;
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
-    {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         OsListInit(&rq->rdyList[i]);
     }
     OsListInit(&rq->dlyList);
@@ -72,8 +70,7 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk)
 
     rq->rdyListMsk |= (1 << tskPrio);
 
-    if (tskPrio < rq->runningTsk->prio)
-    {
+    if (tskPrio < rq->runningTsk->prio) {
         rq->needSched = TRUE;
     }
 
@@ -92,13 +89,11 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk)
 
     OsListRemoveNode(&tsk->rdyListNode);
 
-    if (OsListIsEmpty(rdyList))
-    {
+    if (OsListIsEmpty(rdyList)) {
         rq->rdyListMsk &= ~(1 << prio);
     }
 
-    if (tsk == rq->runningTsk)
-    {
+    if (tsk == rq->runningTsk) {
         rq->needSched = TRUE;
     }
 
@@ -118,14 +113,11 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     struct OsTaskCb *nextTsk = curTsk;
 
     // 内核进行系统操作时不要切任务，正常中断返回即可
-    if (!OS_SYS_ACTIVE(rq->uniFlag))
-    {
-        if (rq->needSched)
-        {
+    if (!OS_SYS_ACTIVE(rq->uniFlag)) {
+        if (rq->needSched) {
             rq->needSched = FALSE;
             nextTsk = scheduler->pickNextTsk();
-            if (nextTsk != curTsk)
-            {
+            if (nextTsk != curTsk) {
                 curTsk->status &= ~OS_TASK_STATUS_RUNNING;
                 nextTsk->status |= OS_TASK_STATUS_RUNNING;
                 /* 任务切换时的必要的架构配置 */
@@ -156,8 +148,7 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
     struct OsRunQue *rq = OS_RUN_QUE();
 
     /* 创建 idle 任务 */
-    if (OsTaskCreateIdle() != OS_OK)
-    {
+    if (OsTaskCreateIdle() != OS_OK) {
         OS_LOG_ERROR("OsSchedSwitchFirstTsk: create idle task failed\n");
         while (1)
             ;

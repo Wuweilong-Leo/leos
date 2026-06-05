@@ -9,8 +9,7 @@ OS_INLINE void OsPrintCleanLastLine(void)
     U8 *videoBaseAddr = (U8 *)OS_VIDEO_BASE_ADDR;
     U32 i;
 
-    for (i = 0; i < OS_SCREEN_COL_NUM; i++)
-    {
+    for (i = 0; i < OS_SCREEN_COL_NUM; i++) {
         videoBaseAddr[lastLineOff++] = ' ';
         videoBaseAddr[lastLineOff++] = OS_BLK_BACK_WHT_WORD;
     }
@@ -66,40 +65,29 @@ OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
 
     curPos = OsPrintGetCursor();
 
-    if (c == '\r' || c == '\n')
-    {
+    if (c == '\r' || c == '\n') {
         /* 另起一行 */
         nextCurPos = curPos - (curPos % OS_SCREEN_COL_NUM) + OS_SCREEN_COL_NUM;
-        if (OsPrintIsOutOfScreen(nextCurPos))
-        {
+        if (OsPrintIsOutOfScreen(nextCurPos)) {
             OsPrintRollScreen();
-        }
-        else
-        {
+        } else {
             OsPrintSetCursor(nextCurPos);
         }
-    }
-    else if (c == '\b')
-    {
+    } else if (c == '\b') {
         offset = (curPos - 1) * 2;
         videoBaseAddr[offset] = ' ';
         videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
         nextCurPos = curPos - 1;
         /* 因为是返回上一个cursor, 不会超出范围 */
         OsPrintSetCursor(nextCurPos);
-    }
-    else
-    {
+    } else {
         offset = curPos * 2;
         videoBaseAddr[offset] = c;
         videoBaseAddr[offset + 1] = OS_BLK_BACK_WHT_WORD;
         nextCurPos = curPos + 1;
-        if (OsPrintIsOutOfScreen(nextCurPos))
-        {
+        if (OsPrintIsOutOfScreen(nextCurPos)) {
             OsPrintRollScreen();
-        }
-        else
-        {
+        } else {
             OsPrintSetCursor(nextCurPos);
         }
     }
@@ -109,8 +97,7 @@ OS_SEC_KERNEL_TEXT void OsPrintStr(char *str)
 {
     U32 i = 0;
 
-    while (str[i] != 0)
-    {
+    while (str[i] != 0) {
         OsPrintChar(str[i]);
         i++;
     }
@@ -124,20 +111,15 @@ OS_SEC_KERNEL_TEXT void OsPrintHex(U32 num)
     char p;
     char buf[9] = {0};
 
-    if (numTmp == 0)
-    {
+    if (numTmp == 0) {
         buf[off--] = '0';
     }
 
-    while (numTmp != 0)
-    {
+    while (numTmp != 0) {
         low = numTmp & 0xf;
-        if (low >= 0 && low <= 9)
-        {
+        if (low >= 0 && low <= 9) {
             p = low + '0';
-        }
-        else
-        {
+        } else {
             p = low - 10 + 'A';
         }
         buf[off--] = p;
@@ -152,17 +134,13 @@ OS_SEC_KERNEL_TEXT void itoa(U32 val, char **bufPtrAddr, U8 base)
     U32 m = val % base;
     U32 i = val / base;
 
-    if (i != 0)
-    {
+    if (i != 0) {
         itoa(i, bufPtrAddr, base);
     }
 
-    if (m < 10)
-    {
+    if (m < 10) {
         *((*bufPtrAddr)++) = m + '0';
-    }
-    else
-    {
+    } else {
         *((*bufPtrAddr)++) = m + 'A' - 10;
     }
 }
@@ -177,15 +155,13 @@ OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
 
     while (idxChar) //挨个挨个字符来弄
     {
-        if (idxChar != '%')
-        {
+        if (idxChar != '%') {
             *(bufPtr++) = idxChar;
             idxChar = *(++idxPtr);
             continue;
         }
         idxChar = *(++idxPtr);
-        switch (idxChar)
-        {
+        switch (idxChar) {
         case 's':
             argStr = OS_VA_ARG(ap, char *);
             strcpy(bufPtr, argStr);
@@ -199,8 +175,7 @@ OS_SEC_KERNEL_TEXT U32 vsprintf(char *str, const char *fmt, void *ap)
             break;
         case 'd':
             argInt = OS_VA_ARG(ap, int);
-            if (argInt < 0)
-            {
+            if (argInt < 0) {
                 argInt = 0 - argInt;
                 *(bufPtr++) = '-';
             }

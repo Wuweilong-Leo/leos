@@ -15,11 +15,9 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
     usrMemBtmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE);
     OS_DEBUG_KPRINT("OsProcessInitVirMemPool: usrMemBtmpPgNum = 0x%x\n", usrMemBtmpPgNum);
     btmpBase = OsMemKernelAllocPgs(usrMemBtmpPgNum);
-    if (btmpBase == NULL)
-    {
+    if (btmpBase == NULL) {
         OS_DEBUG_KPRINT("%s\n", "OsProcessInitVirMemPool: OsMemKernelAllocPgs failed");
-        while (1)
-        {
+        while (1) {
         }
     }
 
@@ -47,8 +45,7 @@ OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam
     intSave = OsIntLock();
 
     ret = OsTaskCreate(&tskParam, &tskId);
-    if (ret != OS_OK)
-    {
+    if (ret != OS_OK) {
         OsIntRestore(intSave);
         return ret;
     }

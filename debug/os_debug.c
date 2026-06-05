@@ -33,8 +33,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(const char *filename, U32 line, const c
     kprintf("Func: %s\n", func);
     kprintf("Cond: %s\n", cond);
     kprintf("========================\n");
-    while (1)
-    {
+    while (1) {
     }
 }
 
@@ -67,10 +66,8 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintRdyList(void)
     struct OsRunQue *rq = OS_RUN_QUE();
 
     kprintf("--- Ready Lists ---\n");
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
-    {
-        if (!OsListIsEmpty(&rq->rdyList[i]))
-        {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
+        if (!OsListIsEmpty(&rq->rdyList[i])) {
             kprintf("prio%u: ", i);
             OsDebugPrintList(&rq->rdyList[i]);
         }
@@ -81,8 +78,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintRdyList(void)
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintTaskInfo(struct OsTaskCb *tsk)
 {
-    if (tsk == NULL)
-    {
+    if (tsk == NULL) {
         kprintf("Task: NULL\n");
         return;
     }
@@ -101,8 +97,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
     kprintf("Idle:    ");
     OsDebugPrintTaskInfo(rq->idleTsk);
 
-    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++)
-    {
+    for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         struct OsList *node;
         OS_LIST_FOR_EACH(&rq->rdyList[i], node)
         {
@@ -119,8 +114,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintMemPool(struct OsMemPool *pool, const char *name)
 {
-    if (pool == NULL)
-    {
+    if (pool == NULL) {
         kprintf("MemPool [%s]: NULL\n", name);
         return;
     }

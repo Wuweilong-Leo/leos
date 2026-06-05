@@ -3,8 +3,7 @@
 #include "os_def.h"
 #include "os_cpu_i386.h"
 
-struct OsTss
-{
+struct OsTss {
     U32 backlink;
     uintptr_t esp0;
     U32 ss0;

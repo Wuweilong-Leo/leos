@@ -2,8 +2,7 @@
 #define OS_LIST_EXTERNAL_H
 #include "os_def.h"
 
-struct OsList
-{
+struct OsList {
     struct OsList *prev;
     struct OsList *next;
 };
@@ -74,8 +73,7 @@ OS_INLINE bool OsListFindNode(struct OsList *list, struct OsList *node)
 
     OS_LIST_FOR_EACH(list, tmpNode)
     {
-        if (node == tmpNode)
-        {
+        if (node == tmpNode) {
             return TRUE;
         }
     }

@@ -41,14 +41,11 @@ OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *id
     U32 left = 0;
     U32 right = 0;
 
-    while (right < btmp->bitNum)
-    {
-        if (OsBtmpGet(btmp, right) != val)
-        {
+    while (right < btmp->bitNum) {
+        if (OsBtmpGet(btmp, right) != val) {
             left = right + 1;
         }
-        if (right - left + 1 == cnt)
-        {
+        if (right - left + 1 == cnt) {
             *idx = left;
             return TRUE;
         }

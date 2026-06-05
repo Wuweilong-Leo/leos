@@ -2,8 +2,7 @@
 #define OS_GDT_H
 #include "os_def.h"
 
-struct OsGdtEntry
-{
+struct OsGdtEntry {
     U16 limitLowWord;
     U16 baseLowWord;
     U8 baseMidByte;
@@ -19,8 +18,7 @@ struct OsGdtEntry
     U8 baseHighByte;
 } OS_STRUCT_PACKED;
 
-struct OsGdtInfo
-{
+struct OsGdtInfo {
     U16 gdtLimit;
     U32 gdtBase;
 } OS_STRUCT_PACKED;

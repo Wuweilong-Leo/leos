@@ -1,7 +1,6 @@
 #ifndef OS_SYS_H
 #define OS_SYS_H
-enum OsMid
-{
+enum OsMid {
     OS_MID_BSS,
     OS_MID_SYS,
     OS_MID_HWI,

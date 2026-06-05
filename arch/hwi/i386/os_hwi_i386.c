@@ -94,20 +94,16 @@ OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
 {
     char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
-    if (excName != NULL)
-    {
+    if (excName != NULL) {
         OS_DEBUG_KPRINT("exc num: 0x%x, exc type: %s, exc addr: 0x%x, exc cs: 0x%x, exc pc 0x%x, \
                 eax: 0x%x, ebx: 0x%x, ecx: 0x%x, edx: 0x%x\n",
                         excNum, excName, context->cr2, context->cs, context->eip, context->eax,
                         context->ebx, context->ecx, context->edx);
-    }
-    else
-    {
+    } else {
         OS_DEBUG_KPRINT("unknown exc type!!!\n");
     }
 
-    while (1)
-    {
+    while (1) {
     }
 }
 
@@ -121,14 +117,11 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
     uintptr_t pgBase;
 
     if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE &&
-        errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE)
-    {
+        errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
         // errAddr那一页并未映射
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
         return OsMemKernelAllocPgByAddr(pgBase) != NULL;
-    }
-    else
-    {
+    } else {
         OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (U32)errAddr);
         return FALSE;
     }
@@ -136,30 +129,22 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
 {
-    if (excNum > OS_EXC_MAX)
-    {
+    if (excNum > OS_EXC_MAX) {
         OS_LOG_ERROR("OsExcDispatcher: excNum 0x%x out of range (max 0x%x)\n", excNum, OS_EXC_MAX);
-        while (1)
-        {
+        while (1) {
         }
     }
 
-    if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode))
-    {
-        if (!OsExcHandleKernelPgFault(context->cr2))
-        {
+    if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode)) {
+        if (!OsExcHandleKernelPgFault(context->cr2)) {
             OS_DEBUG_KPRINT("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip,
                             context->cr2);
-            while (1)
-            {
+            while (1) {
             }
         }
-    }
-    else
-    {
+    } else {
         OsExcReport(excNum, context);
-        while (1)
-        {
+        while (1) {
         }
     }
 }
@@ -199,8 +184,7 @@ static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)
     U32 i;
 
     // 注册异常的统一钩子
-    for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++)
-    {
+    for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++) {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_excVectorTab[OsExcNum2Idx(i)]);
     }
 }
@@ -210,8 +194,7 @@ static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
     U32 i;
 
     // 注册异常的统一钩子
-    for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++)
-    {
+    for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++) {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[OsHwiNum2Idx(i)]);
         OsHwiCreate(i, OsHwiDefHandler);
     }
@@ -239,15 +222,12 @@ OS_SEC_KERNEL_TEXT void OsHwiTail(void)
     struct OsRunQue *rq = OS_RUN_QUE();
     enum OsIntStatus intSave;
 
-    if (UNLIKELY(g_noRespondTicks > 0))
-    {
-        if (OS_TICK_ACTIVE(rq->uniFlag))
-        {
+    if (UNLIKELY(g_noRespondTicks > 0)) {
+        if (OS_TICK_ACTIVE(rq->uniFlag)) {
             return;
         }
         rq->uniFlag |= OS_TICK_ACTIVE_MSK;
-        do
-        {
+        do {
             intSave = OsIntUnlock();
             OsTickDispatcher();
             OsIntRestore(intSave);

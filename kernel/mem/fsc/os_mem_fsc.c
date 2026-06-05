@@ -58,8 +58,7 @@ OS_SEC_KERNEL_TEXT struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t si
     blkSize =
         (uintptr_t)ptCtrl + ptSize - (uintptr_t)blk - OS_MEM_FSC_HEAD_SIZE; // 此处再预留个尾巴占位
 
-    for (i = 0; i < OS_MEM_FSC_SIZE_NUM; i++)
-    {
+    for (i = 0; i < OS_MEM_FSC_SIZE_NUM; i++) {
         freeList = OsMemFscGetFreeList(ptCtrl, i);
         freeList->next = freeList;
         freeList->prev = freeList;
@@ -82,21 +81,17 @@ OS_SEC_KERNEL_TEXT struct OsMemFscHead *OsMemFscFuzzySearch(struct OsMemFscCtrl 
     U32 *btmp = &ptCtrl->btmp;
     struct OsMemFscHead *freeList;
 
-    while (1)
-    {
-        if (idx >= 32)
-        {
+    while (1) {
+        if (idx >= 32) {
             return NULL;
         }
         idx = OsGetLmb(((*btmp) << idx) >> idx); // 先过滤掉小的内存然后从小链表开始找
-        if (idx == OS_MEM_FSC_LAST_IDX)
-        {
+        if (idx == OS_MEM_FSC_LAST_IDX) {
             return NULL;
         }
 
         freeList = OsMemFscGetFreeList(ptCtrl, idx);
-        if (OsMemFscFreeListIsEmpty(freeList))
-        {
+        if (OsMemFscFreeListIsEmpty(freeList)) {
             // 是空的就再找
             *btmp &= ~OsMemFscIdx2Bit(idx);
             continue;
@@ -114,12 +109,10 @@ OS_SEC_KERNEL_TEXT void *OsMemFscExactSearch(struct OsMemFscCtrl *ptCtrl, size_t
     struct OsMemFscHead *freeList = OsMemFscGetFreeList(ptCtrl, idx);
 
     curBlk = freeList->next;
-    while (curBlk != freeList)
-    {
+    while (curBlk != freeList) {
         if ((curBlk->size >= allocSize) ||
             ((OS_ROUND_UP((uintptr_t)curBlk + OS_MEM_FSC_HEAD_SIZE, align) + alignSize +
-              OS_MEM_FSC_TAIL_MAGIC_SIZE - (uintptr_t)curBlk) <= curBlk->size))
-        {
+              OS_MEM_FSC_TAIL_MAGIC_SIZE - (uintptr_t)curBlk) <= curBlk->size)) {
             // 不满足allocSize不一定不可用，allocSize本身就偏大，需要重新按照地址算一遍
             return curBlk;
         }
@@ -135,8 +128,7 @@ OS_SEC_KERNEL_TEXT bool OsMemFscTrySplitRightBlk(struct OsMemFscCtrl *ctrl, uint
 {
     struct OsMemFscHead *rightBlkHead = (struct OsMemFscHead *)rightBlk;
 
-    if (rightBlkSize >= OS_MEM_FSC_MIN_SIZE)
-    {
+    if (rightBlkSize >= OS_MEM_FSC_MIN_SIZE) {
         // 如果剩余的内存可以成一个独立的块
         rightBlkHead->size = rightBlkSize;
         rightBlkHead->ctrl = NULL; // 是free状态的，置0
@@ -154,8 +146,7 @@ OS_SEC_KERNEL_TEXT bool OsMemFscTrySplitLeftBlk(struct OsMemFscCtrl *ctrl, uintp
     struct OsMemFscHead *leftBlkHead = (struct OsMemFscHead *)leftBlk;
     struct OsMemFscHead *curBlkHead = (struct OsMemFscHead *)curBlk;
 
-    if (leftBlkSize >= OS_MEM_FSC_MIN_SIZE)
-    {
+    if (leftBlkSize >= OS_MEM_FSC_MIN_SIZE) {
         // 如果剩余的内存可以成一个独立的块
         leftBlkHead->size = leftBlkSize;
         leftBlkHead->ctrl = NULL; // 是free状态的，置0
@@ -201,11 +192,9 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
 
     intSave = OsIntLock();
     blk = OsMemFscFuzzySearch(ptCtrl, allocSize);
-    if (blk == NULL)
-    {
+    if (blk == NULL) {
         blk = OsMemFscExactSearch(ptCtrl, allocSize, alignSize, align);
-        if (blk == NULL)
-        {
+        if (blk == NULL) {
             OS_LOG_ERROR("OsMemFscAlloc: no suitable block, size=%u align=%u\n", (U32)size, align);
             OsIntRestore(intSave);
             return NULL;
@@ -223,19 +212,15 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
 
     // 尝试切割右块，切不了，大小要算入本块
     rightBlkSize = nextBlk - rightBlk;
-    if (!OsMemFscTrySplitRightBlk(ptCtrl, rightBlk, rightBlkSize))
-    {
+    if (!OsMemFscTrySplitRightBlk(ptCtrl, rightBlk, rightBlkSize)) {
         realSize += rightBlkSize;
         ((struct OsMemFscHead *)nextBlk)->preSize = 0;
-    }
-    else
-    {
+    } else {
         ((struct OsMemFscHead *)nextBlk)->preSize = rightBlkSize;
     }
 
     // 尝试切割左块，切不了，大小要算入本块
-    if (!OsMemFscTrySplitLeftBlk(ptCtrl, (uintptr_t)blk, realBlk - (uintptr_t)blk, realBlk))
-    {
+    if (!OsMemFscTrySplitLeftBlk(ptCtrl, (uintptr_t)blk, realBlk - (uintptr_t)blk, realBlk)) {
         leftBlkSize = realBlk - (uintptr_t)blk;
         realSize += leftBlkSize;
         realBlk = (uintptr_t)blk;
@@ -262,8 +247,7 @@ OS_SEC_KERNEL_TEXT void OsMemFscTryMergeRight(struct OsMemFscCtrl *ctrl,
 {
     struct OsMemFscHead *rightBlk = (struct OsMemFscHead *)((uintptr_t)curBlk + curBlk->size);
 
-    if (rightBlk->ctrl == NULL)
-    {
+    if (rightBlk->ctrl == NULL) {
         // 下一块是free块，可以合并
         OsMemFscFreeListRemoveBlk(rightBlk);
         curBlk->size += rightBlk->size;
@@ -275,14 +259,12 @@ OS_SEC_KERNEL_TEXT bool OsMemFscTryMergeLeft(struct OsMemFscCtrl *ctrl, struct O
 {
     struct OsMemFscHead *leftBlk;
 
-    if (curBlk->preSize != 0)
-    {
+    if (curBlk->preSize != 0) {
         // 上一块是空闲的
         leftBlk = (struct OsMemFscHead *)((uintptr_t)curBlk - curBlk->preSize);
         OsMemFscFreeListRemoveBlk(leftBlk);
         leftBlk->size += curBlk->size;
-        if (mergedBlk != NULL)
-        {
+        if (mergedBlk != NULL) {
             *mergedBlk = leftBlk;
         }
         return TRUE;
@@ -305,8 +287,7 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     OsMemFscTryMergeRight(ctrl, memHead);
 
     struct OsMemFscHead *mergedLeft = NULL;
-    if (OsMemFscTryMergeLeft(ctrl, memHead, &mergedLeft))
-    {
+    if (OsMemFscTryMergeLeft(ctrl, memHead, &mergedLeft)) {
         memHead = mergedLeft;
     }
     ((struct OsMemFscHead *)((uintptr_t)memHead + memHead->size))->preSize = memHead->size;

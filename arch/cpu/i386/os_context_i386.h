@@ -6,8 +6,7 @@
 
 extern void OsTaskCommonEntry(U32 tskId);
 
-struct OsAllSaveContext
-{
+struct OsAllSaveContext {
     U32 saveFlag;
     U32 edi;
     U32 esi;
@@ -29,8 +28,7 @@ struct OsAllSaveContext
     U32 ss;
 };
 
-struct OsFastSaveContext
-{
+struct OsFastSaveContext {
     U32 saveFlag;
     U32 ebp;
     U32 ebx;
@@ -41,8 +39,7 @@ struct OsFastSaveContext
     U32 tskId;
 };
 
-struct OsExcSaveContext
-{
+struct OsExcSaveContext {
     U32 cr2;
     U32 edi;
     U32 esi;

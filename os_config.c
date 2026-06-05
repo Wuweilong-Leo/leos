@@ -7,8 +7,7 @@
 
 typedef U32 (*OsConfigInitFunc)(void);
 
-struct OsConfigInitInfo
-{
+struct OsConfigInitInfo {
     U32 mid;
     OsConfigInitFunc func;
 };
@@ -35,16 +34,13 @@ OS_SEC_KERNEL_TEXT U32 OsConfigInit(void)
     OsConfigInitFunc func;
     U32 ret;
 
-    for (i = 0; i < configNum; i++)
-    {
+    for (i = 0; i < configNum; i++) {
         func = g_configInitTab[i].func;
-        if (func == NULL)
-        {
+        if (func == NULL) {
             continue;
         }
         ret = func();
-        if (ret != OS_OK)
-        {
+        if (ret != OS_OK) {
             return ret;
         }
     }

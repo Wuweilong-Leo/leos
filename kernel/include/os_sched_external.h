@@ -6,13 +6,11 @@
 
 typedef struct OsTaskCb *(*OsPickNextTsk)(void);
 
-struct OsScheduler
-{
+struct OsScheduler {
     OsPickNextTsk pickNextTsk;
 };
 
-struct OsRunQue
-{
+struct OsRunQue {
     struct OsTaskCb *runningTsk;
     struct OsTaskCb *idleTsk;
     U32 uniFlag;
