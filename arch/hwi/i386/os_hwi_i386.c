@@ -1,20 +1,20 @@
 #include "os_def.h"
 #include "os_hwi.h"
-#include "os_sched_external.h"
+#include "os_irq_external.h"
 #include "os_io_i386.h"
-#include "os_cpu.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
-#include "os_task_external.h"
 #include "os_context_i386.h"
-#include "os_sys.h"
-#include "os_tick_external.h"
+#include "os_mem_external.h"
 
 /*
- * i386中断异常都根据IDT，走一个流程
- * 前20个中断号其实是异常号
+ * i386 中断/异常架构相关实现
+ * - IDT 表构建
+ * - 8259A PIC 初始化
+ * - 异常分发
+ * - 注册 IRQ 时填充默认处理函数
  */
-OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_NUM];
+
 OS_SEC_KERNEL_DATA struct OsIdtEntry g_idt[OS_EXC_NUM + OS_HWI_NUM];
 OS_SEC_KERNEL_DATA OsExcVector g_excVectorTab[OS_EXC_NUM] = {
     OS_EXC_VECTOR(0x00), OS_EXC_VECTOR(0x01), OS_EXC_VECTOR(0x02), OS_EXC_VECTOR(0x03),
@@ -47,7 +47,7 @@ OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_NUM] = {
     [OS_EXC_TYPE_STACK_FAULT] = "STACK FAULT EXC",
     [OS_EXC_TYPE_GPF] = "GENERAL PROTECTION EXC",
     [OS_EXC_TYPE_PAGE_FAULT] = "PAGE FAULT EXC",
-    [OS_EXC_TYPE_RESERVED] = "INTEL RESERVE", // 15为intel保留项，未使用
+    [OS_EXC_TYPE_RESERVED] = "INTEL RESERVE",
     [OS_EXC_TYPE_FPU_ERROR] = "FPU FLOATING POINT ERR",
     [OS_EXC_TYPE_ALIGNMENT_CHECK] = "ALIGNMENT CHECK EXC",
     [OS_EXC_TYPE_MACHINE_CHECK] = "MACHINE CHECK EXC",
@@ -60,35 +60,6 @@ OS_SEC_KERNEL_DATA struct OsIdtInfo g_idtInfo = {.idtLmit = sizeof(g_idt) - 1,
 OS_INLINE U32 OsExcNum2Idx(U32 excNum)
 {
     return excNum - OS_EXC_MIN;
-}
-
-static OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum)
-{
-    (void)hwiNum;
-    return;
-}
-
-OS_INLINE U32 OsHwiNum2Idx(U32 hwiNum)
-{
-    return hwiNum - OS_HWI_MIN;
-}
-
-OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr)
-{
-    g_hwiForm[OsHwiNum2Idx(hwiNum)].isr = isr;
-    return OS_OK;
-}
-
-OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
-{
-    struct OsRunQue *rq = OS_RUN_QUE();
-    OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(hwiNum)].isr;
-
-    rq->intCount++;
-    rq->uniFlag |= OS_HWI_ACTIVE_MSK;
-    isr(hwiNum);
-    rq->uniFlag &= ~OS_HWI_ACTIVE_MSK;
-    rq->intCount--;
 }
 
 OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context)
@@ -118,7 +89,6 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 
     if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE &&
         errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
-        // errAddr那一页并未映射
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
         return OsMemKernelAllocPgByAddr(pgBase) != NULL;
     } else {
@@ -153,12 +123,10 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
 OS_INLINE void OsHwiPicInit(void)
 {
     OS_DEBUG_PRINT_STR("OsHwiPicInit begin\n");
-    /* 初始化主片 */
     OsOutb(OS_PIC_M_CTRL, 0x11);
     OsOutb(OS_PIC_M_DATA, 0x20);
     OsOutb(OS_PIC_M_DATA, 0x04);
     OsOutb(OS_PIC_M_DATA, 0x01);
-    /* 初始化从片 */
     OsOutb(OS_PIC_S_CTRL, 0x11);
     OsOutb(OS_PIC_S_DATA, 0x28);
     OsOutb(OS_PIC_S_DATA, 0x02);
@@ -182,8 +150,6 @@ static OS_SEC_KERNEL_TEXT void OsBuildIdtEntry(struct OsIdtEntry *entry, U8 attr
 static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)
 {
     U32 i;
-
-    // 注册异常的统一钩子
     for (i = OS_EXC_MIN; i <= OS_EXC_MAX; i++) {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_excVectorTab[OsExcNum2Idx(i)]);
     }
@@ -192,11 +158,9 @@ static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)
 static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
 {
     U32 i;
-
-    // 注册异常的统一钩子
     for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++) {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[OsHwiNum2Idx(i)]);
-        OsHwiCreate(i, OsHwiDefHandler);
+        OsIrqCreate(i, OsIrqDefHandler);
     }
 }
 
@@ -213,28 +177,4 @@ OS_SEC_KERNEL_TEXT U32 OsHwiConfigInit(void)
 
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");
     return OS_OK;
-}
-
-// 中断尾部
-OS_SEC_KERNEL_TEXT void OsHwiTail(void)
-{
-    // 中断尾部处理ticks
-    struct OsRunQue *rq = OS_RUN_QUE();
-    enum OsIntStatus intSave;
-
-    if (UNLIKELY(g_noRespondTicks > 0)) {
-        if (OS_TICK_ACTIVE(rq->uniFlag)) {
-            return;
-        }
-        rq->uniFlag |= OS_TICK_ACTIVE_MSK;
-        do {
-            intSave = OsIntUnlock();
-            OsTickDispatcher();
-            OsIntRestore(intSave);
-            g_noRespondTicks--;
-        } while (g_noRespondTicks > 0);
-        rq->uniFlag &= ~OS_TICK_ACTIVE_MSK;
-    }
-
-    OsSchedMain();
 }
