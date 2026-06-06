@@ -10,7 +10,7 @@ OS_SEC_KERNEL_TEXT U32 OsAppConfigInit(void)
     /* 注册所有测试模块 */
     OsTestTaskInit();
     OsTestSemInit();
-    // OsTestProcessInit();
+    OsTestProcessInit();
 
     kprintf("[APP] init done\n");
     return OS_OK;
