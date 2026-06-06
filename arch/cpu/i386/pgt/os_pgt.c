@@ -226,6 +226,27 @@ OS_SEC_KERNEL_TEXT uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr)
     return (uintptr_t)(((*(U32 *)pte) & 0xfffff000) + ((U32)vaddr & 0xfff));
 }
 
+/* 取消虚实映射，返回对应的物理地址 */
+OS_SEC_KERNEL_TEXT uintptr_t OsUnmapVir2Phy(uintptr_t virAddr)
+{
+    uintptr_t pteVaddr;
+    uintptr_t phyAddr;
+    U32 pteVal;
+
+    pteVaddr = OsGetPteVirAddr(virAddr);
+    pteVal = *(U32 *)pteVaddr;
+    if ((pteVal & OS_PG_P) == 0) {
+        return (uintptr_t)NULL;
+    }
+
+    phyAddr = pteVal & 0xFFFFF000;
+    *(U32 *)pteVaddr = 0;
+    /* 刷新 TLB */
+    OS_EMBED_ASM("invlpg %0" ::"m"(*(U32 *)virAddr) : "memory");
+
+    return phyAddr;
+}
+
 /* 每个进程要维护一张页目录 */
 OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
 {

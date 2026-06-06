@@ -2,7 +2,6 @@
 #include "os_mem_internal.h"
 #include "os_cpu.h"
 #include "os_debug_external.h"
-#include "os_pgt.h"
 #include "os_sched_external.h"
 #include "os_mem_fsc_internal.h"
 
@@ -141,17 +140,11 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
         if (phyAddr == (uintptr_t)NULL) {
             OS_LOG_ERROR("OsMemAllocPgs: phyMemPool alloc page %u/%u failed, rollback\n", allocated,
                          cnt);
-            /* 回滚：清除已映射的页表项并释放物理页 */
+            /* 回滚：取消已映射的页表项并释放物理页 */
             virAddr = (U32)virAddrBase;
             for (i = 0; i < allocated; i++) {
-                /* 页表项虚拟地址 = 0xFFC00000 + (vaddr>>10) + PTE索引*4 */
-                U32 pdeIdx = virAddr >> 22;
-                U32 pteIdx = (virAddr >> 12) & 0x3FF;
-                U32 pteVaddr = 0xFFC00000 + (pdeIdx << 12) + pteIdx * 4;
-                U32 pteVal = *(U32 *)pteVaddr;
-                if ((pteVal & 1) != 0) {
-                    phyAddr = pteVal & 0xFFFFF000;
-                    *(U32 *)pteVaddr = 0;
+                phyAddr = OsUnmapVir2Phy((uintptr_t)virAddr);
+                if (phyAddr != (uintptr_t)NULL) {
                     U32 phyIdx = (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE;
                     OsBtmpClear(&phyMemPool->btmp, phyIdx);
                 }

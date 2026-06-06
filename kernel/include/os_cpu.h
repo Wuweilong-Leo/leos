@@ -8,6 +8,7 @@
 
 /* 通用内存映射 API */
 extern void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr);
+extern uintptr_t OsUnmapVir2Phy(uintptr_t virAddr);
 extern uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr);
 extern void OsLoadPgd(uintptr_t pgdPhyAddr);
 extern uintptr_t OsCreateProcessPgd(void);
