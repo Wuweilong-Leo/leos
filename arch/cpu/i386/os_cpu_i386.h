@@ -46,4 +46,7 @@
 #define OS_EFLAGS_IF_0    (0 << 9)
 #define OS_EFLAGS_IOPL_0  (0 << 12)
 #define OS_PROCESS_EFLAGS (OS_EFLAGS_IOPL_0 | OS_EFLAGS_IF_1 | OS_EFLAGS_MBS)
+
+/* 用户进程栈顶地址（紧挨内核空间下方） */
+#define OS_PROCESS_USR_STACK_BASE (0xC0000000 - OS_PG_SIZE)
 #endif
