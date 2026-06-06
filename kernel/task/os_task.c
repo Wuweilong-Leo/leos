@@ -77,6 +77,10 @@ static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
     struct OsTaskCb *tsk = OS_RUNNING_TASK();
 
     OsSchedRdyListDequeTsk(tsk);
+
+    /* 切到系统栈，才能安全释放当前任务栈 */
+    OS_EMBED_ASM("mov %0, %%esp" ::"r"((U32)g_kernelStackHigh) : "memory");
+
     OsMemKernelFree((void *)tsk->kernelStkTop);
 
     tsk->status = 0;
@@ -84,7 +88,6 @@ static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
     OsListInit(&tsk->freeListNode);
     OsListAddTail(&g_tskFreeList, &tsk->freeListNode);
 
-    OS_EMBED_ASM("mov %0, %%esp" ::"r"((U32)g_kernelStackHigh) : "memory");
     OsSchedMain();
 
     while (1) {
