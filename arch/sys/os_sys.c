@@ -1,4 +1,6 @@
 #include "os_def.h"
+#include "os_vga_external.h"
+#include "os_print_internal.h"
 
 uintptr_t _os_kernel_sp_start;
 uintptr_t _os_kernel_sp_end;
@@ -15,5 +17,6 @@ OS_SEC_KERNEL_TEXT void OsSysRegKernelStack(void)
 OS_SEC_KERNEL_TEXT U32 OsSysConfigInit(void)
 {
     OsSysRegKernelStack();
+    OsVgaRegisterToPrint();
     return OS_OK;
 }

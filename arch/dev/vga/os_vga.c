@@ -1,6 +1,9 @@
 #include "os_vga_internal.h"
+#include "os_vga_external.h"
 #include "os_def.h"
 #include "os_hwi.h"
+#include "os_print_external.h"
+#include "os_print_internal.h"
 #include "string.h"
 
 OS_SEC_KERNEL_TEXT void OsVgaSetCursor(U16 pos)
@@ -55,4 +58,20 @@ OS_SEC_KERNEL_TEXT void OsVgaClearLine(U32 row)
         buf[offset++] = ' ';
         buf[offset++] = OS_VGA_ATTR_DEFAULT;
     }
+}
+
+OS_SEC_KERNEL_TEXT U32 OsVgaRegisterToPrint(void)
+{
+    struct OsPrintOps ops = {
+        .setCursor = OsVgaSetCursor,
+        .getCursor = OsVgaGetCursor,
+        .writeChar = OsVgaWriteChar,
+        .scrollUp = OsVgaScrollUp,
+        .clearLine = OsVgaClearLine,
+        .colNum = OS_VGA_COL_NUM,
+        .posNum = OS_VGA_POS_NUM,
+        .attrDefault = OS_VGA_ATTR_DEFAULT,
+    };
+    OsPrintRegisterOps(&ops);
+    return OS_OK;
 }

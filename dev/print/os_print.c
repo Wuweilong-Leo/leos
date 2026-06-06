@@ -1,24 +1,39 @@
 #include "os_print_internal.h"
-#include "os_vga_external.h"
 #include "os_hwi.h"
+#include "os_print_external.h"
 #include "string.h"
+
+OS_SEC_KERNEL_BSS struct OsPrintOps g_printOps;
+
+OS_SEC_KERNEL_TEXT void OsPrintRegisterOps(const struct OsPrintOps *ops)
+{
+    g_printOps = *ops;
+}
 
 OS_SEC_KERNEL_TEXT void OsPrintSetCursor(U16 target)
 {
-    OsVgaSetCursor(target);
+    if (g_printOps.setCursor != NULL) {
+        g_printOps.setCursor(target);
+    }
 }
 
 OS_SEC_KERNEL_TEXT U16 OsPrintGetCursor(void)
 {
-    return OsVgaGetCursor();
+    if (g_printOps.getCursor != NULL) {
+        return g_printOps.getCursor();
+    }
+    return 0;
 }
 
-/* 满了，上卷屏幕 */
 OS_SEC_KERNEL_TEXT void OsPrintRollScreen(void)
 {
-    OsVgaScrollUp();
-    OsVgaClearLine(OS_VGA_ROW_NUM - 1);
-    OsPrintSetCursor(OS_VGA_POS_NUM - OS_VGA_COL_NUM);
+    if (g_printOps.scrollUp != NULL) {
+        g_printOps.scrollUp();
+    }
+    if (g_printOps.clearLine != NULL) {
+        g_printOps.clearLine(g_printOps.posNum / g_printOps.colNum - 1);
+    }
+    OsPrintSetCursor(g_printOps.posNum - g_printOps.colNum);
 }
 
 OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
@@ -29,19 +44,23 @@ OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
     curPos = OsPrintGetCursor();
 
     if (c == '\r' || c == '\n') {
-        nextCurPos = curPos - (curPos % OS_VGA_COL_NUM) + OS_VGA_COL_NUM;
-        if (nextCurPos >= OS_VGA_POS_NUM) {
+        nextCurPos = curPos - (curPos % g_printOps.colNum) + g_printOps.colNum;
+        if (nextCurPos >= g_printOps.posNum) {
             OsPrintRollScreen();
         } else {
             OsPrintSetCursor(nextCurPos);
         }
     } else if (c == '\b') {
-        OsVgaWriteChar(curPos - 1, ' ', OS_VGA_ATTR_DEFAULT);
+        if (g_printOps.writeChar != NULL) {
+            g_printOps.writeChar(curPos - 1, ' ', g_printOps.attrDefault);
+        }
         OsPrintSetCursor(curPos - 1);
     } else {
-        OsVgaWriteChar(curPos, c, OS_VGA_ATTR_DEFAULT);
+        if (g_printOps.writeChar != NULL) {
+            g_printOps.writeChar(curPos, c, g_printOps.attrDefault);
+        }
         nextCurPos = curPos + 1;
-        if (nextCurPos >= OS_VGA_POS_NUM) {
+        if (nextCurPos >= g_printOps.posNum) {
             OsPrintRollScreen();
         } else {
             OsPrintSetCursor(nextCurPos);
