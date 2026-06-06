@@ -8,6 +8,9 @@
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
+OS_SEC_KERNEL_DATA struct OsList g_timerList = OS_LIST_INIT(g_timerList);
+OS_SEC_KERNEL_DATA U64 g_nearestTick = 0;
+
 OS_SEC_KERNEL_DATA struct OsScheduler g_rtScheduler = {.pickNextTsk = OsSchedPickHighestPrioTsk};
 
 /* Multilevel Feedback Queue Scheduling */
@@ -48,7 +51,6 @@ OS_SEC_KERNEL_TEXT U32 OsSchedConfigInit(void)
     for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         OsListInit(&rq->rdyList[i]);
     }
-    OsListInit(&rq->dlyList);
     rq->intCount = 0;
     rq->scheduler = &g_mfqsScheduler;
     rq->needSched = FALSE;

@@ -51,7 +51,7 @@ OS_SEC_KERNEL_TEXT void TestSemConsumer(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(7, 1, ':');
 
     while (1) {
-        OsSemPend(g_testSemId);
+        OsSemPend(g_testSemId, OS_SEM_WAIT_FOREVER);
         val = g_testSemBuf;
         TestPutHex(7, 3, val);
         count++;
@@ -70,7 +70,7 @@ OS_SEC_KERNEL_TEXT void TestMutexTaskX(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(9, 1, ':');
 
     while (1) {
-        OsSemPend(g_testMutexId);
+        OsSemPend(g_testMutexId, OS_SEM_WAIT_FOREVER);
         g_testMutexVal += 100;
         OsSemPost(g_testMutexId);
         TestPutHex(9, 3, g_testMutexVal);
@@ -84,7 +84,7 @@ OS_SEC_KERNEL_TEXT void TestMutexTaskY(void *p1, void *p2, void *p3, void *p4)
     TestPutChar(10, 1, ':');
 
     while (1) {
-        OsSemPend(g_testMutexId);
+        OsSemPend(g_testMutexId, OS_SEM_WAIT_FOREVER);
         g_testMutexVal += 1;
         OsSemPost(g_testMutexId);
         TestPutHex(10, 3, g_testMutexVal);
@@ -104,7 +104,7 @@ OS_SEC_KERNEL_BSS volatile U32 g_testPrioWakeIdx;
 
 OS_SEC_KERNEL_TEXT void TestPrioTaskH(void *p1, void *p2, void *p3, void *p4)
 {
-    OsSemPend(g_testPrioSemId);
+    OsSemPend(g_testPrioSemId, OS_SEM_WAIT_FOREVER);
     /* 被唤醒，记录顺序 */
     g_testPrioWakeOrder[g_testPrioWakeIdx++] = 5;
     TestPutChar(12, 0, 'H');
@@ -113,7 +113,7 @@ OS_SEC_KERNEL_TEXT void TestPrioTaskH(void *p1, void *p2, void *p3, void *p4)
 
 OS_SEC_KERNEL_TEXT void TestPrioTaskM(void *p1, void *p2, void *p3, void *p4)
 {
-    OsSemPend(g_testPrioSemId);
+    OsSemPend(g_testPrioSemId, OS_SEM_WAIT_FOREVER);
     g_testPrioWakeOrder[g_testPrioWakeIdx++] = 10;
     TestPutChar(12, 3, 'M');
     TestPutChar(12, 4, 'O');
@@ -121,7 +121,7 @@ OS_SEC_KERNEL_TEXT void TestPrioTaskM(void *p1, void *p2, void *p3, void *p4)
 
 OS_SEC_KERNEL_TEXT void TestPrioTaskL(void *p1, void *p2, void *p3, void *p4)
 {
-    OsSemPend(g_testPrioSemId);
+    OsSemPend(g_testPrioSemId, OS_SEM_WAIT_FOREVER);
     g_testPrioWakeOrder[g_testPrioWakeIdx++] = 15;
     TestPutChar(12, 6, 'L');
     TestPutChar(12, 7, 'O');
@@ -148,10 +148,88 @@ OS_SEC_KERNEL_TEXT void TestPrioPostTask(void *p1, void *p2, void *p3, void *p4)
     TestPutHex(13, 11, order);
 }
 
+/* ====== 超时测试 ====== */
+/*
+ * TestTmoWait: Pend 超时等待，期望超时返回
+ * TestTmoNoWait: Pend 不等待，期望立即返回 UNAVAILABLE
+ * TestTmoPost: 延时后 Post，验证超时后 Post 仍可用
+ * TestTmoNormal: Pend 带超时但正常获取，验证不超时路径
+ * 
+ * 显示区域：
+ *   第15行: T=TMO  (超时返回)
+ *   第16行: T=NO   (不等待返回)
+ *   第17行: T=OK   (带超时正常获取)
+ */
+OS_SEC_KERNEL_BSS U32 g_testTmoSemId;
+OS_SEC_KERNEL_BSS U32 g_testTmoSemId2;
+OS_SEC_KERNEL_BSS volatile U32 g_testTmoResult;
+OS_SEC_KERNEL_BSS volatile U32 g_testTmoNoWaitResult;
+OS_SEC_KERNEL_BSS volatile U32 g_testTmoNormalResult;
+
+/* 超时等待：Pend 一个没人 Post 的信号量，超时 50 tick */
+OS_SEC_KERNEL_TEXT void TestTmoWait(void *p1, void *p2, void *p3, void *p4)
+{
+    U32 ret;
+    TestPutChar(15, 0, 'T');
+    TestPutChar(15, 1, '=');
+
+    ret = OsSemPend(g_testTmoSemId, 50);
+    if (ret == OS_SEM_PEND_TIMEOUT) {
+        g_testTmoResult = 1;
+        TestPutChar(15, 2, 'T'); /* T=TMO */
+    } else {
+        g_testTmoResult = 0;
+        TestPutChar(15, 2, 'E'); /* E=Error */
+    }
+}
+
+/* 不等待：Pend 一个没人 Post 的信号量，期望立即返回 UNAVAILABLE */
+OS_SEC_KERNEL_TEXT void TestTmoNoWait(void *p1, void *p2, void *p3, void *p4)
+{
+    U32 ret;
+    TestPutChar(16, 0, 'T');
+    TestPutChar(16, 1, '=');
+
+    ret = OsSemPend(g_testTmoSemId, OS_SEM_NO_WAIT);
+    if (ret == OS_SEM_PEND_UNAVAILABLE) {
+        g_testTmoNoWaitResult = 1;
+        TestPutChar(16, 2, 'N'); /* N=NoWait */
+    } else {
+        g_testTmoNoWaitResult = 0;
+        TestPutChar(16, 2, 'E');
+    }
+}
+
+/* 带超时正常获取：Pend 带 100 tick 超时，有 Post 来时正常获取 */
+OS_SEC_KERNEL_TEXT void TestTmoNormal(void *p1, void *p2, void *p3, void *p4)
+{
+    U32 ret;
+    TestPutChar(17, 0, 'T');
+    TestPutChar(17, 1, '=');
+
+    ret = OsSemPend(g_testTmoSemId2, 100);
+    if (ret == OS_OK) {
+        g_testTmoNormalResult = 1;
+        TestPutChar(17, 2, 'O'); /* O=OK */
+    } else {
+        g_testTmoNormalResult = 0;
+        TestPutChar(17, 2, 'E');
+    }
+}
+
+/* Post 任务：等 TmoNormal pend 后再 Post */
+OS_SEC_KERNEL_TEXT void TestTmoPostTask(void *p1, void *p2, void *p3, void *p4)
+{
+    /* 等 TmoWait 超时完成 + TmoNoWait 完成 + TmoNormal 进入 pend */
+    OsTaskDelay(80);
+    OsSemPost(g_testTmoSemId2);
+}
+
 OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
 {
     U32 tskIdProd, tskIdCons, tskIdX, tskIdY;
     U32 tskIdH, tskIdM, tskIdL, tskIdPost;
+    U32 tskIdTmo1, tskIdTmo2, tskIdTmoNorm, tskIdTmoPost;
     struct OsTaskCreateParam param;
     struct OsTaskCb *tskCb;
 
@@ -234,6 +312,46 @@ OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
     tskCb = OS_TASK_GET_CB(tskIdL);
     OsSchedRdyListEnqueTsk(tskCb);
     tskCb = OS_TASK_GET_CB(tskIdPost);
+    OsSchedRdyListEnqueTsk(tskCb);
+
+    /* --- 超时测试信号量 --- */
+    OsSemCreate(0, 1, OS_SEM_WAKE_FIFO, &g_testTmoSemId);
+    OsSemCreate(0, 1, OS_SEM_WAKE_FIFO, &g_testTmoSemId2);
+    g_testTmoResult = 0;
+    g_testTmoNoWaitResult = 0;
+    g_testTmoNormalResult = 0;
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "TmoWait");
+    param.prio = 7;
+    param.entryFunc = TestTmoWait;
+    OsTaskCreate(&param, &tskIdTmo1);
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "TmoNoWt");
+    param.prio = 7;
+    param.entryFunc = TestTmoNoWait;
+    OsTaskCreate(&param, &tskIdTmo2);
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "TmoNorm");
+    param.prio = 7;
+    param.entryFunc = TestTmoNormal;
+    OsTaskCreate(&param, &tskIdTmoNorm);
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "TmoPost");
+    param.prio = 6;
+    param.entryFunc = TestTmoPostTask;
+    OsTaskCreate(&param, &tskIdTmoPost);
+
+    tskCb = OS_TASK_GET_CB(tskIdTmo1);
+    OsSchedRdyListEnqueTsk(tskCb);
+    tskCb = OS_TASK_GET_CB(tskIdTmo2);
+    OsSchedRdyListEnqueTsk(tskCb);
+    tskCb = OS_TASK_GET_CB(tskIdTmoNorm);
+    OsSchedRdyListEnqueTsk(tskCb);
+    tskCb = OS_TASK_GET_CB(tskIdTmoPost);
     OsSchedRdyListEnqueTsk(tskCb);
 
     return OS_OK;

@@ -4,6 +4,7 @@
 #include "os_hwi.h"
 #include "os_sched_external.h"
 #include "os_base_external.h"
+#include "os_tick_external.h"
 #include "string.h"
 
 OS_SEC_KERNEL_DATA struct OsList g_semFreeList = OS_LIST_INIT(g_semFreeList);
@@ -89,7 +90,7 @@ static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(struct OsList *pendList
     OsListAddTail(pendList, &tsk->pendListNode);
 }
 
-OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
+OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave;
@@ -101,6 +102,14 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
     curTsk = OS_RUNNING_TASK();
 
     if (semCb->val == 0) {
+        /* 无可用资源 */
+
+        if (timeout == OS_SEM_NO_WAIT) {
+            /* 不等待，直接返回 */
+            OsIntRestore(intSave);
+            return OS_SEM_PEND_UNAVAILABLE;
+        }
+
         /* 加入到信号量 pending 队列 */
         if (semCb->wakePolicy == OS_SEM_WAKE_PRIO) {
             OsSemPendListInsertByPrio(&semCb->pendList, curTsk);
@@ -112,11 +121,30 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId)
         OsSchedRdyListDequeTsk(curTsk);
         curTsk->status |= OS_TASK_STATUS_PENDING;
 
-        /* 切出去，等 OsSemPost 唤醒 */
+        /* 如果有超时，同时挂到延时链 */
+        if (timeout != OS_SEM_WAIT_FOREVER) {
+            curTsk->status |= OS_TASK_STATUS_IN_DELAY;
+            curTsk->expiredTick = g_uniTicks + timeout;
+            OsTaskTimerListInsert(curTsk);
+        }
+
+        /* 切出去，等 OsSemPost 或超时唤醒 */
         OsTaskSchedule();
+
+        /* --- 被唤醒后到这里，中断仍处于关闭状态 --- */
+        curTsk->status &= ~OS_TASK_STATUS_PENDING;
+
+        if (curTsk->status & OS_TASK_STATUS_TIMEOUT) {
+            /* 超时唤醒，未获取信号量 */
+            curTsk->status &= ~OS_TASK_STATUS_TIMEOUT;
+            OsIntRestore(intSave);
+            return OS_SEM_PEND_TIMEOUT;
+        }
+
+        /* 正常被 OsSemPost 唤醒，继续往下执行 val-- */
     }
 
-    /* 获取资源，val-- */
+    /* 获取资源 */
     semCb->val--;
     OsIntRestore(intSave);
 
@@ -142,12 +170,19 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     semCb->val++;
 
     if (!OsListIsEmpty(&semCb->pendList)) {
-        /* 有任务在等，唤醒队首（FIFO 队首即最先等待，PRIO 队首即最高优先级） */
+        /* 有任务在等，唤醒队首 */
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));
+
+        /* 如果任务带超时在等，从延时链移除 */
+        if (pendTsk->status & OS_TASK_STATUS_IN_DELAY) {
+            OsListRemoveNode(&pendTsk->timerListNode);
+            pendTsk->status &= ~OS_TASK_STATUS_IN_DELAY;
+            OsRefreshNearestTick();
+        }
+
         /* 加回到就绪队列 */
         OsSchedRdyListEnqueTsk(pendTsk);
-        pendTsk->status &= ~OS_TASK_STATUS_PENDING;
 
         /* 可能阻塞的是高优先级的任务，尝试触发调度 */
         OsTaskSchedule();

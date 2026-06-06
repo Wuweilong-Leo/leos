@@ -44,7 +44,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         tskCb->pgDir = (uintptr_t)NULL;
         OsListInit(&tskCb->semList);
         OsListInit(&tskCb->pendListNode);
-        OsListInit(&tskCb->dlyListNode);
+        OsListInit(&tskCb->timerListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
@@ -223,30 +223,27 @@ OS_SEC_KERNEL_TEXT void OsTaskSchedule(void)
     OsTrapTsk(OS_RUNNING_TASK());
 }
 
-static OS_SEC_KERNEL_TEXT void OsTaskDlyListInsert(struct OsTaskCb *tsk)
+OS_SEC_KERNEL_TEXT void OsTaskTimerListInsert(struct OsTaskCb *tsk)
 {
-    struct OsRunQue *rq = OS_RUN_QUE();
-    struct OsList *dlyList = &rq->dlyList;
+    struct OsList *timerList = &g_timerList;
     struct OsList *tmpNode;
     struct OsTaskCb *tmpTsk;
 
-    if (OsListIsEmpty(dlyList)) {
-        // 空的加入尾部就行
-        OsListAddTail(dlyList, &tsk->dlyListNode);
+    if (OsListIsEmpty(timerList)) {
+        OsListAddTail(timerList, &tsk->timerListNode);
     } else {
-        OS_LIST_FOR_EACH(dlyList, tmpNode)
+        OS_LIST_FOR_EACH(timerList, tmpNode)
         {
-            tmpTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, tmpNode);
+            tmpTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, timerListNode, tmpNode);
             if (tsk->expiredTick < tmpTsk->expiredTick) {
                 break;
             }
         }
 
-        // 如果expiredTick大于所有任务，tmpNode == dlyList, 插入到dlyList前即可。
-        OsListInsertPrev(&tsk->dlyListNode, tmpNode);
+        OsListInsertPrev(&tsk->timerListNode, tmpNode);
     }
 
-    OsRefreshNearestTick(rq);
+    OsRefreshNearestTick();
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
@@ -265,7 +262,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
     tsk->expiredTick = g_uniTicks + ticks;
 
     OsSchedRdyListDequeTsk(tsk);
-    OsTaskDlyListInsert(tsk);
+    OsTaskTimerListInsert(tsk);
 
     tsk->status |= OS_TASK_STATUS_IN_DELAY;
 

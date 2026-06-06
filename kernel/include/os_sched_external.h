@@ -18,12 +18,12 @@ struct OsRunQue {
     bool needSched;
     U32 rdyListMsk;
     struct OsList rdyList[OS_TASK_PRIO_MAX_NUM];
-    struct OsList dlyList;
     struct OsScheduler *scheduler;
-    U64 nearestTick;
 };
 
 extern struct OsRunQue g_runQue;
+extern struct OsList g_timerList;
+extern U64 g_nearestTick;
 
 #define OS_RUN_QUE()      (&g_runQue)
 #define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)

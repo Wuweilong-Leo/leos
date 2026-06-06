@@ -10,15 +10,23 @@ OS_SEC_KERNEL_BSS U64 g_uniTicks;
 // 未响应tick数
 OS_SEC_KERNEL_BSS U32 g_noRespondTicks;
 
-OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
+OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(void)
 {
     enum OsIntStatus intSave = OsIntLock();
     struct OsTaskCb *expiredTsk;
 
     // 有任务到期了
-    if ((!OsListIsEmpty(&rq->dlyList)) && (rq->nearestTick <= g_uniTicks)) {
+    if ((!OsListIsEmpty(&g_timerList)) && (g_nearestTick <= g_uniTicks)) {
         // 弹出第一个到期任务
-        expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, OsListPopHead(&rq->dlyList));
+        expiredTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, timerListNode, OsListPopHead(&g_timerList));
+
+        expiredTsk->status &= ~OS_TASK_STATUS_IN_DELAY;
+
+        // 如果任务在等信号量，从 pendList 移除并标记超时
+        if (expiredTsk->status & OS_TASK_STATUS_PENDING) {
+            OsListRemoveNode(&expiredTsk->pendListNode);
+            expiredTsk->status |= OS_TASK_STATUS_TIMEOUT;
+        }
 
         // 加回到就绪队列
         OsSchedRdyListEnqueTsk(expiredTsk);
@@ -32,19 +40,19 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(struct OsRunQue *rq)
     return FALSE;
 }
 
-OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
+OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(void)
 {
     struct OsTaskCb *firstTsk;
     enum OsIntStatus intSave = OsIntLock();
 
-    if (OsListIsEmpty(&rq->dlyList)) {
+    if (OsListIsEmpty(&g_timerList)) {
         OsIntRestore(intSave);
         return;
     }
 
     // 获取延时链上第一个任务
-    firstTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, dlyListNode, OsListGetFirstNode(&rq->dlyList));
-    rq->nearestTick = firstTsk->expiredTick;
+    firstTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, timerListNode, OsListGetFirstNode(&g_timerList));
+    g_nearestTick = firstTsk->expiredTick;
 
     OsIntRestore(intSave);
     return;
@@ -52,9 +60,8 @@ OS_SEC_KERNEL_TEXT void OsRefreshNearestTick(struct OsRunQue *rq)
 
 OS_SEC_KERNEL_TEXT void OsTickScanTsks(void)
 {
-    struct OsRunQue *rq = OS_RUN_QUE();
-    while (OsTickTryHandleExpiredTsk(rq)) {
-        OsRefreshNearestTick(rq);
+    while (OsTickTryHandleExpiredTsk()) {
+        OsRefreshNearestTick();
     }
 }
 

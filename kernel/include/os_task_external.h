@@ -21,6 +21,7 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 #define OS_TASK_STATUS_RUNNING  0x4U
 #define OS_TASK_STATUS_PENDING  0x8U
 #define OS_TASK_STATUS_IN_DELAY 0x10U
+#define OS_TASK_STATUS_TIMEOUT  0x20U
 
 // 两种任务类型，线程和进程
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
@@ -41,7 +42,7 @@ struct OsTaskCb {
     struct OsList rdyListNode;
     struct OsList pendListNode;
     struct OsList semList; /* 拥有的信号量链表 */
-    struct OsList dlyListNode;
+    struct OsList timerListNode;
     U32 eventMsk;
     U32 curEvent;
     enum OsTaskType tskType;
@@ -74,6 +75,7 @@ extern U32 OsTaskResume(U32 tskId);
 extern void OsTaskSchedule();
 extern U32 OsTaskSuspend(U32 tskId);
 extern U32 OsTaskDelay(U32 ticks);
+extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
 
 extern struct OsTaskCb *g_tskCbArray;
 
