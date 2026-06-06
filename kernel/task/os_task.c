@@ -178,54 +178,57 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
+/*
+ * 从调度系统移除任务（就绪队列/延时链表/等待队列）
+ * 返回: OS_OK 成功, 错误码 失败
+ */
+static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
 {
-    struct OsTaskCb *tskCb;
-    enum OsIntStatus intSave;
-
-    intSave = OsIntLock();
-    tskCb = OS_TASK_GET_CB(tskId);
-
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
-        OS_LOG_ERROR("OsTaskSuspend: task %u not created, status=0x%x\n", tskId, tskCb->status);
-        OsIntRestore(intSave);
+        OS_LOG_ERROR("task %u not created\n", tskCb->pid);
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
 
-    /* 不能挂起自己 */
     if (tskCb == OS_RUNNING_TASK()) {
-        OS_LOG_ERROR("OsTaskSuspend: cannot suspend running task %u\n", tskId);
-        OsIntRestore(intSave);
+        OS_LOG_ERROR("cannot operate on running task %u\n", tskCb->pid);
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
 
-    /* 持有信号量时不允许挂起 */
     if (!OsListIsEmpty(&tskCb->semList)) {
-        OS_LOG_ERROR("OsTaskSuspend: task %u holds semaphore\n", tskId);
-        OsIntRestore(intSave);
+        OS_LOG_ERROR("task %u holds semaphore\n", tskCb->pid);
         return OS_TASK_SUSPEND_TSK_HOLD_SEM;
     }
 
-    /* 从就绪队列移除 */
     if (tskCb->status & OS_TASK_STATUS_READY) {
         OsSchedRdyListDequeTsk(tskCb);
     }
 
-    /* 从延时链表移除 */
     if (tskCb->status & OS_TASK_STATUS_IN_DELAY) {
         OsListRemoveNode(&tskCb->timerListNode);
         tskCb->status &= ~OS_TASK_STATUS_IN_DELAY;
         OsRefreshNearestTick();
     }
 
-    /* 从信号量等待队列移除 */
     if (tskCb->status & OS_TASK_STATUS_PENDING) {
         OsListRemoveNode(&tskCb->pendListNode);
         tskCb->status &= ~OS_TASK_STATUS_PENDING;
     }
 
-    tskCb->status &= ~(OS_TASK_STATUS_READY | OS_TASK_STATUS_RUNNING);
+    return OS_OK;
+}
 
+OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
+{
+    struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
+    enum OsIntStatus intSave = OsIntLock();
+    U32 ret = OsTaskRemoveFromSched(tskCb);
+
+    if (ret != OS_OK) {
+        OsIntRestore(intSave);
+        return ret;
+    }
+
+    tskCb->status &= ~(OS_TASK_STATUS_READY | OS_TASK_STATUS_RUNNING);
     OsTaskSchedule();
     OsIntRestore(intSave);
     return OS_OK;
@@ -233,68 +236,24 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
 
 OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
 {
-    struct OsTaskCb *tskCb;
-    enum OsIntStatus intSave;
+    struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
+    enum OsIntStatus intSave = OsIntLock();
+    U32 ret = OsTaskRemoveFromSched(tskCb);
 
-    intSave = OsIntLock();
-    tskCb = OS_TASK_GET_CB(tskId);
-
-    if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
-        OS_LOG_ERROR("OsTaskDelete: task %u not created, status=0x%x\n", tskId, tskCb->status);
+    if (ret != OS_OK) {
         OsIntRestore(intSave);
-        return OS_TASK_SUSPEND_TSK_STATUS_ILL;
+        return ret;
     }
 
-    /* 不能删除自己 */
-    if (tskCb == OS_RUNNING_TASK()) {
-        OS_LOG_ERROR("OsTaskDelete: cannot delete running task %u\n", tskId);
-        OsIntRestore(intSave);
-        return OS_TASK_SUSPEND_TSK_STATUS_ILL;
+    OsMemKernelFree((void *)tskCb->kernelStkTop);
+
+    if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {
+        /* TODO: 释放进程页目录和用户空间映射 */
     }
 
-    /* 持有信号量时不允许删除 */
-    if (!OsListIsEmpty(&tskCb->semList)) {
-        OS_LOG_ERROR("OsTaskDelete: task %u holds semaphore\n", tskId);
-        OsIntRestore(intSave);
-        return OS_TASK_SUSPEND_TSK_HOLD_SEM;
-    }
-
-    /* 从就绪队列移除 */
-    if (tskCb->status & OS_TASK_STATUS_READY) {
-        OsSchedRdyListDequeTsk(tskCb);
-    }
-
-    /* 从延时链表移除 */
-    if (tskCb->status & OS_TASK_STATUS_IN_DELAY) {
-        OsListRemoveNode(&tskCb->timerListNode);
-        tskCb->status &= ~OS_TASK_STATUS_IN_DELAY;
-        OsRefreshNearestTick();
-    }
-
-    /* 从信号量等待队列移除 */
-    if (tskCb->status & OS_TASK_STATUS_PENDING) {
-        OsListRemoveNode(&tskCb->pendListNode);
-        tskCb->status &= ~OS_TASK_STATUS_PENDING;
-    }
-
-    /* 释放内核栈 */
-    OsMemKernelFree(tskCb->kernelStkTop);
-
-    /* 如果是进程，释放页目录和用户虚拟内存 */
-    if (tskCb->tskType == OS_TASK_PROCESS) {
-        if (tskCb->pgDir != (uintptr_t)NULL) {
-            /* TODO: 释放进程页目录和用户空间映射 */
-            tskCb->pgDir = (uintptr_t)NULL;
-        }
-    }
-
-    /* 清空 TCB，归还 freeList */
-    memset(tskCb, 0, sizeof(struct OsTaskCb));
-    tskCb->pid = tskId;
+    tskCb->status = 0;
+    tskCb->pgDir = 0;
     OsListInit(&tskCb->freeListNode);
-    OsListInit(&tskCb->pendListNode);
-    OsListInit(&tskCb->timerListNode);
-    OsListInit(&tskCb->semList);
     OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 
     OsTaskSchedule();
