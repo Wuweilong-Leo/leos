@@ -67,18 +67,12 @@ enum OsExcType {
 #define OS_IDT_ENTRY_ATTR_16_TYPE 0x6
 
 /* DPL为0 */
-#define OS_IDT_ENTRY_ATTR0                                                                         \
-    \                                                    
-    ((OS_IDT_ENTRY_ATTR_P << 7) + (OS_IDT_ENTRY_ATTR_DPL0 << 5) + OS_IDT_ENTRY_ATTR_32_TYPE)
+#define OS_IDT_ENTRY_ATTR0 ((OS_IDT_ENTRY_ATTR_P << 7) + (OS_IDT_ENTRY_ATTR_DPL0 << 5) + OS_IDT_ENTRY_ATTR_32_TYPE)
 /* DPL为3 */
-#define OS_IDT_ENTRY_ATTR3                                                                         \
-    \                                                 
-    ((OS_IDT_ENTRY_ATTR_P << 7) + (OS_IDT_ENTRY_ATTR_DPL3 << 5) + OS_IDT_ENTRY_ATTR_32_TYPE)
+#define OS_IDT_ENTRY_ATTR3 ((OS_IDT_ENTRY_ATTR_P << 7) + (OS_IDT_ENTRY_ATTR_DPL3 << 5) + OS_IDT_ENTRY_ATTR_32_TYPE)
 
 #define OS_HWI_VECTOR(hwiNum) (OsHwiVector##hwiNum)
 #define OS_EXC_VECTOR(excNum) (OsExcVector##excNum)
-
-#define OS_SELECTOR_K_CODE 0x08
 
 /* 系统活跃标志位在 os_sys.h 中定义 */
 
