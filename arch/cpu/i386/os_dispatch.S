@@ -108,10 +108,10 @@ OsHwiCommonHandler:
     outb %al, $0x20
 
     pushl %ebx // 压入中断号
-    call OsIrqDispatcher
+    call OsHwiDispatcher
     addl $4, %esp
 
-    call OsIrqTail
+    call OsHwiTail
     jmp OsHwiRet
 
 OsHwiSwitchKernelStack:

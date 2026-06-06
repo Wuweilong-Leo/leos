@@ -1,6 +1,7 @@
 #include "os_def.h"
 #include "os_hwi.h"
-#include "os_irq_external.h"
+#include "os_hwi_external.h"
+#include "os_hwi_internal.h"
 #include "os_io_i386.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
@@ -160,7 +161,7 @@ static OS_SEC_KERNEL_TEXT void OsHwiRegIdt(void)
     U32 i;
     for (i = OS_HWI_MIN; i <= OS_HWI_MAX; i++) {
         OsBuildIdtEntry(&g_idt[i], OS_IDT_ENTRY_ATTR0, g_hwiVectorTab[OsHwiNum2Idx(i)]);
-        OsIrqCreate(i, OsIrqDefHandler);
+        OsHwiCreate(i, OsHwiDefHandler);
     }
 }
 

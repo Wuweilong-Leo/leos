@@ -1,27 +1,27 @@
-#include "os_irq_internal.h"
+#include "os_hwi_internal.h"
 #include "os_sched_external.h"
 #include "os_tick_external.h"
 #include "os_hwi.h"
 #include "os_debug_external.h"
 #include "os_sys.h"
 
-OS_SEC_KERNEL_DATA struct OsIrqForm g_irqForm[OS_IRQ_NUM];
+OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_IRQ_NUM];
 
-OS_SEC_KERNEL_TEXT void OsIrqDefHandler(U32 irqNum)
+OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 irqNum)
 {
     (void)irqNum;
 }
 
-OS_SEC_KERNEL_TEXT U32 OsIrqCreate(U32 irqNum, OsIrqHandlerFunc isr)
+OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 irqNum, OsHwiHandlerFunc isr)
 {
-    g_irqForm[OsIrqNum2Idx(irqNum)].isr = isr;
+    g_hwiForm[OsHwiNum2Idx(irqNum)].isr = isr;
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT void OsIrqDispatcher(U32 irqNum)
+OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 irqNum)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
-    OsIrqHandlerFunc isr = g_irqForm[OsIrqNum2Idx(irqNum)].isr;
+    OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(irqNum)].isr;
 
     rq->intCount++;
     rq->uniFlag |= OS_HWI_ACTIVE_MSK;
@@ -30,7 +30,7 @@ OS_SEC_KERNEL_TEXT void OsIrqDispatcher(U32 irqNum)
     rq->intCount--;
 }
 
-OS_SEC_KERNEL_TEXT void OsIrqTail(void)
+OS_SEC_KERNEL_TEXT void OsHwiTail(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
     enum OsIntStatus intSave;

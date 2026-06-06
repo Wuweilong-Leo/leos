@@ -1,7 +1,7 @@
 #ifndef OS_HWI_I386_H
 #define OS_HWI_I386_H
 #include "os_def.h"
-#include "os_irq_external.h"
+#include "os_hwi_external.h"
 #include "os_context_i386.h"
 
 #define OS_HWI_MAX_NUM 0x21
@@ -82,10 +82,7 @@ enum OsExcType {
 
 /* 系统活跃标志位在 os_sys.h 中定义 */
 
-OS_INLINE U32 OsHwiNum2Idx(U32 hwiNum)
-{
-    return hwiNum - OS_HWI_MIN;
-}
+/* 中断号到索引的转换在 kernel/irq/os_hwi_internal.h 中定义 */
 
 OS_INLINE enum OsIntStatus OsGetIntStatus(void)
 {
@@ -155,6 +152,6 @@ extern U32 OsHwiConfigInit(void);
 extern void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context);
 
 /* IRQ 默认处理函数（架构层注册用） */
-extern void OsIrqDefHandler(U32 irqNum);
+extern void OsHwiDefHandler(U32 irqNum);
 
 #endif /* OS_HWI_I386_H */

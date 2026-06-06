@@ -1,6 +1,6 @@
 #include "os_timer_i386.h"
 #include "os_def.h"
-#include "os_irq_external.h"
+#include "os_hwi_external.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
 #include "os_io_i386.h"
@@ -24,7 +24,7 @@ OS_SEC_KERNEL_TEXT U32 OsTimerConfigInit(void)
 {
     OS_DEBUG_PRINT_STR("OsTimerConfigInit start\n");
     OsTimerSetFreq(COUNTER0_PORT, COUNTER0_NO, READ_WRITE_LATCH, COUNTER_MODE, COUNTER0_VALUE);
-    (void)OsIrqCreate(0x20, OsTimerIsr);
+    (void)OsHwiCreate(0x20, OsTimerIsr);
     OS_DEBUG_PRINT_STR("OsTimerConfigInit end\n");
 
     return OS_OK;
