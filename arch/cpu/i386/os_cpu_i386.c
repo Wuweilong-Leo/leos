@@ -3,6 +3,7 @@
 #include "os_pgt.h"
 #include "os_tss.h"
 #include "os_task_external.h"
+#include "os_reset.h"
 #include "os_sched_external.h"
 #include "os_process_external.h"
 #include "os_debug_external.h"
@@ -67,10 +68,7 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     /* 创建用户栈 */
     memBase = OsMemUsrAllocPgByAddr((uintptr_t)OS_PROCESS_USR_STACK_BASE);
     if (memBase == NULL) {
-        /* 申请失败直接挂死 */
-        OS_DEBUG_KPRINT("%s\n", "OsProcessEntry: OsMemUsrAllocPgByAddr failed");
-        while (1) {
-        }
+        OS_REBOOT("%s\n", "OsProcessEntry: OsMemUsrAllocPgByAddr failed");
     }
 
     allSaveContext->esp = (uintptr_t)((U32)memBase + OS_PG_SIZE);
@@ -85,9 +83,7 @@ OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
 
     pgdir = OsCreateProcessPgd();
     if (pgdir == NULL) {
-        OS_DEBUG_KPRINT("%s\n", "OsProcessInitArch: OsCreateProcessPgd failed");
-        while (1) {
-        }
+        OS_REBOOT("%s\n", "OsProcessInitArch: OsCreateProcessPgd failed");
     }
 
     process->pgDir = pgdir;

@@ -5,6 +5,7 @@
 #include "os_sched_external.h"
 #include "os_base_external.h"
 #include "os_tick_external.h"
+#include "os_reset.h"
 #include "string.h"
 
 OS_SEC_KERNEL_DATA struct OsList g_semFreeList = OS_LIST_INIT(g_semFreeList);
@@ -22,9 +23,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
     size = g_semMaxNum * sizeof(struct OsSemCb);
     g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
     if (g_semCbArray == NULL) {
-        OS_LOG_ERROR("OsSemConfigInit: alloc semCbArray failed, size=%u\n", (U32)size);
-        while (1) {
-        }
+        OS_REBOOT("OsSemConfigInit: alloc semCbArray failed, size=%u\n", (U32)size);
     }
 
     memset(g_semCbArray, 0, size);

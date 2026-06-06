@@ -6,6 +6,7 @@
 #include "os_cpu.h"
 #include "os_mem_external.h"
 #include "os_debug_external.h"
+#include "os_reset.h"
 
 static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
 {
@@ -16,9 +17,7 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
     OS_DEBUG_KPRINT("OsProcessInitVirMemPool: usrMemBtmpPgNum = 0x%x\n", usrMemBtmpPgNum);
     btmpBase = OsMemKernelAllocPgs(usrMemBtmpPgNum);
     if (btmpBase == NULL) {
-        OS_DEBUG_KPRINT("%s\n", "OsProcessInitVirMemPool: OsMemKernelAllocPgs failed");
-        while (1) {
-        }
+        OS_REBOOT("%s\n", "OsProcessInitVirMemPool: OsMemKernelAllocPgs failed");
     }
 
     OsMemPoolInit(&process->usrVirMemPool, (uintptr_t)OS_USR_MEM_VIR_ADDR_START,

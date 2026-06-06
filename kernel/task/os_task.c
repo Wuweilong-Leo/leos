@@ -13,6 +13,7 @@
 #include "os_tick_external.h"
 #include "os_mem_external.h"
 #include "os_base_external.h"
+#include "os_reset.h"
 
 /* task分为内核线程和用户进程 */
 OS_SEC_KERNEL_BSS struct OsTaskCb *g_tskCbArray;
@@ -29,9 +30,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
     size = sizeof(struct OsTaskCb) * g_tskMaxNum;
     g_tskCbArray = (struct OsTaskCb *)OsMemKernelAlloc(size, 4);
     if (g_tskCbArray == NULL) {
-        OS_LOG_ERROR("OsTaskConfigInit: alloc tskCbArray failed\n");
-        while (1) {
-        }
+        OS_REBOOT("%s", "OsTaskConfigInit: alloc tskCbArray failed");
     }
 
     memset(g_tskCbArray, 0, size);

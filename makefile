@@ -20,6 +20,7 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/arch/cpu/i386/gdt \
            $(CUR_DIR)/arch/cpu/i386/pgt \
            $(CUR_DIR)/arch/cpu/i386/tss \
+           $(CUR_DIR)/arch/cpu/i386/reset \
            $(CUR_DIR)/arch/io/i386 \
            $(CUR_DIR)/lib/include \
            $(CUR_DIR)/kernel/sched \
@@ -59,6 +60,7 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/lib \
             $(CUR_DIR)/lib/btmp \
             $(CUR_DIR)/arch/cpu/i386 \
+            $(CUR_DIR)/arch/cpu/i386/reset \
             $(CUR_DIR)/dev/print \
             $(CUR_DIR)/arch/dev/vga \
             $(CUR_DIR)/debug \

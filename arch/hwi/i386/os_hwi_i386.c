@@ -7,6 +7,7 @@
 #include "os_debug_external.h"
 #include "os_context_i386.h"
 #include "os_mem_external.h"
+#include "os_reset.h"
 
 /*
  * i386 中断/异常架构相关实现
@@ -67,16 +68,16 @@ OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context
 {
     char *excName = g_excNameTab[OsExcNum2Idx(excNum)];
     if (excName != NULL) {
-        OS_DEBUG_KPRINT("exc num: 0x%x, exc type: %s, exc addr: 0x%x, exc cs: 0x%x, exc pc 0x%x, \
-                eax: 0x%x, ebx: 0x%x, ecx: 0x%x, edx: 0x%x\n",
-                        excNum, excName, context->cr2, context->cs, context->eip, context->eax,
-                        context->ebx, context->ecx, context->edx);
+        kprintf("\n!!! EXCEPTION: 0x%x %s !!!\n", excNum, excName);
+        kprintf("  cs=0x%x eip=0x%x errCode=0x%x cr2=0x%x\n",
+                context->cs, context->eip, context->errCode, context->cr2);
+        kprintf("  eax=0x%x ebx=0x%x ecx=0x%x edx=0x%x\n",
+                context->eax, context->ebx, context->ecx, context->edx);
     } else {
-        OS_DEBUG_KPRINT("unknown exc type!!!\n");
+        kprintf("\n!!! UNKNOWN EXCEPTION: 0x%x !!!\n", excNum);
     }
 
-    while (1) {
-    }
+    OsReboot();
 }
 
 OS_INLINE bool OsExcPgFaultTriggeredByKernel(U32 errCode)
@@ -101,22 +102,18 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
 {
     if (excNum > OS_EXC_MAX) {
-        OS_LOG_ERROR("OsExcDispatcher: excNum 0x%x out of range (max 0x%x)\n", excNum, OS_EXC_MAX);
-        while (1) {
-        }
+        kprintf("\n!!! EXCEPTION OUT OF RANGE: 0x%x !!!\n", excNum);
+        OsReboot();
     }
 
     if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode)) {
         if (!OsExcHandleKernelPgFault(context->cr2)) {
-            OS_DEBUG_KPRINT("cs:0x%x, eip:0x%x,errAddr:0x%x\n", context->cs, context->eip,
-                            context->cr2);
-            while (1) {
-            }
+            kprintf("\n!!! KERNEL PAGE FAULT: cs=0x%x eip=0x%x errAddr=0x%x !!!\n",
+                    context->cs, context->eip, context->cr2);
+            OsReboot();
         }
     } else {
         OsExcReport(excNum, context);
-        while (1) {
-        }
     }
 }
 

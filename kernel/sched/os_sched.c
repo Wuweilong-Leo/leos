@@ -5,6 +5,7 @@
 #include "os_sys.h"
 #include "os_base_external.h"
 #include "os_cpu.h"
+#include "os_reset.h"
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
@@ -151,9 +152,7 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
 
     /* 创建 idle 任务 */
     if (OsTaskCreateIdle() != OS_OK) {
-        OS_LOG_ERROR("OsSchedSwitchFirstTsk: create idle task failed\n");
-        while (1)
-            ;
+        OS_REBOOT("%s", "OsSchedSwitchFirstTsk: create idle task failed");
     }
 
     /* idle 入就绪队列 */
