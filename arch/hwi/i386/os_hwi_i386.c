@@ -13,7 +13,7 @@
  * - IDT 表构建
  * - 8259A PIC 初始化
  * - 异常分发
- * - 注册 IRQ 时填充默认处理函数
+ * - 注册中断时填充默认处理函数
  */
 
 OS_SEC_KERNEL_DATA struct OsIdtEntry g_idt[OS_EXC_NUM + OS_HWI_NUM];

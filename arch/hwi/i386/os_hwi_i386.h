@@ -155,7 +155,7 @@ extern void OS_HWI_VECTOR(0x20)(void);
 extern U32 OsHwiConfigInit(void);
 extern void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context);
 
-/* IRQ 默认处理函数（架构层注册用） */
+/* 中断默认处理函数（架构层注册用） */
 extern void OsHwiDefHandler(U32 hwiNum);
 
 #endif /* OS_HWI_I386_H */
