@@ -75,9 +75,6 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
 static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
 {
     struct OsTaskCb *tsk = OS_RUNNING_TASK();
-    enum OsIntStatus intSave;
-
-    intSave = OsIntLock();
 
     OsSchedRdyListDequeTsk(tsk);
 
