@@ -76,40 +76,25 @@ static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
 {
     struct OsTaskCb *tsk = OS_RUNNING_TASK();
 
-    /* 从就绪队列删除 */
+    OsIntLock();
     OsSchedRdyListDequeTsk(tsk);
+    OsListRemoveNode(&tsk->timerListNode);
+    OsListRemoveNode(&tsk->pendListNode);
 
-    /* 从延时链表移除 */
-    if (tsk->status & OS_TASK_STATUS_IN_DELAY) {
-        OsListRemoveNode(&tsk->timerListNode);
-    }
-
-    /* 如果是进程，释放页目录 */
-    if (tsk->tskType == OS_TASK_PROCESS && tsk->pgDir != (uintptr_t)NULL) {
+    if (tsk->tskType == OS_TASK_PROCESS && tsk->pgDir) {
         /* TODO: 释放进程页目录和用户空间映射 */
-        tsk->pgDir = (uintptr_t)NULL;
     }
 
-    /* 释放内核栈 */
     OsMemKernelFree((void *)tsk->kernelStkTop);
 
-    /* 清空 TCB，归还 freeList */
-    memset(tsk, 0, sizeof(struct OsTaskCb));
-    tsk->pid = 0;
+    tsk->status = 0;
+    tsk->pgDir = 0;
     OsListInit(&tsk->freeListNode);
-    OsListInit(&tsk->pendListNode);
-    OsListInit(&tsk->timerListNode);
-    OsListInit(&tsk->semList);
     OsListAddTail(&g_tskFreeList, &tsk->freeListNode);
 
-    /* 标记需要调度 */
-    OS_RUN_QUE()->needSched = TRUE;
-
-    /* 切到系统栈，进入调度器，永远不再回来 */
     OS_EMBED_ASM("mov %0, %%esp" ::"r"((U32)g_kernelStackHigh) : "memory");
     OsSchedMain();
 
-    /* 不应到达 */
     while (1) {
     }
 }
