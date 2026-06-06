@@ -83,9 +83,6 @@ static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
     OsListAddTail(&g_tskFreeList, &tsk->freeListNode);
 
     OsTrapTsk(tsk);
-
-    while (1) {
-    }
 }
 
 OS_SEC_KERNEL_TEXT void OsTaskCommonEntry(U32 tskId)
