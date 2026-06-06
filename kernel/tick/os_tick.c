@@ -28,8 +28,10 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(void)
             expiredTsk->status |= OS_TASK_STATUS_TIMEOUT;
         }
 
-        // 加回到就绪队列
-        OsSchedRdyListEnqueTsk(expiredTsk);
+        // SUSPENDED 任务不加就绪队列
+        if (!(expiredTsk->status & OS_TASK_STATUS_SUSPENDED)) {
+            OsSchedRdyListEnqueTsk(expiredTsk);
+        }
 
         OsIntRestore(intSave);
         return TRUE;

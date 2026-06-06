@@ -16,12 +16,13 @@
 
 typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 
-#define OS_TASK_STATUS_USED     0x1U
-#define OS_TASK_STATUS_READY    0x2U
-#define OS_TASK_STATUS_RUNNING  0x4U
-#define OS_TASK_STATUS_PENDING  0x8U
-#define OS_TASK_STATUS_IN_DELAY 0x10U
-#define OS_TASK_STATUS_TIMEOUT  0x20U
+#define OS_TASK_STATUS_USED       0x1U
+#define OS_TASK_STATUS_READY      0x2U
+#define OS_TASK_STATUS_RUNNING    0x4U
+#define OS_TASK_STATUS_PENDING    0x8U
+#define OS_TASK_STATUS_IN_DELAY   0x10U
+#define OS_TASK_STATUS_TIMEOUT    0x20U
+#define OS_TASK_STATUS_SUSPENDED  0x40U
 
 // 两种任务类型，线程和进程
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };

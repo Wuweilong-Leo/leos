@@ -169,7 +169,12 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
         return OS_TASK_RESUME_TSK_STATUS_ILL;
     }
 
-    OsSchedRdyListEnqueTsk(tskCb);
+    tskCb->status &= ~OS_TASK_STATUS_SUSPENDED;
+
+    /* 如果任务不在等待状态，加入就绪队列 */
+    if (!(tskCb->status & (OS_TASK_STATUS_PENDING | OS_TASK_STATUS_IN_DELAY))) {
+        OsSchedRdyListEnqueTsk(tskCb);
+    }
 
     OsTaskSchedule();
 
@@ -179,7 +184,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 }
 
 /*
- * 从调度系统移除任务（就绪队列/延时链表/等待队列）
+ * 从调度系统移除任务（只检查状态，不从延时/等待链表移除）
  * 返回: OS_OK 成功, 错误码 失败
  */
 static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
@@ -203,17 +208,6 @@ static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
         OsSchedRdyListDequeTsk(tskCb);
     }
 
-    if (tskCb->status & OS_TASK_STATUS_IN_DELAY) {
-        OsListRemoveNode(&tskCb->timerListNode);
-        tskCb->status &= ~OS_TASK_STATUS_IN_DELAY;
-        OsRefreshNearestTick();
-    }
-
-    if (tskCb->status & OS_TASK_STATUS_PENDING) {
-        OsListRemoveNode(&tskCb->pendListNode);
-        tskCb->status &= ~OS_TASK_STATUS_PENDING;
-    }
-
     return OS_OK;
 }
 
@@ -228,7 +222,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
         return ret;
     }
 
-    tskCb->status &= ~(OS_TASK_STATUS_READY | OS_TASK_STATUS_RUNNING);
+    tskCb->status |= OS_TASK_STATUS_SUSPENDED;
     OsTaskSchedule();
     OsIntRestore(intSave);
     return OS_OK;

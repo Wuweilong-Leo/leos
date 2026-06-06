@@ -186,11 +186,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
             OsRefreshNearestTick();
         }
 
-        /* 加回到就绪队列 */
-        OsSchedRdyListEnqueTsk(pendTsk);
-
-        /* 可能阻塞的是高优先级的任务，尝试触发调度 */
-        OsTaskSchedule();
+        /* SUSPENDED 任务不加就绪队列 */
+        if (!(pendTsk->status & OS_TASK_STATUS_SUSPENDED)) {
+            OsSchedRdyListEnqueTsk(pendTsk);
+            OsTaskSchedule();
+        }
     }
 
     OsIntRestore(intSave);
