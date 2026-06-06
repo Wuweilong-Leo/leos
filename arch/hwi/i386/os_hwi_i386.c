@@ -77,7 +77,8 @@ OS_SEC_KERNEL_TEXT void OsExcReport(U32 excNum, struct OsExcSaveContext *context
         kprintf("\n!!! UNKNOWN EXCEPTION: 0x%x !!!\n", excNum);
     }
 
-    OsReboot();
+    while (1) {
+    }
 }
 
 OS_INLINE bool OsExcPgFaultTriggeredByKernel(U32 errCode)
@@ -103,14 +104,14 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
 {
     if (excNum > OS_EXC_MAX) {
         kprintf("\n!!! EXCEPTION OUT OF RANGE: 0x%x !!!\n", excNum);
-        OsReboot();
+        OsPanic();
     }
 
     if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode)) {
         if (!OsExcHandleKernelPgFault(context->cr2)) {
             kprintf("\n!!! KERNEL PAGE FAULT: cs=0x%x eip=0x%x errAddr=0x%x !!!\n",
                     context->cs, context->eip, context->cr2);
-            OsReboot();
+            OsPanic();
         }
     } else {
         OsExcReport(excNum, context);

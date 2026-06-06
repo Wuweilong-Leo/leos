@@ -2,6 +2,7 @@
 #define OS_DEBUG_EXTERNAL_H
 #include "os_def.h"
 #include "os_print_external.h"
+#include "os_reset.h"
 
 /* ---- 日志级别 ---- */
 
@@ -22,8 +23,6 @@ extern enum OsLogLevel OsDebugGetLogLevel(void);
 
 extern void OsDebugPanicSpin(const char *filename, U32 line, const char *func, const char *cond);
 extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, const char *cond);
-
-#define OS_PANIC(msg) OsDebugPanicSpin(__FILE__, __LINE__, __func__, (msg))
 
 #define OS_ASSERT(cond)                                                                            \
     do {                                                                                           \

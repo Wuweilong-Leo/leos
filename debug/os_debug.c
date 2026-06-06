@@ -34,7 +34,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPanicSpin(const char *filename, U32 line, const c
     kprintf("Func: %s\n", func);
     kprintf("Cond: %s\n", cond);
     kprintf("========================\n");
-    OsReboot();
+    OsPanic();
 }
 
 /* ---- 断言失败入口（供宏调用） ---- */

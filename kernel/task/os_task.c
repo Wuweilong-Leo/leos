@@ -30,7 +30,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
     size = sizeof(struct OsTaskCb) * g_tskMaxNum;
     g_tskCbArray = (struct OsTaskCb *)OsMemKernelAlloc(size, 4);
     if (g_tskCbArray == NULL) {
-        OS_REBOOT("%s", "OsTaskConfigInit: alloc tskCbArray failed");
+        OS_PANIC("%s", "OsTaskConfigInit: alloc tskCbArray failed");
     }
 
     memset(g_tskCbArray, 0, size);
