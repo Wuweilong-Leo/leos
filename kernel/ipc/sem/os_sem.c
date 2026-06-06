@@ -145,6 +145,9 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
 
     /* 获取资源 */
     semCb->val--;
+    /* 加入持有者链表 */
+    OsListAddTail(&curTsk->semList, &semCb->semListNode);
+
     OsIntRestore(intSave);
 
     return OS_OK;
@@ -167,6 +170,9 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         return OS_SEM_POST_IS_FULL;
     }
     semCb->val++;
+
+    /* 从持有者链表移除 */
+    OsListRemoveNode(&semCb->semListNode);
 
     if (!OsListIsEmpty(&semCb->pendList)) {
         /* 有任务在等，唤醒队首 */
