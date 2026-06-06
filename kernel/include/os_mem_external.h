@@ -37,5 +37,6 @@ extern struct OsMemPool g_kernelPhyMemPool;
 extern struct OsMemPool g_usrPhyMemPool;
 extern struct OsMemPool g_kernelVirMemPool;
 void *OsMemKernelAlloc(size_t size, U32 align);
+void OsMemKernelFree(void *addr);
 
 #endif

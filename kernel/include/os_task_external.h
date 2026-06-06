@@ -66,14 +66,17 @@ struct OsTaskCreateParam {
 #define OS_TASK_DELAY_PARAM_ILL        OS_BUILD_ERR_CODE(OS_MID_TASK, 0x6);
 #define OS_TASK_DELAY_TSK_STATUS_ILL   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x7);
 #define OS_TASK_SET_PRIO_PARAM_ILL     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
+#define OS_TASK_DELETE_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x9);
+#define OS_TASK_DELETE_TSK_HOLD_SEM    OS_BUILD_ERR_CODE(OS_MID_TASK, 0xA);
 
 extern void OsTaskIdleEntry(void);
 extern U32 OsTaskConfigInit(void);
 extern U32 OsTaskCreateIdle(void);
 extern U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId);
 extern U32 OsTaskResume(U32 tskId);
-extern void OsTaskSchedule();
 extern U32 OsTaskSuspend(U32 tskId);
+extern U32 OsTaskDelete(U32 tskId);
+extern void OsTaskSchedule();
 extern U32 OsTaskDelay(U32 ticks);
 extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
 

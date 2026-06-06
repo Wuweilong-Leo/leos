@@ -24,6 +24,7 @@ struct OsRunQue {
 extern struct OsRunQue g_runQue;
 extern struct OsList g_timerList;
 extern U64 g_nearestTick;
+extern uintptr_t g_kernelStackHigh;
 
 #define OS_RUN_QUE()      (&g_runQue)
 #define OS_RUNNING_TASK() (OS_RUN_QUE()->runningTsk)
