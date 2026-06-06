@@ -7,25 +7,25 @@
 
 OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_MAX_NUM];
 
-OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 irqNum)
+OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 hwiNum)
 {
-    (void)irqNum;
+    (void)hwiNum;
 }
 
-OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 irqNum, OsHwiHandlerFunc isr)
+OS_SEC_KERNEL_TEXT U32 OsHwiCreate(U32 hwiNum, OsHwiHandlerFunc isr)
 {
-    g_hwiForm[OsHwiNum2Idx(irqNum)].isr = isr;
+    g_hwiForm[OsHwiNum2Idx(hwiNum)].isr = isr;
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 irqNum)
+OS_SEC_KERNEL_TEXT void OsHwiDispatcher(U32 hwiNum)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
-    OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(irqNum)].isr;
+    OsHwiHandlerFunc isr = g_hwiForm[OsHwiNum2Idx(hwiNum)].isr;
 
     rq->intCount++;
     rq->uniFlag |= OS_HWI_ACTIVE_MSK;
-    isr(irqNum);
+    isr(hwiNum);
     rq->uniFlag &= ~OS_HWI_ACTIVE_MSK;
     rq->intCount--;
 }

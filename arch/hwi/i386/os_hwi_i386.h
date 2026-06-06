@@ -156,6 +156,6 @@ extern U32 OsHwiConfigInit(void);
 extern void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context);
 
 /* IRQ 默认处理函数（架构层注册用） */
-extern void OsHwiDefHandler(U32 irqNum);
+extern void OsHwiDefHandler(U32 hwiNum);
 
 #endif /* OS_HWI_I386_H */
