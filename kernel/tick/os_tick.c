@@ -25,6 +25,7 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(void)
         // 如果任务在等信号量，从 pendList 移除并标记超时
         if (expiredTsk->status & OS_TASK_STATUS_PENDING) {
             OsListRemoveNode(&expiredTsk->pendListNode);
+            expiredTsk->status &= ~OS_TASK_STATUS_PENDING;
             expiredTsk->status |= OS_TASK_STATUS_TIMEOUT;
         }
 

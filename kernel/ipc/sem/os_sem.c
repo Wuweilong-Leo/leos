@@ -179,6 +179,8 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));
 
+        pendTsk->status &= ~OS_TASK_STATUS_PENDING;
+
         /* 如果任务带超时在等，从延时链移除 */
         if (pendTsk->status & OS_TASK_STATUS_IN_DELAY) {
             OsListRemoveNode(&pendTsk->timerListNode);
