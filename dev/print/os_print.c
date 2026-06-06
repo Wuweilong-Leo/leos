@@ -30,16 +30,22 @@ OS_SEC_KERNEL_TEXT void OsPrintRollScreen(void)
     if (g_printOps.scrollUp != NULL) {
         g_printOps.scrollUp();
     }
-    if (g_printOps.clearLine != NULL) {
+    if (g_printOps.clearLine != NULL && g_printOps.colNum != 0) {
         g_printOps.clearLine(g_printOps.posNum / g_printOps.colNum - 1);
     }
-    OsPrintSetCursor(g_printOps.posNum - g_printOps.colNum);
+    if (g_printOps.colNum != 0) {
+        OsPrintSetCursor(g_printOps.posNum - g_printOps.colNum);
+    }
 }
 
 OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
 {
     U16 curPos;
     U16 nextCurPos;
+
+    if (g_printOps.colNum == 0 || g_printOps.posNum == 0) {
+        return;
+    }
 
     curPos = OsPrintGetCursor();
 
@@ -51,6 +57,9 @@ OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
             OsPrintSetCursor(nextCurPos);
         }
     } else if (c == '\b') {
+        if (curPos == 0) {
+            return;
+        }
         if (g_printOps.writeChar != NULL) {
             g_printOps.writeChar(curPos - 1, ' ', g_printOps.attrDefault);
         }
