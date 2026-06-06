@@ -77,19 +77,6 @@ static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
     struct OsTaskCb *tsk = OS_RUNNING_TASK();
 
     OsSchedRdyListDequeTsk(tsk);
-
-    if (tsk->status & OS_TASK_STATUS_IN_DELAY) {
-        OsListRemoveNode(&tsk->timerListNode);
-    }
-
-    if (tsk->status & OS_TASK_STATUS_PENDING) {
-        OsListRemoveNode(&tsk->pendListNode);
-    }
-
-    if (tsk->tskType == OS_TASK_PROCESS && tsk->pgDir) {
-        /* TODO: 释放进程页目录和用户空间映射 */
-    }
-
     OsMemKernelFree((void *)tsk->kernelStkTop);
 
     tsk->status = 0;
