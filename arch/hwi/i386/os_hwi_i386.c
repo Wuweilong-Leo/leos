@@ -7,7 +7,6 @@
 #include "os_debug_external.h"
 #include "os_context_i386.h"
 #include "os_mem_external.h"
-#include "os_reset.h"
 
 /*
  * i386 中断/异常架构相关实现
@@ -104,14 +103,16 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
 {
     if (excNum > OS_EXC_MAX) {
         kprintf("\n!!! EXCEPTION OUT OF RANGE: 0x%x !!!\n", excNum);
-        OsPanic();
+        while (1) {
+        }
     }
 
     if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode)) {
         if (!OsExcHandleKernelPgFault(context->cr2)) {
             kprintf("\n!!! KERNEL PAGE FAULT: cs=0x%x eip=0x%x errAddr=0x%x !!!\n",
                     context->cs, context->eip, context->cr2);
-            OsPanic();
+            while (1) {
+            }
         }
     } else {
         OsExcReport(excNum, context);
