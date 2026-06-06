@@ -82,7 +82,11 @@ enum OsExcType {
 
 /* 系统活跃标志位在 os_sys.h 中定义 */
 
-/* 中断号到索引的转换在 kernel/irq/os_hwi_internal.h 中定义 */
+/* 中断号到索引的转换（i386 中断号从 0x20 开始） */
+OS_INLINE U32 OsHwiNum2Idx(U32 hwiNum)
+{
+    return hwiNum - OS_HWI_MIN;
+}
 
 OS_INLINE enum OsIntStatus OsGetIntStatus(void)
 {

@@ -2,17 +2,9 @@
 #define OS_HWI_INTERNAL_H
 #include "os_hwi_external.h"
 
-#define OS_IRQ_MIN  0x20
-#define OS_IRQ_MAX  0x20
-#define OS_IRQ_NUM  (OS_IRQ_MAX - OS_IRQ_MIN + 1)
-
+/* 通用层：IRQ 表大小由架构层定义的 OS_HWI_MAX_NUM 决定 */
 struct OsHwiForm {
     OsHwiHandlerFunc isr;
 };
-
-OS_INLINE U32 OsHwiNum2Idx(U32 hwiNum)
-{
-    return hwiNum - OS_IRQ_MIN;
-}
 
 #endif /* OS_HWI_INTERNAL_H */

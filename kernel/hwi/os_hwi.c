@@ -5,7 +5,7 @@
 #include "os_debug_external.h"
 #include "os_sys.h"
 
-OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_IRQ_NUM];
+OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_MAX_NUM];
 
 OS_SEC_KERNEL_TEXT void OsHwiDefHandler(U32 irqNum)
 {
