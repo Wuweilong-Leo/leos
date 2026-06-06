@@ -28,7 +28,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/kernel/sched
     ${CMAKE_SOURCE_DIR}/kernel/task/process
     ${CMAKE_SOURCE_DIR}/kernel/tick
-    ${CMAKE_SOURCE_DIR}/kernel/irq
+    ${CMAKE_SOURCE_DIR}/kernel/hwi
     ${CMAKE_SOURCE_DIR}/dev/print
     ${CMAKE_SOURCE_DIR}/dev/include
     ${CMAKE_SOURCE_DIR}/arch/dev/vga
@@ -51,7 +51,7 @@ set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/kernel/mem
     ${CMAKE_SOURCE_DIR}/kernel/mem/fsc
     ${CMAKE_SOURCE_DIR}/kernel/tick
-    ${CMAKE_SOURCE_DIR}/kernel/irq
+    ${CMAKE_SOURCE_DIR}/kernel/hwi
     ${CMAKE_SOURCE_DIR}/kernel/ipc/sem
     ${CMAKE_SOURCE_DIR}/kernel/task/process
     ${CMAKE_SOURCE_DIR}/arch/boot/i386

@@ -25,7 +25,7 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/kernel/sched \
            $(CUR_DIR)/kernel/task/process \
            $(CUR_DIR)/kernel/tick \
-           $(CUR_DIR)/kernel/irq \
+           $(CUR_DIR)/kernel/hwi \
            $(CUR_DIR)/dev/print \
            $(CUR_DIR)/dev/include \
            $(CUR_DIR)/arch/dev/vga \
@@ -44,7 +44,7 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/kernel/mem \
             $(CUR_DIR)/kernel/mem/fsc \
             $(CUR_DIR)/kernel/tick \
-            $(CUR_DIR)/kernel/irq \
+            $(CUR_DIR)/kernel/hwi \
             $(CUR_DIR)/kernel/ipc/sem \
             $(CUR_DIR)/kernel/task/process \
             $(CUR_DIR)/arch/boot/i386 \
