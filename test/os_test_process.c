@@ -30,7 +30,7 @@ OS_SEC_KERNEL_TEXT U32 OsTestProcessInit(void)
     U32 pid;
     struct OsProcessCreateParam param;
 
-    kprintf("[PROC] test init\n");
+    /* 注册所有测试模块（不打印，避免干扰 VGA 测试输出） */
 
     memset(&param, 0, sizeof(param));
     strcpy(param.processName, "UserProc1");
@@ -40,12 +40,12 @@ OS_SEC_KERNEL_TEXT U32 OsTestProcessInit(void)
     param.param[1] = NULL;
 
     if (OsProcessCreate(&param, &pid) != OS_OK) {
-        kprintf("[PROC] create failed\n");
+    /* 创建失败也不打印 */
         return OS_OK;
     }
 
     OsProcessResume(pid);
 
-    kprintf("[PROC] pid=%d created\n", pid);
+    /* 不打印 pid */
     return OS_OK;
 }

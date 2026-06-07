@@ -313,6 +313,29 @@ leos/
 
 ## 调试技巧
 
+### 串口输出（推荐）
+
+内核测试模块通过 COM1（0x3F8）输出结果，QEMU 可捕获到文件：
+
+```bash
+# 编译+创建镜像
+make clean && make && make dis
+cd build/output
+dd if=/dev/zero of=leos_hdd.img bs=512 count=65536
+dd if=os_mbr.bin of=leos_hdd.img bs=512 conv=notrunc
+dd if=os_loader.bin of=leos_hdd.img bs=512 seek=2 conv=notrunc
+dd if=kernel.bin of=leos_hdd.img bs=512 seek=9 conv=notrunc
+
+# 运行，串口输出到文件
+qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32 \
+    -serial file:/tmp/leos_serial.log -display none -daemonize
+
+# 等内核跑一会儿后查看结果
+sleep 30
+cat /tmp/leos_serial.log
+killall qemu-system-i386
+```
+
 ### GDB 远程调试
 
 ```bash
@@ -320,12 +343,14 @@ leos/
 qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32 -s -S
 
 # 终端 2：启动 GDB
-gdb build/output/os_kernel.elf
+ gdb build/output/os_kernel.elf
 (gdb) set architecture i386
 (gdb) target remote :1234
 (gdb) break main
 (gdb) continue
 ```
+
+**注意：** GDB attach 时会暂停 CPU。如果需要读运行中的内核变量，应使用串口输出而非 GDB。
 
 ### QEMU 中断日志
 
@@ -336,8 +361,12 @@ qemu-system-i386 ... -d int -D qemu_int.log
 
 ### 读 VGA 文本缓冲区
 
-VGA 文本模式缓冲区在物理地址 `0xB8000`，每个字符占 2 字节（字符 + 颜色属性）：
+VGA 文本模式缓冲区虚拟地址 `0xC00B8000`，物理地址 `0xB8000`。GDB `x` 命令只能读虚拟地址：
+
 ```bash
-# 在 GDB 中读 VGA 第一行
-(gdb) x/s 0xb8000
+# 在 GDB 中读 VGA（分页开启后用虚拟地址）
+(gdb) x/s 0xc00b8000
+
+# dump 整个 VGA 缓冲区到文件
+(gdb) dump binary memory /tmp/vga.bin 0xc00b8000 0xc00b8fa0
 ```

@@ -42,7 +42,6 @@ struct OsTaskCb {
     char name[OS_TASK_NAME_MAX_SIZE];
     struct OsList rdyListNode;
     struct OsList pendListNode;
-    struct OsList semList; /* 拥有的信号量链表 */
     struct OsList timerListNode;
     U32 eventMsk;
     U32 curEvent;
@@ -62,13 +61,12 @@ struct OsTaskCreateParam {
 #define OS_TASK_CREATE_STK_ALLOC_FAIL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x1);
 #define OS_TASK_RESUME_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x2);
 #define OS_TASK_SUSPEND_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x3);
-#define OS_TASK_SUSPEND_TSK_HOLD_SEM   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x4);
-#define OS_TASK_YIELD_TSK_HOLD_SEM     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x5);
+/* 0x4, 0x5 reserved (formerly hold-sem checks, now unused) */
 #define OS_TASK_DELAY_PARAM_ILL        OS_BUILD_ERR_CODE(OS_MID_TASK, 0x6);
 #define OS_TASK_DELAY_TSK_STATUS_ILL   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x7);
 #define OS_TASK_SET_PRIO_PARAM_ILL     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
 #define OS_TASK_DELETE_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x9);
-#define OS_TASK_DELETE_TSK_HOLD_SEM    OS_BUILD_ERR_CODE(OS_MID_TASK, 0xA);
+/* 0xA reserved (formerly delete-hold-sem, now unused) */
 
 extern void OsTaskIdleEntry(void);
 extern U32 OsTaskConfigInit(void);

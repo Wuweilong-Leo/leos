@@ -6,8 +6,4 @@
 #define OS_SEM_MAX_NUM       0x10
 #define OS_SEM_GET_CB(semId) (&g_semCbArray[(semId)])
 
-#define OS_SEM_PEND_TSK_ALREADY_HOLD_SEM OS_BUILD_ERR_CODE(OS_MID_SEM, 0x0);
-#define OS_SEM_POST_TSK_NOT_HOLD_SEM     OS_BUILD_ERR_CODE(OS_MID_SEM, 0x1);
-#define OS_SEM_CREATE_NO_FREE_CB         OS_BUILD_ERR_CODE(OS_MID_SEM, 0x2);
-#define OS_SEM_POST_IS_FULL              OS_BUILD_ERR_CODE(OS_MID_SEM, 0x3);
 #endif

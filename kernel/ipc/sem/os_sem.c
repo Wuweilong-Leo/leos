@@ -34,7 +34,6 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
 
         semCb->semId = i;
         OsListInit(&semCb->pendList);
-        OsListInit(&semCb->semListNode);
         OsListAddTail(&g_semFreeList, freeListNode);
     }
 
@@ -50,10 +49,32 @@ OS_INLINE struct OsSemCb *OsSemGetFreeCb(void)
     return OS_GET_STRUCT_ENTRY(struct OsSemCb, freeListNode, OsListPopHead(&g_semFreeList));
 }
 
-OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, enum OsSemWakePolicy policy, U32 *semId)
+OS_SEC_KERNEL_TEXT U32 OsSemCreate(enum OsSemType type, U32 initVal, U32 maxCnt,
+                                   enum OsSemWakePolicy policy, U32 *semId)
 {
     struct OsSemCb *semCb;
-    enum OsIntStatus intSave = OsIntLock();
+    enum OsIntStatus intSave;
+
+    /* 参数校验 */
+    if (type == OS_SEM_BINARY_SYNC) {
+        if (initVal != 0) {
+            return OS_SEM_PARAM_INVALID; /* 同步信号量初始必须为0 */
+        }
+        maxCnt = 1;
+    } else if (type == OS_SEM_BINARY_MUTEX) {
+        if (initVal != 1) {
+            return OS_SEM_PARAM_INVALID; /* 互斥信号量初始必须可用 */
+        }
+        maxCnt = 1;
+    } else if (type == OS_SEM_COUNTING) {
+        if (maxCnt == 0 || initVal > maxCnt) {
+            return OS_SEM_PARAM_INVALID;
+        }
+    } else {
+        return OS_SEM_PARAM_INVALID;
+    }
+
+    intSave = OsIntLock();
 
     semCb = OsSemGetFreeCb();
     if (semCb == NULL) {
@@ -62,10 +83,16 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(U32 semCnt, U32 maxCnt, enum OsSemWakePolicy 
         return OS_SEM_CREATE_NO_FREE_CB;
     }
 
-    semCb->val = semCnt;
-    semCb->semCnt = maxCnt;
+    semCb->val        = initVal;
+    semCb->maxCnt     = maxCnt;
+    semCb->type       = type;
     semCb->wakePolicy = policy;
+    semCb->holder     = NULL;
+#ifdef OS_SEM_BIN_SUPPORT_RECUR
+    semCb->nestCnt    = 0;
+#endif
     *semId = semCb->semId;
+
     OsIntRestore(intSave);
     return OS_OK;
 }
@@ -99,6 +126,15 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
 
     semCb = OS_SEM_GET_CB(semId);
     curTsk = OS_RUNNING_TASK();
+
+    /* BINARY_MUTEX 递归持有检查 */
+#ifdef OS_SEM_BIN_SUPPORT_RECUR
+    if (semCb->type == OS_SEM_BINARY_MUTEX && semCb->holder == curTsk) {
+        semCb->nestCnt++;
+        OsIntRestore(intSave);
+        return OS_OK;
+    }
+#endif
 
     if (semCb->val == 0) {
         /* 无可用资源 */
@@ -145,8 +181,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
 
     /* 获取资源 */
     semCb->val--;
-    /* 加入持有者链表 */
-    OsListAddTail(&curTsk->semList, &semCb->semListNode);
+
+    /* BINARY_MUTEX: 记录持有者 */
+    if (semCb->type == OS_SEM_BINARY_MUTEX) {
+        semCb->holder = curTsk;
+    }
 
     OsIntRestore(intSave);
 
@@ -157,25 +196,32 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 {
     struct OsSemCb *semCb;
     enum OsIntStatus intSave;
+    struct OsTaskCb *curTsk;
     struct OsTaskCb *pendTsk;
 
     intSave = OsIntLock();
 
     semCb = OS_SEM_GET_CB(semId);
+    curTsk = OS_RUNNING_TASK();
 
-    /* 释放资源，val++ */
-    if (semCb->val == semCb->semCnt) {
-        OS_LOG_WARN("OsSemPost: sem %u is full (val=%u)\n", semId, semCb->val);
-        OsIntRestore(intSave);
-        return OS_SEM_POST_IS_FULL;
+    /* BINARY_MUTEX: 只有持有者能 Post */
+    if (semCb->type == OS_SEM_BINARY_MUTEX) {
+        if (semCb->holder != curTsk) {
+            OsIntRestore(intSave);
+            return OS_SEM_POST_NOT_HOLDER;
+        }
+#ifdef OS_SEM_BIN_SUPPORT_RECUR
+        if (semCb->nestCnt > 0) {
+            semCb->nestCnt--;
+            OsIntRestore(intSave);
+            return OS_OK;
+        }
+#endif
+        semCb->holder = NULL;
     }
-    semCb->val++;
 
-    /* 从持有者链表移除 */
-    OsListRemoveNode(&semCb->semListNode);
-
+    /* 有任务在等，直接移交，唤醒队首 */
     if (!OsListIsEmpty(&semCb->pendList)) {
-        /* 有任务在等，唤醒队首 */
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));
 
@@ -193,6 +239,25 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
             OsSchedRdyListEnqueTsk(pendTsk);
             OsTaskSchedule();
         }
+
+        OsIntRestore(intSave);
+        return OS_OK;
+    }
+
+    /* 没人等，val 递增 */
+    if (semCb->type == OS_SEM_BINARY_SYNC || semCb->type == OS_SEM_BINARY_MUTEX) {
+        if (semCb->val == 1) {
+            OsIntRestore(intSave);
+            return OS_SEM_POST_AGAIN;
+        }
+        semCb->val = 1;
+    } else {
+        /* 计数信号量 */
+        if (semCb->val >= semCb->maxCnt) {
+            OsIntRestore(intSave);
+            return OS_SEM_POST_IS_FULL;
+        }
+        semCb->val++;
     }
 
     OsIntRestore(intSave);

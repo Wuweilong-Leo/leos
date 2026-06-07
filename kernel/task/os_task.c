@@ -41,7 +41,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         tskCb->pid = i;
         tskCb->status = 0;
         tskCb->pgDir = (uintptr_t)NULL;
-        OsListInit(&tskCb->semList);
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->timerListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
@@ -199,10 +198,7 @@ static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
 
-    if (!OsListIsEmpty(&tskCb->semList)) {
-        OS_LOG_ERROR("task %u holds semaphore\n", tskCb->pid);
-        return OS_TASK_SUSPEND_TSK_HOLD_SEM;
-    }
+    /* signal量无持有者，不需要检查 */
 
     if (tskCb->status & OS_TASK_STATUS_READY) {
         OsSchedRdyListDequeTsk(tskCb);
