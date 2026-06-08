@@ -182,9 +182,10 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
     /* 获取资源 */
     semCb->val--;
 
-    /* BINARY_MUTEX: 记录持有者 */
+    /* BINARY_MUTEX: 记录持有者，挂入任务持有链表 */
     if (semCb->type == OS_SEM_BINARY_MUTEX) {
         semCb->holder = curTsk;
+        OsListAddTail(&curTsk->holdSemList, &semCb->holdNode);
     }
 
     OsIntRestore(intSave);
@@ -218,9 +219,27 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         }
 #endif
         semCb->holder = NULL;
+        OsListRemoveNode(&semCb->holdNode);
     }
 
-    /* 有任务在等，直接移交，唤醒队首 */
+    /* val 递增 */
+    if (semCb->type == OS_SEM_BINARY_SYNC || semCb->type == OS_SEM_BINARY_MUTEX) {
+        /* 二值信号量：允许重复 Post，val 保持 1 */
+        if (semCb->val == 1) {
+            OsIntRestore(intSave);
+            return OS_OK;
+        }
+        semCb->val = 1;
+    } else {
+        /* 计数信号量 */
+        if (semCb->val >= semCb->maxCnt) {
+            OsIntRestore(intSave);
+            return OS_SEM_POST_IS_FULL;
+        }
+        semCb->val++;
+    }
+
+    /* 如果有人在等，唤醒队首，Pend 醒来后 val-- 取走资源 */
     if (!OsListIsEmpty(&semCb->pendList)) {
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));
@@ -239,25 +258,6 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
             OsSchedRdyListEnqueTsk(pendTsk);
             OsTaskSchedule();
         }
-
-        OsIntRestore(intSave);
-        return OS_OK;
-    }
-
-    /* 没人等，val 递增 */
-    if (semCb->type == OS_SEM_BINARY_SYNC || semCb->type == OS_SEM_BINARY_MUTEX) {
-        if (semCb->val == 1) {
-            OsIntRestore(intSave);
-            return OS_SEM_POST_AGAIN;
-        }
-        semCb->val = 1;
-    } else {
-        /* 计数信号量 */
-        if (semCb->val >= semCb->maxCnt) {
-            OsIntRestore(intSave);
-            return OS_SEM_POST_IS_FULL;
-        }
-        semCb->val++;
     }
 
     OsIntRestore(intSave);

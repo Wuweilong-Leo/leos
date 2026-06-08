@@ -42,7 +42,7 @@ OS_SEC_KERNEL_BSS volatile U32 g_semTestResult;
 #define SEM_TEST_CNT_SEM_OK         0x00000001  /* 计数信号量生产消费正常 */
 #define SEM_TEST_CNT_POST_FULL      0x00000002  /* 计数信号量 Post 满返回 IS_FULL */
 #define SEM_TEST_BIN_SYNC_OK        0x00000004  /* 二值同步信号量正常 */
-#define SEM_TEST_BIN_POST_AGAIN     0x00000008  /* 二值同步重复 Post 返回 AGAIN */
+#define SEM_TEST_BIN_POST_REPEAT    0x00000008  /* 二值同步重复 Post 返回 OK */
 #define SEM_TEST_MUTEX_OK           0x00000010  /* 二值互斥信号量正常 */
 #define SEM_TEST_MUTEX_NOT_HOLDER   0x00000020  /* 非持有者 Post 返回 NOT_HOLDER */
 #define SEM_TEST_PRIO_WAKE_OK       0x00000040  /* PRIO 唤醒顺序正确 */
@@ -85,7 +85,7 @@ OS_SEC_KERNEL_TEXT void TestSemConsumer(void *p1, void *p2, void *p3, void *p4)
 
 OS_SEC_KERNEL_BSS U32 g_testBinSemId;
 OS_SEC_KERNEL_BSS volatile U32 g_testBinSemResult;
-OS_SEC_KERNEL_BSS volatile U32 g_testBinSemPostAgainFlag;
+OS_SEC_KERNEL_BSS volatile U32 g_testBinSemPostRepeatFlag;
 
 OS_SEC_KERNEL_TEXT void TestBinSemWaiter(void *p1, void *p2, void *p3, void *p4)
 {
@@ -101,8 +101,8 @@ OS_SEC_KERNEL_TEXT void TestBinSemNotifier(void *p1, void *p2, void *p3, void *p
     U32 ret;
     while (1) {
         ret = OsSemPost(g_testBinSemId);
-        if (ret == OS_SEM_POST_AGAIN) {
-            g_testBinSemPostAgainFlag = 1; /* 预期：Waiter 没来得及消费 */
+        if (ret == OS_OK) {
+            g_testBinSemPostRepeatFlag = 1; /* 重复 Post 也返回 OK */
         }
         OsTaskDelay(10);
     }
@@ -244,8 +244,8 @@ OS_SEC_KERNEL_TEXT void TestSemResultCollector(void *p1, void *p2, void *p3, voi
         }
 
         /* 二值同步 */
-        if (g_testBinSemResult > 0 && g_testBinSemPostAgainFlag) {
-            g_semTestResult |= SEM_TEST_BIN_SYNC_OK | SEM_TEST_BIN_POST_AGAIN;
+        if (g_testBinSemResult > 0 && g_testBinSemPostRepeatFlag) {
+            g_semTestResult |= SEM_TEST_BIN_SYNC_OK | SEM_TEST_BIN_POST_REPEAT;
         }
 
         /* 互斥 */

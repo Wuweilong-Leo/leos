@@ -47,6 +47,7 @@ struct OsTaskCb {
     U32 curEvent;
     enum OsTaskType tskType;
     uintptr_t pgDir;                /* 进程页目录，线程为NULL */
+    struct OsList holdSemList;     /* 该任务持有的所有互斥信号量（通过 semCb->holdNode 挂入） */
     struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 

@@ -25,6 +25,7 @@ struct OsSemCb {
     enum OsSemWakePolicy wakePolicy;
     struct OsList freeListNode;   /* 空闲链表节点 */
     struct OsList pendList;       /* 等待队列 */
+    struct OsList holdNode;       /* 挂入持有者 TCB 的 holdSemList（仅 BINARY_MUTEX 使用） */
     struct OsTaskCb *holder;      /* BINARY_MUTEX 持有者，其他类型为 NULL */
 #ifdef OS_SEM_BIN_SUPPORT_RECUR
     U32 nestCnt;                  /* BINARY_MUTEX 递归嵌套计数 */
@@ -36,7 +37,6 @@ struct OsSemCb {
 
 #define OS_SEM_CREATE_NO_FREE_CB         OS_BUILD_ERR_CODE(OS_MID_SEM, 0x0)
 #define OS_SEM_POST_IS_FULL              OS_BUILD_ERR_CODE(OS_MID_SEM, 0x1) /* 计数型满 */
-#define OS_SEM_POST_AGAIN                OS_BUILD_ERR_CODE(OS_MID_SEM, 0x2) /* 二值型重复post */
 #define OS_SEM_PEND_TIMEOUT              OS_BUILD_ERR_CODE(OS_MID_SEM, 0x3)
 #define OS_SEM_PEND_UNAVAILABLE          OS_BUILD_ERR_CODE(OS_MID_SEM, 0x4)
 #define OS_SEM_POST_NOT_HOLDER          OS_BUILD_ERR_CODE(OS_MID_SEM, 0x6) /* BINARY_MUTEX 非持有者 Post */

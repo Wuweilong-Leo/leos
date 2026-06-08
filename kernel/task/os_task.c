@@ -43,6 +43,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         tskCb->pgDir = (uintptr_t)NULL;
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->timerListNode);
+        OsListInit(&tskCb->holdSemList);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
