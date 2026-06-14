@@ -122,6 +122,10 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
     enum OsIntStatus intSave;
     struct OsTaskCb *curTsk;
 
+    if (semId >= g_semMaxNum) {
+        return OS_SEM_SEM_ID_INVALID;
+    }
+
     intSave = OsIntLock();
 
     semCb = OS_SEM_GET_CB(semId);
@@ -199,6 +203,10 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
     enum OsIntStatus intSave;
     struct OsTaskCb *curTsk;
     struct OsTaskCb *pendTsk;
+
+    if (semId >= g_semMaxNum) {
+        return OS_SEM_SEM_ID_INVALID;
+    }
 
     intSave = OsIntLock();
 

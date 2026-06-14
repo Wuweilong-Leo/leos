@@ -37,10 +37,11 @@ struct OsSemCb {
 
 #define OS_SEM_CREATE_NO_FREE_CB         OS_BUILD_ERR_CODE(OS_MID_SEM, 0x0)
 #define OS_SEM_POST_IS_FULL              OS_BUILD_ERR_CODE(OS_MID_SEM, 0x1) /* 计数型满 */
+#define OS_SEM_SEM_ID_INVALID            OS_BUILD_ERR_CODE(OS_MID_SEM, 0x2)
 #define OS_SEM_PEND_TIMEOUT              OS_BUILD_ERR_CODE(OS_MID_SEM, 0x3)
 #define OS_SEM_PEND_UNAVAILABLE          OS_BUILD_ERR_CODE(OS_MID_SEM, 0x4)
-#define OS_SEM_POST_NOT_HOLDER          OS_BUILD_ERR_CODE(OS_MID_SEM, 0x6) /* BINARY_MUTEX 非持有者 Post */
 #define OS_SEM_PARAM_INVALID             OS_BUILD_ERR_CODE(OS_MID_SEM, 0x5)
+#define OS_SEM_POST_NOT_HOLDER           OS_BUILD_ERR_CODE(OS_MID_SEM, 0x6) /* BINARY_MUTEX 非持有者 Post */
 
 extern U32 OsSemCreate(enum OsSemType type, U32 initVal, U32 maxCnt,
                        enum OsSemWakePolicy policy, U32 *semId);

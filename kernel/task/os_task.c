@@ -78,15 +78,7 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
 
 static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
 {
-    struct OsTaskCb *tsk = OS_RUNNING_TASK();
-
-    OsSchedRdyListDequeTsk(tsk);
-
-    tsk->status = 0;
-    OsListInit(&tsk->freeListNode);
-    OsListAddTail(&g_tskFreeList, &tsk->freeListNode);
-
-    OsTrapTsk(tsk);
+    OsTaskDelete(OS_RUNNING_TASK()->pid);
 }
 
 OS_SEC_KERNEL_TEXT void OsTaskCommonEntry(U32 tskId)
@@ -165,6 +157,10 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     struct OsTaskCb *tskCb;
     enum OsIntStatus intSave;
 
+    if (tskId >= g_tskMaxNum) {
+        return OS_TASK_TSK_ID_INVALID;
+    }
+
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
@@ -175,7 +171,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 
     tskCb->status &= ~OS_TASK_STATUS_SUSPENDED;
 
-    /* 如果任务不在等待状态，加入就绪队列 */
     if (!(tskCb->status & (OS_TASK_STATUS_PENDING | OS_TASK_STATUS_IN_DELAY))) {
         OsSchedRdyListEnqueTsk(tskCb);
     }
@@ -187,26 +182,31 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     return OS_OK;
 }
 
-/*
- * 从调度系统移除任务（只检查状态，不从延时/等待链表移除）
- * 返回: OS_OK 成功, 错误码 失败
- */
-static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
+OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
 {
+    struct OsTaskCb *tskCb;
+    enum OsIntStatus intSave;
+
+    if (tskId >= g_tskMaxNum) {
+        return OS_TASK_TSK_ID_INVALID;
+    }
+
+    tskCb = OS_TASK_GET_CB(tskId);
+    intSave = OsIntLock();
+
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
-        OS_LOG_ERROR("task %u not created\n", tskCb->pid);
+        OS_LOG_ERROR("OsTaskSuspend: task %u not created\n", tskId);
+        OsIntRestore(intSave);
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
 
-    if (tskCb == OS_RUNNING_TASK()) {
-        OS_LOG_ERROR("cannot operate on running task %u\n", tskCb->pid);
-        return OS_TASK_SUSPEND_TSK_STATUS_ILL;
+    if (tskCb->status & OS_TASK_STATUS_SUSPENDED) {
+        OsIntRestore(intSave);
+        return OS_OK;
     }
 
-    /* signal量无持有者，不需要检查 */
-
-    /* 持有互斥信号量的任务不允许删除 */
     if (!OsListIsEmpty(&tskCb->holdSemList)) {
+        OsIntRestore(intSave);
         return OS_TASK_DELETE_HOLD_SEM;
     }
 
@@ -214,31 +214,28 @@ static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
         OsSchedRdyListDequeTsk(tskCb);
     }
 
-    return OS_OK;
-}
+    tskCb->status |= OS_TASK_STATUS_SUSPENDED;
 
-OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
-{
-    struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
-    enum OsIntStatus intSave = OsIntLock();
-    U32 ret = OsTaskRemoveFromSched(tskCb);
-
-    if (ret != OS_OK) {
-        OsIntRestore(intSave);
-        return ret;
+    if (tskCb == OS_RUNNING_TASK()) {
+        OsTaskSchedule();
     }
 
-    tskCb->status |= OS_TASK_STATUS_SUSPENDED;
-    OsTaskSchedule();
     OsIntRestore(intSave);
     return OS_OK;
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
 {
-    struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
+    struct OsTaskCb *tskCb;
     struct OsTaskCb *curTsk;
-    enum OsIntStatus intSave = OsIntLock();
+    enum OsIntStatus intSave;
+
+    if (tskId >= g_tskMaxNum) {
+        return OS_TASK_TSK_ID_INVALID;
+    }
+
+    tskCb = OS_TASK_GET_CB(tskId);
+    intSave = OsIntLock();
 
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
         OsIntRestore(intSave);
@@ -279,16 +276,14 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     curTsk = OS_RUNNING_TASK();
 
     if (tskCb == curTsk) {
-        /* 删除自己：栈和TCB延迟回收，等时钟中断在系统栈上处理 */
         OsListAddTail(&g_tskRecycleList, &tskCb->freeListNode);
         OsTaskSchedule();
     } else {
-        /* 删除其他任务：直接回收 */
         OsMemKernelFree((void *)tskCb->kernelStkTop);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
-        OsIntRestore(intSave);
     }
 
+    OsIntRestore(intSave);
     return OS_OK;
 }
 
@@ -312,11 +307,6 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
     }
 }
 
-/* 保留软中断handler兼容（不再使用） */
-OS_SEC_KERNEL_TEXT void OsTaskRecycleHandler(U32 hwiNum)
-{
-    (void)hwiNum;
-}
 
 OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
 {

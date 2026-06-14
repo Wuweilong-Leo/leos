@@ -62,7 +62,8 @@ struct OsTaskCreateParam {
 #define OS_TASK_CREATE_STK_ALLOC_FAIL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x1);
 #define OS_TASK_RESUME_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x2);
 #define OS_TASK_SUSPEND_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x3);
-/* 0x4, 0x5 reserved */
+#define OS_TASK_TSK_ID_INVALID         OS_BUILD_ERR_CODE(OS_MID_TASK, 0x4);
+/* 0x5 reserved */
 #define OS_TASK_DELAY_PARAM_ILL        OS_BUILD_ERR_CODE(OS_MID_TASK, 0x6);
 #define OS_TASK_DELAY_TSK_STATUS_ILL   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x7);
 #define OS_TASK_SET_PRIO_PARAM_ILL     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
@@ -79,7 +80,6 @@ extern U32 OsTaskDelete(U32 tskId);
 extern void OsTaskSchedule();
 extern U32 OsTaskDelay(U32 ticks);
 extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
-extern void OsTaskRecycleHandler(U32 hwiNum);
 extern void OsTaskRecycleStk(void);
 
 extern struct OsTaskCb *g_tskCbArray;

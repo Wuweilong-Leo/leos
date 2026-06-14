@@ -115,22 +115,17 @@ OS_SEC_KERNEL_TEXT void OsSchedMain(void)
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
     struct OsTaskCb *nextTsk = curTsk;
 
-    // 内核进行系统操作时不要切任务，正常中断返回即可
-    if (!OS_SYS_ACTIVE(rq->uniFlag)) {
-        if (rq->needSched) {
-            rq->needSched = FALSE;
-            nextTsk = scheduler->pickNextTsk();
-            if (nextTsk != curTsk) {
-                curTsk->status &= ~OS_TASK_STATUS_RUNNING;
-                nextTsk->status |= OS_TASK_STATUS_RUNNING;
-                /* 任务切换时的必要的架构配置 */
-                OsConfigArchForTskSwitch(nextTsk);
-                rq->runningTsk = nextTsk;
-            }
+    if (rq->needSched) {
+        rq->needSched = FALSE;
+        nextTsk = scheduler->pickNextTsk();
+        if (nextTsk != curTsk) {
+            curTsk->status &= ~OS_TASK_STATUS_RUNNING;
+            nextTsk->status |= OS_TASK_STATUS_RUNNING;
+            OsConfigArchForTskSwitch(nextTsk);
+            rq->runningTsk = nextTsk;
         }
     }
 
-    // 如果不需要切换任务，直接切回原任务
     OsLoadTsk(nextTsk);
 }
 
