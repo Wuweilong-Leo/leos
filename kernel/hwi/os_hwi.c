@@ -4,6 +4,9 @@
 #include "os_hwi.h"
 #include "os_debug_external.h"
 #include "os_sys.h"
+#include "os_task_external.h"
+#include "os_list_external.h"
+#include "os_mem_external.h"
 
 OS_SEC_KERNEL_DATA struct OsHwiForm g_hwiForm[OS_HWI_MAX_NUM];
 
@@ -48,6 +51,8 @@ OS_SEC_KERNEL_TEXT void OsHwiTail(void)
         } while (g_noRespondTicks > 0);
         rq->uniFlag &= ~OS_TICK_ACTIVE_MSK;
     }
+
+    OsTaskRecycleStk();
 
     OsSchedMain();
 }

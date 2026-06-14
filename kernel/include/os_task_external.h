@@ -23,6 +23,7 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 #define OS_TASK_STATUS_IN_DELAY   0x10U
 #define OS_TASK_STATUS_TIMEOUT    0x20U
 #define OS_TASK_STATUS_SUSPENDED  0x40U
+#define OS_TASK_STATUS_DELETED   0x80U
 
 // 两种任务类型，线程和进程
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
@@ -82,6 +83,7 @@ extern void OsTaskSchedule();
 extern U32 OsTaskDelay(U32 ticks);
 extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
 extern void OsTaskRecycleHandler(U32 hwiNum);
+extern void OsTaskRecycleStk(void);
 
 extern struct OsTaskCb *g_tskCbArray;
 

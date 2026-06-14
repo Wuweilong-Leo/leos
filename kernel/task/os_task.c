@@ -255,20 +255,23 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     curTsk = OS_RUNNING_TASK();
 
     if (tskCb == curTsk) {
-        /* 删除自己：TCB回收，栈延迟回收，触发软中断 */
+        /* 删除自己：标记待删除，从就绪队列移出，栈和TCB延迟回收 */
         tskCb->kernelStkTopSaved = tskCb->kernelStkTop;
-        tskCb->status = 0;
+
+        /* 从就绪队列移出 */
+        if (tskCb->status & OS_TASK_STATUS_READY) {
+            OsSchedRdyListDequeTsk(tskCb);
+        }
+
+        /* 标记已删除，不会被调度选中，也不算USED */
+        tskCb->status = OS_TASK_STATUS_DELETED;
         tskCb->pgDir = 0;
-        OsListInit(&tskCb->freeListNode);
-        OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+
+        /* 挂入回收队列，等时钟中断在系统栈上回收栈和TCB */
         OsListAddTail(&g_tskRecycleList, &tskCb->recycleListNode);
 
-        /* 触发软中断，在系统栈上回收栈并调度走 */
-        OS_EMBED_ASM("int $0x30");
-
-        /* 不会到这里 */
-        OsIntRestore(intSave);
-        return OS_OK;
+        /* 切走，不会再回来 */
+        OsTaskSchedule();
     }
 
     /* 删除其他任务 */
@@ -306,20 +309,31 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     return OS_OK;
 }
 
-/* 软中断处理：回收待回收栈并调度走 */
+/* 回收待回收栈和TCB（在OsHwiTail系统栈上调用，安全回收） */
+OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
+{
+    struct OsList *node;
+    struct OsTaskCb *tskCb;
+
+    while (!OsListIsEmpty(&g_tskRecycleList)) {
+        node = OsListPopHead(&g_tskRecycleList);
+        tskCb = OS_GET_STRUCT_ENTRY(struct OsTaskCb, recycleListNode, node);
+
+        /* 回收栈 */
+        OsMemKernelFree((void *)tskCb->kernelStkTopSaved);
+
+        /* 回收TCB */
+        tskCb->status = 0;
+        tskCb->pgDir = 0;
+        OsListInit(&tskCb->freeListNode);
+        OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+    }
+}
+
+/* 保留软中断handler兼容（不再使用） */
 OS_SEC_KERNEL_TEXT void OsTaskRecycleHandler(U32 hwiNum)
 {
     (void)hwiNum;
-
-    /* 回收所有待回收的栈 */
-    while (!OsListIsEmpty(&g_tskRecycleList)) {
-        struct OsTaskCb *tskCb =
-            OS_GET_STRUCT_ENTRY(struct OsTaskCb, recycleListNode, OsListPopHead(&g_tskRecycleList));
-        OsMemKernelFree((void *)tskCb->kernelStkTopSaved);
-    }
-
-    /* 切到下一个任务，不会再回到被删任务的栈 */
-    OsSchedMain();
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
