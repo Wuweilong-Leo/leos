@@ -251,29 +251,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         return OS_TASK_DELETE_HOLD_SEM;
     }
 
-    curTsk = OS_RUNNING_TASK();
-
-    if (tskCb == curTsk) {
-        /* 删除自己：标记待删除，从就绪队列移出，栈和TCB延迟回收 */
-
-        /* 从就绪队列移出 */
-        if (tskCb->status & OS_TASK_STATUS_READY) {
-            OsSchedRdyListDequeTsk(tskCb);
-        }
-
-        /* 标记已删除，不会被调度选中 */
-        tskCb->status = 0;
-        tskCb->pgDir = 0;
-
-        /* 挂入回收队列，等时钟中断在系统栈上回收栈和TCB */
-        OsListAddTail(&g_tskRecycleList, &tskCb->freeListNode);
-
-        /* 切走，不会再回来 */
-        OsTaskSchedule();
-    }
-
-    /* 删除其他任务 */
-
     /* 从等待队列移除 */
     if (tskCb->status & OS_TASK_STATUS_PENDING) {
         OsListRemoveNode(&tskCb->pendListNode);
@@ -292,18 +269,26 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         OsSchedRdyListDequeTsk(tskCb);
     }
 
-    OsMemKernelFree((void *)tskCb->kernelStkTop);
-
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {
         /* TODO: 释放进程页目录和用户空间映射 */
     }
 
     tskCb->status = 0;
     tskCb->pgDir = 0;
-    OsListInit(&tskCb->freeListNode);
-    OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 
-    OsIntRestore(intSave);
+    curTsk = OS_RUNNING_TASK();
+
+    if (tskCb == curTsk) {
+        /* 删除自己：栈和TCB延迟回收，等时钟中断在系统栈上处理 */
+        OsListAddTail(&g_tskRecycleList, &tskCb->freeListNode);
+        OsTaskSchedule();
+    } else {
+        /* 删除其他任务：直接回收 */
+        OsMemKernelFree((void *)tskCb->kernelStkTop);
+        OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+        OsIntRestore(intSave);
+    }
+
     return OS_OK;
 }
 
