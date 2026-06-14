@@ -261,8 +261,8 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
             OsSchedRdyListDequeTsk(tskCb);
         }
 
-        /* 标记已删除，不会被调度选中，也不算USED */
-        tskCb->status = OS_TASK_STATUS_DELETED;
+        /* 标记已删除，不会被调度选中 */
+        tskCb->status = 0;
         tskCb->pgDir = 0;
 
         /* 挂入回收队列，等时钟中断在系统栈上回收栈和TCB */
