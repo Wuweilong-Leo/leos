@@ -48,6 +48,8 @@ struct OsTaskCb {
     enum OsTaskType tskType;
     uintptr_t pgDir;                /* 进程页目录，线程为NULL */
     struct OsList holdSemList;     /* 该任务持有的所有互斥信号量（通过 semCb->holdNode 挂入） */
+    struct OsList recycleListNode;  /* 删除自己时挂入 g_tskRecycleList，等软中断回收栈 */
+    uintptr_t kernelStkTopSaved;    /* 删除自己时暂存栈地址，等软中断回收 */
     struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 
@@ -62,12 +64,12 @@ struct OsTaskCreateParam {
 #define OS_TASK_CREATE_STK_ALLOC_FAIL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x1);
 #define OS_TASK_RESUME_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x2);
 #define OS_TASK_SUSPEND_TSK_STATUS_ILL OS_BUILD_ERR_CODE(OS_MID_TASK, 0x3);
-/* 0x4, 0x5 reserved (formerly hold-sem checks, now unused) */
+/* 0x4, 0x5 reserved */
 #define OS_TASK_DELAY_PARAM_ILL        OS_BUILD_ERR_CODE(OS_MID_TASK, 0x6);
 #define OS_TASK_DELAY_TSK_STATUS_ILL   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x7);
 #define OS_TASK_SET_PRIO_PARAM_ILL     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
 #define OS_TASK_DELETE_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x9);
-/* 0xA reserved (formerly delete-hold-sem, now unused) */
+#define OS_TASK_DELETE_HOLD_SEM       OS_BUILD_ERR_CODE(OS_MID_TASK, 0xA); /* 持有互斥信号量不允许删除 */
 
 extern void OsTaskIdleEntry(void);
 extern U32 OsTaskConfigInit(void);
@@ -79,6 +81,7 @@ extern U32 OsTaskDelete(U32 tskId);
 extern void OsTaskSchedule();
 extern U32 OsTaskDelay(U32 ticks);
 extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
+extern void OsTaskRecycleHandler(U32 hwiNum);
 
 extern struct OsTaskCb *g_tskCbArray;
 

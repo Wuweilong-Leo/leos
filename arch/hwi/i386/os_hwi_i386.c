@@ -30,6 +30,22 @@ OS_SEC_KERNEL_DATA OsExcVector g_excVectorTab[OS_EXC_NUM] = {
 
 OS_SEC_KERNEL_DATA OsHwiVector g_hwiVectorTab[OS_HWI_NUM] = {
     OS_HWI_VECTOR(0x20),
+    OS_HWI_VECTOR(0x21),
+    OS_HWI_VECTOR(0x22),
+    OS_HWI_VECTOR(0x23),
+    OS_HWI_VECTOR(0x24),
+    OS_HWI_VECTOR(0x25),
+    OS_HWI_VECTOR(0x26),
+    OS_HWI_VECTOR(0x27),
+    OS_HWI_VECTOR(0x28),
+    OS_HWI_VECTOR(0x29),
+    OS_HWI_VECTOR(0x2a),
+    OS_HWI_VECTOR(0x2b),
+    OS_HWI_VECTOR(0x2c),
+    OS_HWI_VECTOR(0x2d),
+    OS_HWI_VECTOR(0x2e),
+    OS_HWI_VECTOR(0x2f),
+    OS_HWI_VECTOR(0x30),
 };
 
 OS_SEC_KERNEL_DATA char *g_excNameTab[OS_EXC_NUM] = {

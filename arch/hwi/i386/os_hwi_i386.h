@@ -4,14 +4,14 @@
 #include "os_hwi_external.h"
 #include "os_context_i386.h"
 
-#define OS_HWI_MAX_NUM 0x21
+#define OS_HWI_MAX_NUM 0x31
 #define OS_EXC_MAX_NUM 20
 
 #define OS_EXC_MIN 0
 #define OS_EXC_MAX 0X1F
 #define OS_EXC_NUM (OS_EXC_MAX - OS_EXC_MIN + 1)
 #define OS_HWI_MIN 0X20
-#define OS_HWI_MAX 0X20
+#define OS_HWI_MAX 0X30
 #define OS_HWI_NUM (OS_HWI_MAX - OS_HWI_MIN + 1)
 
 #define OS_PIC_M_CTRL 0x20
@@ -145,6 +145,22 @@ extern void OS_EXC_VECTOR(0x1d)(void);
 extern void OS_EXC_VECTOR(0x1e)(void);
 extern void OS_EXC_VECTOR(0x1f)(void);
 extern void OS_HWI_VECTOR(0x20)(void);
+extern void OS_HWI_VECTOR(0x21)(void);
+extern void OS_HWI_VECTOR(0x22)(void);
+extern void OS_HWI_VECTOR(0x23)(void);
+extern void OS_HWI_VECTOR(0x24)(void);
+extern void OS_HWI_VECTOR(0x25)(void);
+extern void OS_HWI_VECTOR(0x26)(void);
+extern void OS_HWI_VECTOR(0x27)(void);
+extern void OS_HWI_VECTOR(0x28)(void);
+extern void OS_HWI_VECTOR(0x29)(void);
+extern void OS_HWI_VECTOR(0x2a)(void);
+extern void OS_HWI_VECTOR(0x2b)(void);
+extern void OS_HWI_VECTOR(0x2c)(void);
+extern void OS_HWI_VECTOR(0x2d)(void);
+extern void OS_HWI_VECTOR(0x2e)(void);
+extern void OS_HWI_VECTOR(0x2f)(void);
+extern void OS_HWI_VECTOR(0x30)(void);
 
 extern U32 OsHwiConfigInit(void);
 extern void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context);

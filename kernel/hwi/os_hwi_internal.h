@@ -7,4 +7,7 @@ struct OsHwiForm {
     OsHwiHandlerFunc isr;
 };
 
+/* 软中断向量号：用于任务删除时触发栈回收 */
+#define OS_SOFT_INT_VEC  0x30
+
 #endif /* OS_HWI_INTERNAL_H */

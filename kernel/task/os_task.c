@@ -14,11 +14,15 @@
 #include "os_mem_external.h"
 #include "os_base_external.h"
 #include "os_reset.h"
+#include "os_hwi.h"
 
 /* task分为内核线程和用户进程 */
 OS_SEC_KERNEL_BSS struct OsTaskCb *g_tskCbArray;
 OS_SEC_KERNEL_BSS U32 g_tskMaxNum;
 OS_SEC_KERNEL_DATA struct OsList g_tskFreeList = OS_LIST_INIT(g_tskFreeList);
+
+/* 待回收栈队列：删自己时栈不能立即释放，等软中断在系统栈上回收 */
+OS_SEC_KERNEL_DATA struct OsList g_tskRecycleList = OS_LIST_INIT(g_tskRecycleList);
 
 OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
 {
@@ -44,6 +48,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->timerListNode);
         OsListInit(&tskCb->holdSemList);
+        OsListInit(&tskCb->recycleListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
@@ -201,6 +206,11 @@ static OS_SEC_KERNEL_TEXT U32 OsTaskRemoveFromSched(struct OsTaskCb *tskCb)
 
     /* signal量无持有者，不需要检查 */
 
+    /* 持有互斥信号量的任务不允许删除 */
+    if (!OsListIsEmpty(&tskCb->holdSemList)) {
+        return OS_TASK_DELETE_HOLD_SEM;
+    }
+
     if (tskCb->status & OS_TASK_STATUS_READY) {
         OsSchedRdyListDequeTsk(tskCb);
     }
@@ -228,12 +238,57 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
 OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
 {
     struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
+    struct OsTaskCb *curTsk;
     enum OsIntStatus intSave = OsIntLock();
-    U32 ret = OsTaskRemoveFromSched(tskCb);
 
-    if (ret != OS_OK) {
+    if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
         OsIntRestore(intSave);
-        return ret;
+        return OS_TASK_DELETE_TSK_STATUS_ILL;
+    }
+
+    /* 持有互斥信号量的任务不允许删除 */
+    if (!OsListIsEmpty(&tskCb->holdSemList)) {
+        OsIntRestore(intSave);
+        return OS_TASK_DELETE_HOLD_SEM;
+    }
+
+    curTsk = OS_RUNNING_TASK();
+
+    if (tskCb == curTsk) {
+        /* 删除自己：TCB回收，栈延迟回收，触发软中断 */
+        tskCb->kernelStkTopSaved = tskCb->kernelStkTop;
+        tskCb->status = 0;
+        tskCb->pgDir = 0;
+        OsListInit(&tskCb->freeListNode);
+        OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+        OsListAddTail(&g_tskRecycleList, &tskCb->recycleListNode);
+
+        /* 触发软中断，在系统栈上回收栈并调度走 */
+        OS_EMBED_ASM("int $0x30");
+
+        /* 不会到这里 */
+        OsIntRestore(intSave);
+        return OS_OK;
+    }
+
+    /* 删除其他任务 */
+
+    /* 从等待队列移除 */
+    if (tskCb->status & OS_TASK_STATUS_PENDING) {
+        OsListRemoveNode(&tskCb->pendListNode);
+        tskCb->status &= ~OS_TASK_STATUS_PENDING;
+    }
+
+    /* 从延时链表移除 */
+    if (tskCb->status & OS_TASK_STATUS_IN_DELAY) {
+        OsListRemoveNode(&tskCb->timerListNode);
+        tskCb->status &= ~OS_TASK_STATUS_IN_DELAY;
+        OsRefreshNearestTick();
+    }
+
+    /* 从就绪队列移除 */
+    if (tskCb->status & OS_TASK_STATUS_READY) {
+        OsSchedRdyListDequeTsk(tskCb);
     }
 
     OsMemKernelFree((void *)tskCb->kernelStkTop);
@@ -247,9 +302,24 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     OsListInit(&tskCb->freeListNode);
     OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 
-    OsTaskSchedule();
     OsIntRestore(intSave);
     return OS_OK;
+}
+
+/* 软中断处理：回收待回收栈并调度走 */
+OS_SEC_KERNEL_TEXT void OsTaskRecycleHandler(U32 hwiNum)
+{
+    (void)hwiNum;
+
+    /* 回收所有待回收的栈 */
+    while (!OsListIsEmpty(&g_tskRecycleList)) {
+        struct OsTaskCb *tskCb =
+            OS_GET_STRUCT_ENTRY(struct OsTaskCb, recycleListNode, OsListPopHead(&g_tskRecycleList));
+        OsMemKernelFree((void *)tskCb->kernelStkTopSaved);
+    }
+
+    /* 切到下一个任务，不会再回到被删任务的栈 */
+    OsSchedMain();
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
