@@ -256,7 +256,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
 
     if (tskCb == curTsk) {
         /* 删除自己：标记待删除，从就绪队列移出，栈和TCB延迟回收 */
-        tskCb->kernelStkTopSaved = tskCb->kernelStkTop;
 
         /* 从就绪队列移出 */
         if (tskCb->status & OS_TASK_STATUS_READY) {
@@ -320,7 +319,7 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
         tskCb = OS_GET_STRUCT_ENTRY(struct OsTaskCb, recycleListNode, node);
 
         /* 回收栈 */
-        OsMemKernelFree((void *)tskCb->kernelStkTopSaved);
+        OsMemKernelFree((void *)tskCb->kernelStkTop);
 
         /* 回收TCB */
         tskCb->status = 0;
