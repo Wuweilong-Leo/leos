@@ -48,7 +48,6 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->timerListNode);
         OsListInit(&tskCb->holdSemList);
-        OsListInit(&tskCb->recycleListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
@@ -267,7 +266,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         tskCb->pgDir = 0;
 
         /* 挂入回收队列，等时钟中断在系统栈上回收栈和TCB */
-        OsListAddTail(&g_tskRecycleList, &tskCb->recycleListNode);
+        OsListAddTail(&g_tskRecycleList, &tskCb->freeListNode);
 
         /* 切走，不会再回来 */
         OsTaskSchedule();
@@ -316,7 +315,7 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
 
     while (!OsListIsEmpty(&g_tskRecycleList)) {
         node = OsListPopHead(&g_tskRecycleList);
-        tskCb = OS_GET_STRUCT_ENTRY(struct OsTaskCb, recycleListNode, node);
+        tskCb = OS_GET_STRUCT_ENTRY(struct OsTaskCb, freeListNode, node);
 
         /* 回收栈 */
         OsMemKernelFree((void *)tskCb->kernelStkTop);
@@ -324,7 +323,6 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
         /* 回收TCB */
         tskCb->status = 0;
         tskCb->pgDir = 0;
-        OsListInit(&tskCb->freeListNode);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 }

@@ -49,7 +49,6 @@ struct OsTaskCb {
     enum OsTaskType tskType;
     uintptr_t pgDir;                /* 进程页目录，线程为NULL */
     struct OsList holdSemList;     /* 该任务持有的所有互斥信号量（通过 semCb->holdNode 挂入） */
-    struct OsList recycleListNode;  /* 删除自己时挂入 g_tskRecycleList，等软中断回收栈 */
     struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 
