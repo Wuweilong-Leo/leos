@@ -105,7 +105,7 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk)
 
 OS_SEC_KERNEL_TEXT void OsSchedModifyTskPrio(struct OsTaskCb *tsk)
 {
-    tsk->prio = (tsk->prio + 1) % OS_TASK_PRIO_MAX_NUM;
+    tsk->prio = (tsk->prio + 1) % OS_TASK_LOWEST_PRIO;
 }
 
 OS_SEC_KERNEL_TEXT void OsSchedMain(void)
