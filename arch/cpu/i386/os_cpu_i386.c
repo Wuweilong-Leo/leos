@@ -68,7 +68,7 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     /* 创建用户栈 */
     memBase = OsMemUsrAllocPgByAddr((uintptr_t)OS_PROCESS_USR_STACK_BASE);
     if (memBase == NULL) {
-        OS_PANIC("%s\n", "OsProcessEntry: OsMemUsrAllocPgByAddr failed");
+        OS_PANIC("OsMemUsrAllocPgByAddr failed\n");
     }
 
     allSaveContext->esp = (uintptr_t)((U32)memBase + OS_PG_SIZE);
@@ -83,7 +83,7 @@ OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
 
     pgdir = OsCreateProcessPgd();
     if (pgdir == NULL) {
-        OS_PANIC("%s\n", "OsProcessInitArch: OsCreateProcessPgd failed");
+        OS_PANIC("OsCreateProcessPgd failed\n");
     }
 
     process->pgDir = pgdir;

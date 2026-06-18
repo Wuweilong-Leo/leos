@@ -21,7 +21,11 @@ extern enum OsLogLevel OsDebugGetLogLevel(void);
 
 /* ---- Panic / Assert ---- */
 
-extern void OsDebugPanicSpin(const char *filename, U32 line, const char *func, const char *cond);
+#define OS_PANIC(...)                                                                               \
+    do {                                                                                           \
+        kprintf("[PANIC][%s] " __VA_ARGS__, __func__);                                              \
+        while (1) {}                                                                                \
+    } while (0)
 extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, const char *cond);
 
 #define OS_ASSERT(cond)                                                                            \
@@ -43,10 +47,10 @@ extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, 
     } while (0)
 
 /* 便捷日志宏 */
-#define OS_LOG_ERROR(...) OS_LOG(OS_LOG_ERROR, "[E] " __VA_ARGS__)
-#define OS_LOG_WARN(...)  OS_LOG(OS_LOG_WARN, "[W] " __VA_ARGS__)
-#define OS_LOG_INFO(...)  OS_LOG(OS_LOG_INFO, "[I] " __VA_ARGS__)
-#define OS_LOG_DEBUG(...) OS_LOG(OS_LOG_DEBUG, "[D] " __VA_ARGS__)
+#define OS_LOG_ERROR(...) OS_LOG(OS_LOG_ERROR, "[E][%s] " __VA_ARGS__, __func__)
+#define OS_LOG_WARN(...)  OS_LOG(OS_LOG_WARN, "[W][%s] " __VA_ARGS__, __func__)
+#define OS_LOG_INFO(...)  OS_LOG(OS_LOG_INFO, "[I][%s] " __VA_ARGS__, __func__)
+#define OS_LOG_DEBUG(...) OS_LOG(OS_LOG_DEBUG, "[D][%s] " __VA_ARGS__, __func__)
 
 /* ---- 兼容旧接口（映射到日志宏） ---- */
 

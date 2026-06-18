@@ -23,7 +23,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
     size = g_semMaxNum * sizeof(struct OsSemCb);
     g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
     if (g_semCbArray == NULL) {
-        OS_PANIC("OsSemConfigInit: alloc semCbArray failed, size=%u\n", (U32)size);
+        OS_PANIC("alloc semCbArray failed, size=%u\n", (U32)size);
     }
 
     memset(g_semCbArray, 0, size);
@@ -78,7 +78,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(enum OsSemType type, U32 initVal, U32 maxCnt,
 
     semCb = OsSemGetFreeCb();
     if (semCb == NULL) {
-        OS_LOG_ERROR("OsSemCreate: no free sem CB\n");
+        OS_LOG_ERROR("no free sem CB\n");
         OsIntRestore(intSave);
         return OS_SEM_CREATE_NO_FREE_CB;
     }

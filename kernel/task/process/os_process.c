@@ -17,7 +17,7 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
     OS_DEBUG_KPRINT("OsProcessInitVirMemPool: usrMemBtmpPgNum = 0x%x\n", usrMemBtmpPgNum);
     btmpBase = OsMemKernelAllocPgs(usrMemBtmpPgNum);
     if (btmpBase == NULL) {
-        OS_PANIC("%s\n", "OsProcessInitVirMemPool: OsMemKernelAllocPgs failed");
+        OS_PANIC("OsMemKernelAllocPgs failed\n");
     }
 
     OsMemPoolInit(&process->usrVirMemPool, (uintptr_t)OS_USR_MEM_VIR_ADDR_START,

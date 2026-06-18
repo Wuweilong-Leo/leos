@@ -96,8 +96,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
     U32 i;
 
     if (!OsBtmpScan(btmp, cnt, 0, &idx)) {
-        OS_LOG_WARN("OsMemPoolGetFreePgs: pool 0x%x needs %u pages, not enough\n", (U32)pool->base,
-                    cnt);
+        OS_LOG_WARN("pool 0x%x needs %u pages, not enough\n", (U32)pool->base, cnt);
         return NULL;
     }
 
@@ -130,7 +129,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
 
     virAddrBase = OsMemPoolGetFreePgs(virMemPool, cnt);
     if (virAddrBase == (uintptr_t)NULL) {
-        OS_LOG_ERROR("OsMemAllocPgs: virMemPool get free pgs failed, cnt=%u\n", cnt);
+        OS_LOG_ERROR("virMemPool get free pgs failed, cnt=%u\n", cnt);
         return (uintptr_t)NULL;
     }
 
@@ -138,7 +137,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
     for (i = 0; i < cnt; i++) {
         phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
         if (phyAddr == (uintptr_t)NULL) {
-            OS_LOG_ERROR("OsMemAllocPgs: phyMemPool alloc page %u/%u failed, rollback\n", allocated,
+            OS_LOG_ERROR("phyMemPool alloc page %u/%u failed, rollback\n", allocated,
                          cnt);
             /* 回滚：取消已映射的页表项并释放物理页 */
             virAddr = (U32)virAddrBase;
@@ -197,13 +196,13 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
     idx = ((U32)virAddr - (U32)virMemPool->base) / OS_PG_SIZE;
     /* 这个地址已经被分配出去了 */
     if (OsBtmpGet(&virMemPool->btmp, idx) != 0) {
-        OS_LOG_WARN("OsMemAllocPgByAddr: vaddr 0x%x already allocated\n", (U32)virAddr);
+        OS_LOG_WARN("vaddr 0x%x already allocated\n", (U32)virAddr);
         return NULL;
     }
 
     phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
     if (phyAddr == (uintptr_t)NULL) {
-        OS_LOG_ERROR("OsMemAllocPgByAddr: phyMemPool get free pgs failed, vaddr=0x%x\n",
+        OS_LOG_ERROR("phyMemPool get free pgs failed, vaddr=0x%x\n",
                      (U32)virAddr);
         return NULL;
     }

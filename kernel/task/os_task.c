@@ -34,7 +34,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
     size = sizeof(struct OsTaskCb) * g_tskMaxNum;
     g_tskCbArray = (struct OsTaskCb *)OsMemKernelAlloc(size, 4);
     if (g_tskCbArray == NULL) {
-        OS_PANIC("%s", "OsTaskConfigInit: alloc tskCbArray failed");
+        OS_PANIC("alloc tskCbArray failed");
     }
 
     memset(g_tskCbArray, 0, size);
@@ -67,7 +67,7 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
     struct OsList *listNode;
 
     if (OsListIsEmpty(&g_tskFreeList)) {
-        OS_LOG_WARN("OsTaskGetFreeCb: no free task control block\n");
+        OS_LOG_WARN("no free task control block\n");
         return NULL;
     }
 
@@ -124,14 +124,14 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId)
 
     tskCb = OsTaskGetFreeCb();
     if (tskCb == NULL) {
-        OS_LOG_ERROR("OsTaskCreate: no free task CB\n");
+        OS_LOG_ERROR("no free task CB\n");
         OsIntRestore(intSave);
         return OS_TASK_CREATE_NO_FREE_CB;
     }
 
     stkMemBase = (uintptr_t)OsMemKernelAlloc(OS_TASK_KERNEL_STACK_SIZE, 16);
     if (stkMemBase == NULL) {
-        OS_LOG_ERROR("OsTaskCreate: alloc kernel stack failed, size=0x%x\n",
+        OS_LOG_ERROR("alloc kernel stack failed, size=0x%x\n",
                      OS_TASK_KERNEL_STACK_SIZE);
         OsIntRestore(intSave);
         return OS_TASK_CREATE_STK_ALLOC_FAIL;
@@ -164,7 +164,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
     intSave = OsIntLock();
     tskCb = OS_TASK_GET_CB(tskId);
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
-        OS_LOG_ERROR("OsTaskResume: task %u not created, status=0x%x\n", tskId, tskCb->status);
+        OS_LOG_ERROR("task %u not created, status=0x%x\n", tskId, tskCb->status);
         OsIntRestore(intSave);
         return OS_TASK_RESUME_TSK_STATUS_ILL;
     }
@@ -195,7 +195,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskSuspend(U32 tskId)
     intSave = OsIntLock();
 
     if ((tskCb->status & OS_TASK_STATUS_USED) == 0) {
-        OS_LOG_ERROR("OsTaskSuspend: task %u not created\n", tskId);
+        OS_LOG_ERROR("task %u not created\n", tskId);
         OsIntRestore(intSave);
         return OS_TASK_SUSPEND_TSK_STATUS_ILL;
     }
@@ -320,7 +320,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
 
     ret = OsTaskCreate(&param, &idleTskId);
     if (ret != OS_OK) {
-        OS_LOG_ERROR("OsTaskCreateIdle: create idle task failed, ret=%u\n", ret);
+        OS_LOG_ERROR("create idle task failed, ret=%u\n", ret);
         return ret;
     }
 
@@ -374,7 +374,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelay(U32 ticks)
     enum OsIntStatus intSave;
 
     if (ticks == 0) {
-        OS_LOG_ERROR("OsTaskDelay: ticks cannot be 0\n");
+        OS_LOG_ERROR("ticks cannot be 0\n");
         return OS_TASK_DELAY_PARAM_ILL;
     }
 

@@ -147,7 +147,7 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
 
     /* 创建 idle 任务 */
     if (OsTaskCreateIdle() != OS_OK) {
-        OS_PANIC("%s", "OsSchedSwitchFirstTsk: create idle task failed");
+        OS_PANIC("create idle task failed");
     }
 
     /* idle 入就绪队列 */
