@@ -7,7 +7,6 @@ OS_SEC_KERNEL_TEXT U32 OsAppConfigInit(void)
 {
     OsTestTaskInit();
     OsTestSemInit();
-    OsTestProcessInit();
 
     return OS_OK;
 }

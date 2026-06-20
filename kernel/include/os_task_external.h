@@ -37,6 +37,7 @@ struct OsTaskCb {
     void *arg[OS_TASK_ARG_NUM];
     U32 status;
     U32 prio;
+    U32 oriPrio;              /* 优先级继承用：任务创建时的原始优先级 */
     U64 timeSliceTicks; // 时间片的tick数
     U64 expiredTick;    // 延时到期时的tick刻度
     char name[OS_TASK_NAME_MAX_SIZE];

@@ -5,34 +5,90 @@
     .global OsLoaderStart
     .code16
 OsLoaderStart:
-    /* 不获取物理内存大小了，直接赋值32M */
-    
-    /* === 在实模式用 BIOS 加载内核到 0xD000 === */
-    /* 内核约 54KB (107 扇区)，一次读取 128 扇区足够 */
+    /*
+     * 实模式用 BIOS int 0x13 AH=42h 循环读取内核
+     *
+     * kernel.bin 最大 0x60000 字节 (768 扇区)
+     * 每批读 127 扇区 (SeaBIOS 安全上限)，循环到读完
+     *
+     * DAP 放在 0x500 (BIOS 数据区之后的安全区域)
+     * buffer 用段:偏移格式: segment = linear >> 4, offset = linear & 0xF
+     * 但为避免段跨越64KB边界，offset 固定为 0xD000，segment 递增
+     * 即每 127 扇区 = 65024 字节 ≈ 15.87 个 4KB 段
+     *
+     * 简化: 每批 127 扇区 = 65024 字节
+     *   第1批: 0xD000, 段 0x0000, 偏移 0xD000 (地址 0x00D000)
+     *   第2批: 段递增 0x0FD1 (65024/16), 新段 = 0x0FD1
+     *   ...不够精确，用线性地址直接算段:偏移
+     *
+     * 更简单: 每批读 64 扇区 = 32768 字节 = 0x8000
+     *   32768 = 0x8000, 段递增 0x0800 (32768/16)
+     *   offset 始终 0xD000, 不跨越 64KB 边界
+     *   0xD000 + 0x8000 = 0x15000 → 下一批 segment=0x0800 offset=0xD000 → 0x15000 ✓
+     *   0xD000 + 0x8000*2 = 0x1D000 → segment=0x1000 offset=0xD000 → 0x1D000 ✓
+     *   768扇区 / 64 = 12 批
+     */
     
     movw $0x0000, %ax
     movw %ax, %es
     movw %ax, %ds
     
-    movw $128, pkt_sectors  /* 读取 128 扇区 */
-    movl $0x0000D000, pkt_buffer /* 线性地址 0xD000 */
-    movl $OS_KERNEL_SEC_ID, pkt_lba
-    movl $0, pkt_lba+4
+    /* 初始化 DAP 模板 (0x500) */
+    movw $0x0500, %si
+    movb $0x10, (%si)           /* 包大小 = 16 */
+    movb $0x00, 1(%si)          /* 保留 = 0 */
     
+    /* BX = 当前 segment (从 0 开始) */
+    xorw %bx, %bx
+    /* CX = 剩余扇区数 */
+    movw $768, %cx               /* 最大 768 扇区 */
+    /* DX 低位 = 当前 LBA (从 OS_KERNEL_SEC_ID 开始) */
+    /* 用内存存 LBA, 因为 DX 要给 DL=0x80 */
+    
+    /* 把起始 LBA 存到 0x508 (DAP 的 LBA 字段) */
+    movl $OS_KERNEL_SEC_ID, 0x508
+    movl $0, 0x50C
+    
+read_loop:
+    /* 计算本批扇区数: min(CX, 64) */
+    movw %cx, %ax
+    cmpw $64, %ax
+    jbe 1f
+    movw $64, %ax
+1:
+    /* AX = 本批扇区数, 保存到栈 */
+    pushw %ax
+    movw %ax, 0x502             /* DAP sectors 字段 */
+    
+    /* 设置 buffer: offset=0xD000, segment=BX */
+    movw $0xD000, 0x504         /* offset */
+    movw %bx, 0x506             /* segment */
+    
+    /* 调用 int 0x13 */
+    movw $0x0500, %si
     movb $0x42, %ah
-    movw $disk_addr_packet, %si
+    movb $0x80, %dl
     int $0x13
+    popw %ax                    /* 恢复本批扇区数 */
     jc disk_read_error
     
-    /* 内核已加载，继续启动 */
-    jmp OsEnableProtectMode
+    /* 更新剩余扇区 */
+    subw %ax, %cx
+    cmpw $0, %cx
+    jbe read_done
     
-disk_read_error:
-    /* 简单错误处理：死循环 */
-    cli
-    hlt
-    jmp disk_read_error
+    /* 更新 LBA: 0x508 += AX */
+    pushw %ax
+    movzwl %ax, %eax
+    addl %eax, 0x508
+    popw %ax
+    
+    /* 更新 segment: BX += 64*512/16 = 0x800 */
+    addw $0x0800, %bx
+    
+    jmp read_loop
 
+read_done:
 OsEnableProtectMode:
     /* 打开a20 gate */
     inb $0x92, %al
@@ -54,6 +110,11 @@ OsEnableProtectMode:
     /* 实模式的指令已经进流水线了，要刷掉 */
     ljmp $OS_SELECTOR_K_CODE, $OsPmodeStart
 
+disk_read_error:
+    cli
+    hlt
+    jmp disk_read_error
+
 /* === 保护模式代码 === */
     .section .os.loader.text, "ax"
     .code32
@@ -67,8 +128,6 @@ OsPmodeStart:
     movw %ax, %gs
 
     call OsSetupPgt
-
-    /* 内核已在实模式加载到 0xD000，无需再读磁盘 */
 
     sgdt g_gdtInfo
 
@@ -86,19 +145,4 @@ OsPmodeStart:
     ljmp $OS_SELECTOR_K_CODE, $OsEnterKernel
 OsEnterKernel:
     movl $_os_kernel_sp_end, %esp
-    call main 
-
-/* 磁盘地址包 (用于 LBA 扩展读取) */
-    .section .os.loader.data, "a"
-    .align 4
-disk_addr_packet:
-    .byte 0x10               /* 包大小 = 16 字节 */
-    .byte 0                  /* 保留 */
-pkt_sectors:
-    .word 200                /* 要读取的扇区数 */
-pkt_buffer:
-    .long 0x0000D000         /* 目标缓冲区地址 (段:偏移格式) */
-pkt_lba:
-    .quad OS_KERNEL_SEC_ID   /* 起始 LBA 扇区号 */
-
-    
+    call main

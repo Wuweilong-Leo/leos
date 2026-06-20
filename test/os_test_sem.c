@@ -49,6 +49,8 @@ OS_SEC_KERNEL_BSS volatile U32 g_semTestResult;
 #define SEM_TEST_TMO_TIMEOUT        0x00000080  /* 超时等待返回 TIMEOUT */
 #define SEM_TEST_TMO_NO_WAIT        0x00000100  /* 不等待返回 UNAVAILABLE */
 #define SEM_TEST_TMO_NORMAL         0x00000200  /* 带超时正常获取 */
+#define SEM_TEST_PI_BOOST_OK        0x00000400  /* PI: 低优先级持有者被提升 */
+#define SEM_TEST_PI_RESTORE_OK      0x00000800  /* PI: 释放后优先级恢复 */
 
 /* ====== 生产者-消费者测试（计数信号量，FIFO 唤醒） ====== */
 
@@ -231,6 +233,74 @@ OS_SEC_KERNEL_TEXT void TestMutexOwner(void *p1, void *p2, void *p3, void *p4)
     OsSemPost(g_testMutexOwnerId);
 }
 
+/* ====== 优先级继承测试 ====== */
+/*
+ * 场景：低优先级任务持有mutex，高优先级任务来pend
+ * 预期：低优先级任务优先级被提升到高优先级，释放后恢复
+ *
+ * 时序：
+ *   PILow(prio=20) 先获取mutex，delay让出CPU
+ *   PIMid(prio=15) 开始运行（不碰mutex），记录midRan=1
+ *   PIHigh(prio=5) pend mutex → 触发PI，PILow被提升到prio=5
+ *   PILow 恢复运行后释放mutex → 优先级恢复到20
+ *   PIHigh 获取mutex，记录highGot=1
+ */
+
+OS_SEC_KERNEL_BSS U32 g_testPIMutexId;
+OS_SEC_KERNEL_BSS volatile U32 g_testPIBoostOk;
+OS_SEC_KERNEL_BSS volatile U32 g_testPIRestoreOk;
+OS_SEC_KERNEL_BSS volatile U32 g_testPIMidRan;
+OS_SEC_KERNEL_BSS volatile U32 g_testPIHighGot;
+OS_SEC_KERNEL_BSS volatile U32 g_testPILowPrioBefore;
+OS_SEC_KERNEL_BSS volatile U32 g_testPILowPrioDuring;
+OS_SEC_KERNEL_BSS volatile U32 g_testPILowPrioAfter;
+
+OS_SEC_KERNEL_BSS volatile U32 g_testPIDone;
+
+OS_SEC_KERNEL_TEXT void TestPILowTask(void *p1, void *p2, void *p3, void *p4)
+{
+    U32 myPrio;
+    OsSemPend(g_testPIMutexId, OS_SEM_WAIT_FOREVER);
+    g_testPILowPrioBefore = OS_RUNNING_TASK()->prio;
+    /* 让出CPU，让PIMid和PIHigh有机会运行 */
+    OsTaskDelay(60);
+    /* 此时PIHigh应该已经pend了，我们的优先级应该被提升 */
+    myPrio = OS_RUNNING_TASK()->prio;
+    g_testPILowPrioDuring = myPrio;
+    if (myPrio <= 5) {
+        g_testPIBoostOk = 1;
+    }
+    OsSemPost(g_testPIMutexId);
+    /* 释放后优先级应恢复 */
+    g_testPILowPrioAfter = OS_RUNNING_TASK()->prio;
+    if (OS_RUNNING_TASK()->prio == OS_RUNNING_TASK()->oriPrio) {
+        g_testPIRestoreOk = 1;
+    }
+    g_testPIDone = 1;
+    while (1) {
+        OsTaskDelay(100);
+    }
+}
+
+OS_SEC_KERNEL_TEXT void TestPIMidTask(void *p1, void *p2, void *p3, void *p4)
+{
+    /* 等PILow获取mutex后再运行 */
+    OsTaskDelay(10);
+    g_testPIMidRan = 1;
+    /* 如果PI不工作，这个任务会持续运行而PIHigh无法运行
+     * 如果PI工作，PILow被提升到prio=5，会抢占本任务 */
+    OsTaskDelay(80);
+}
+
+OS_SEC_KERNEL_TEXT void TestPIHighTask(void *p1, void *p2, void *p3, void *p4)
+{
+    /* 等PILow获取mutex且PIMid开始运行后再pend */
+    OsTaskDelay(20);
+    OsSemPend(g_testPIMutexId, OS_SEM_WAIT_FOREVER);
+    g_testPIHighGot = 1;
+    OsSemPost(g_testPIMutexId);
+}
+
 /* ====== 结果收集任务 ====== */
 
 OS_SEC_KERNEL_TEXT void TestSemResultCollector(void *p1, void *p2, void *p3, void *p4)
@@ -258,10 +328,29 @@ OS_SEC_KERNEL_TEXT void TestSemResultCollector(void *p1, void *p2, void *p3, voi
             g_semTestResult |= SEM_TEST_MUTEX_NOT_HOLDER;
         }
 
+        /* PI: 优先级继承 */
+        if (g_testPIBoostOk) {
+            g_semTestResult |= SEM_TEST_PI_BOOST_OK;
+        }
+        if (g_testPIRestoreOk) {
+            g_semTestResult |= SEM_TEST_PI_RESTORE_OK;
+        }
+
         /* 输出结果到串口 */
         TestSerialPuts("[SEM_RESULT] ");
         TestSerialPutHex(g_semTestResult);
         TestSerialPuts("\n");
+
+        /* VGA输出PI测试结果（第8行） */
+        {
+            extern void OsPrintSetCursor(U16 pos);
+            extern void OsPrintChar(char c);
+            OsPrintSetCursor(8 * 80);
+            kprintf("PI: boost=%d restore=%d lowPrio=%d->%d->%d midRan=%d highGot=%d",
+                    g_testPIBoostOk, g_testPIRestoreOk,
+                    g_testPILowPrioBefore, g_testPILowPrioDuring, g_testPILowPrioAfter,
+                    g_testPIMidRan, g_testPIHighGot);
+        }
     }
 }
 
@@ -272,8 +361,8 @@ OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
     U32 tskIdH, tskIdM, tskIdL, tskIdPost;
     U32 tskIdTmo1, tskIdTmo2, tskIdTmoNorm, tskIdTmoPost;
     U32 tskIdMutexOwner, tskIdMutexNotHolder, tskIdCollector;
+    U32 tskIdPILow, tskIdPIMid, tskIdPIHigh;
     struct OsTaskCreateParam param;
-    struct OsTaskCb *tskCb;
 
     g_semTestResult = 0;
 
@@ -398,6 +487,31 @@ OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
     param.entryFunc = TestMutexNotHolder;
     OsTaskCreate(&param, &tskIdMutexNotHolder);
 
+    /* --- 优先级继承测试 --- */
+    OsSemCreate(OS_SEM_BINARY_MUTEX, 1, 1, OS_SEM_WAKE_PRIO, &g_testPIMutexId);
+    g_testPIBoostOk = 0;
+    g_testPIRestoreOk = 0;
+    g_testPIMidRan = 0;
+    g_testPIHighGot = 0;
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "PILow");
+    param.prio = 20;
+    param.entryFunc = TestPILowTask;
+    OsTaskCreate(&param, &tskIdPILow);
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "PIMid");
+    param.prio = 15;
+    param.entryFunc = TestPIMidTask;
+    OsTaskCreate(&param, &tskIdPIMid);
+
+    memset(&param, 0, sizeof(param));
+    strcpy(param.name, "PIHigh");
+    param.prio = 5;
+    param.entryFunc = TestPIHighTask;
+    OsTaskCreate(&param, &tskIdPIHigh);
+
     /* --- 结果收集 --- */
     memset(&param, 0, sizeof(param));
     strcpy(param.name, "SemColl");
@@ -405,24 +519,27 @@ OS_SEC_KERNEL_TEXT U32 OsTestSemInit(void)
     param.entryFunc = TestSemResultCollector;
     OsTaskCreate(&param, &tskIdCollector);
 
-    /* 全部入就绪队列 */
-    tskCb = OS_TASK_GET_CB(tskIdProd);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdCons);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdBinW);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdBinN);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdX);             OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdY);             OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdH);             OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdM);             OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdL);             OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdPost);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdTmo1);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdTmo2);          OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdTmoNorm);       OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdTmoPost);       OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdMutexOwner);    OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdMutexNotHolder); OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdCollector);     OsSchedRdyListEnqueTsk(tskCb);
+    /* 全部resume入就绪队列 */
+    OsTaskResume(tskIdProd);
+    OsTaskResume(tskIdCons);
+    OsTaskResume(tskIdBinW);
+    OsTaskResume(tskIdBinN);
+    OsTaskResume(tskIdX);
+    OsTaskResume(tskIdY);
+    OsTaskResume(tskIdH);
+    OsTaskResume(tskIdM);
+    OsTaskResume(tskIdL);
+    OsTaskResume(tskIdPost);
+    OsTaskResume(tskIdTmo1);
+    OsTaskResume(tskIdTmo2);
+    OsTaskResume(tskIdTmoNorm);
+    OsTaskResume(tskIdTmoPost);
+    OsTaskResume(tskIdMutexOwner);
+    OsTaskResume(tskIdMutexNotHolder);
+    OsTaskResume(tskIdPILow);
+    OsTaskResume(tskIdPIMid);
+    OsTaskResume(tskIdPIHigh);
+    OsTaskResume(tskIdCollector);
 
     return OS_OK;
 }

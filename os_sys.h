@@ -14,8 +14,9 @@ enum OsMid {
     OS_MID_APP,
 };
 
-#define OS_HWI_ACTIVE_MSK  0x00000001U
-#define OS_TICK_ACTIVE_MSK 0x00000002U
+#define OS_BGD_TSK_MSK     0x00000001U
+#define OS_HWI_ACTIVE_MSK  0x00000002U
+#define OS_TICK_ACTIVE_MSK 0x00000004U
 
 #define OS_HWI_ACTIVE(uniFlag)  (((uniFlag)&OS_HWI_ACTIVE_MSK) != 0)
 #define OS_TICK_ACTIVE(uniFlag) (((uniFlag)&OS_TICK_ACTIVE_MSK) != 0)

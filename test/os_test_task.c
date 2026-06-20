@@ -77,7 +77,6 @@ OS_SEC_KERNEL_TEXT U32 OsTestTaskInit(void)
 {
     U32 tskIdA, tskIdB, tskIdC, tskIdD;
     struct OsTaskCreateParam param;
-    struct OsTaskCb *tskCb;
 
     memset(&param, 0, sizeof(param));
 
@@ -104,15 +103,10 @@ OS_SEC_KERNEL_TEXT U32 OsTestTaskInit(void)
     param.entryFunc = TestTaskSelfDelete;
     OsTaskCreate(&param, &tskIdD);
 
-    /* 入就绪队列（不触发调度，等 OsSchedSwitchFirstTsk 统一调度） */
-    tskCb = OS_TASK_GET_CB(tskIdA);
-    OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdB);
-    OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdC);
-    OsSchedRdyListEnqueTsk(tskCb);
-    tskCb = OS_TASK_GET_CB(tskIdD);
-    OsSchedRdyListEnqueTsk(tskCb);
+    OsTaskResume(tskIdA);
+    OsTaskResume(tskIdB);
+    OsTaskResume(tskIdC);
+    OsTaskResume(tskIdD);
 
     return OS_OK;
 }

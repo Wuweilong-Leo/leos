@@ -9,6 +9,9 @@
 
 OS_SEC_KERNEL_BSS struct OsRunQue g_runQue;
 
+/* 僵尸线程：初始runningTsk，prio=最低，防止OsSchedRdyListEnqueTsk里空指针 */
+OS_SEC_KERNEL_BSS struct OsTaskCb g_zombieTsk;
+
 OS_SEC_KERNEL_DATA struct OsList g_timerList = OS_LIST_INIT(g_timerList);
 OS_SEC_KERNEL_DATA U64 g_nearestTick = 0;
 
@@ -47,7 +50,9 @@ OS_SEC_KERNEL_TEXT U32 OsSchedConfigInit(void)
     struct OsRunQue *rq = OS_RUN_QUE();
     U32 i;
 
-    rq->runningTsk = NULL;
+    /* 初始化僵尸线程：最低优先级，确保新任务都能抢占 */
+    g_zombieTsk.prio = OS_TASK_LOWEST_PRIO;
+    rq->runningTsk = &g_zombieTsk;
     rq->rdyListMsk = 0;
     for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         OsListInit(&rq->rdyList[i]);
@@ -153,12 +158,12 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
     /* idle 入就绪队列 */
     OsSchedIdleRdy(rq);
 
-    /* 先设 runningTsk，后续 OsSchedRdyListEnqueTsk 需要比较优先级 */
-    rq->runningTsk = rq->idleTsk;
-
     tskCb = OsSchedPickHighestPrioTsk();
     rq->runningTsk = tskCb;
     tskCb->status |= OS_TASK_STATUS_RUNNING;
+
+    /* 置位BGD，允许后续OsTaskResume触发调度 */
+    rq->uniFlag |= OS_BGD_TSK_MSK;
 
     OsLoadTsk(tskCb);
 }

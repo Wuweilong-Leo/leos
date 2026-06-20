@@ -104,8 +104,7 @@ static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(struct OsList *pendList
     struct OsList *node;
     struct OsTaskCb *pos;
 
-    OS_LIST_FOR_EACH(pendList, node)
-    {
+    OS_LIST_FOR_EACH(pendList, node) {
         pos = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, node);
         if (tsk->prio < pos->prio) {
             OsListInsertPrev(&tsk->pendListNode, node);
@@ -115,6 +114,67 @@ static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(struct OsList *pendList
     /* 优先级最低，插尾部 */
     OsListAddTail(pendList, &tsk->pendListNode);
 }
+
+/* ====== 优先级继承 (Priority Inheritance) ====== */
+
+/*
+ * OsSemPrioInherit: 低优先级任务持有mutex，高优先级任务来pend时，
+ * 提升持有者的优先级到pend者优先级（若更高）。
+ * 同时要把持有者从就绪队列中移出再按新优先级重新插入。
+ */
+static OS_SEC_KERNEL_TEXT void OsSemPrioInherit(struct OsSemCb *semCb, struct OsTaskCb *pendTsk)
+{
+    struct OsTaskCb *holder = semCb->holder;
+    if (holder->prio <= pendTsk->prio) {
+        return;
+    }
+    /* 从就绪队列移除（若在就绪队列中） */
+    if (holder->status & OS_TASK_STATUS_READY) {
+        OsSchedRdyListDequeTsk(holder);
+        holder->prio = pendTsk->prio;
+        OsSchedRdyListEnqueTsk(holder);
+    } else {
+        holder->prio = pendTsk->prio;
+    }
+}
+
+/*
+ * OsSemPrioRestore: 释放mutex后，遍历该任务仍持有的所有mutex，
+ * 找到所有pend队列中最高优先级，作为恢复优先级；
+ * 若没有其他pend，恢复为oriPrio。
+ */
+static OS_SEC_KERNEL_TEXT void OsSemPrioRestore(struct OsTaskCb *tskCb)
+{
+    struct OsList *node;
+    struct OsSemCb *semCb;
+    U32 highestPrio = tskCb->oriPrio;
+    struct OsList *pendNode;
+    struct OsTaskCb *pendTsk;
+
+    OS_LIST_FOR_EACH(&tskCb->holdSemList, node) {
+        semCb = OS_GET_STRUCT_ENTRY(struct OsSemCb, holdNode, node);
+        OS_LIST_FOR_EACH(&semCb->pendList, pendNode) {
+            pendTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, pendNode);
+            if (pendTsk->prio < highestPrio) {
+                highestPrio = pendTsk->prio;
+            }
+        }
+    }
+
+    if (tskCb->prio == highestPrio) {
+        return;
+    }
+    /* 从就绪队列移除再按新优先级重新插入 */
+    if (tskCb->status & OS_TASK_STATUS_READY) {
+        OsSchedRdyListDequeTsk(tskCb);
+        tskCb->prio = highestPrio;
+        OsSchedRdyListEnqueTsk(tskCb);
+    } else {
+        tskCb->prio = highestPrio;
+    }
+}
+
+/* ====== 信号量 Pend / Post ====== */
 
 OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
 {
@@ -154,6 +214,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
             OsSemPendListInsertByPrio(&semCb->pendList, curTsk);
         } else {
             OsListAddTail(&semCb->pendList, &curTsk->pendListNode);
+        }
+
+        /* PI: 仅BINARY_MUTEX支持优先级继承 */
+        if (semCb->type == OS_SEM_BINARY_MUTEX) {
+            OsSemPrioInherit(semCb, curTsk);
         }
 
         /* 从就绪队列里删除 */
@@ -228,6 +293,8 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 #endif
         semCb->holder = NULL;
         OsListRemoveNode(&semCb->holdNode);
+        /* PI: 释放mutex后恢复持有者优先级（在唤醒pend者之前） */
+        OsSemPrioRestore(curTsk);
     }
 
     /* val 递增 */

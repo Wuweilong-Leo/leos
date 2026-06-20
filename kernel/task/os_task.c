@@ -100,6 +100,7 @@ OS_INLINE void OsTaskSetCb(struct OsTaskCb *tskCb, struct OsTaskCreateParam *par
     memcpy(tskCb->name, param->name, OS_TASK_NAME_MAX_SIZE);
     tskCb->entry = param->entryFunc;
     tskCb->prio = param->prio;
+    tskCb->oriPrio = param->prio;
     tskCb->status |= OS_TASK_STATUS_USED;
     tskCb->arg[0] = param->arg[0];
     tskCb->arg[1] = param->arg[1];
@@ -175,7 +176,10 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
         OsSchedRdyListEnqueTsk(tskCb);
     }
 
-    OsTaskSchedule();
+    /* 系统未进入后台调度状态（第一次调度还没发生），不触发调度 */
+    if (OS_RUN_QUE()->uniFlag & OS_BGD_TSK_MSK) {
+        OsTaskSchedule();
+    }
 
     OsIntRestore(intSave);
 
