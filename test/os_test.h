@@ -9,5 +9,7 @@ extern U32 OsAppConfigInit(void);
 /* 各测试模块 */
 extern U32 OsTestTaskInit(void);
 extern U32 OsTestSemInit(void);
+extern U32 OsTestMemInit(void);
+extern U32 OsTestPgFaultInit(void);
 
 #endif /* OS_TEST_H */

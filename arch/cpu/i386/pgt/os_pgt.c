@@ -181,7 +181,7 @@ OS_INLINE uintptr_t OsGetPdeVirAddr(uintptr_t vaddr)
     return pde;
 }
 
-OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
+OS_SEC_KERNEL_TEXT bool OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
 {
     uintptr_t pteVaddr;
     uintptr_t pdeVaddr;
@@ -202,20 +202,26 @@ OS_SEC_KERNEL_TEXT void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
         } else {
             /* PTE 已存在，可能是预映射的页，跳过 */
         }
-    } else {
-        /* 如果页目录项不存在，说明没对应页表，先申请4K物理内存作为页表 */
-        /* 页表的内存都由内核出 */
-        ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
-        /*
-         * 因为页目录的最后一项是本身地址，一旦把页表物理地址写入页目录,
-         * 无论内核态还是用户态，都可以通过pteVaddr来访问页表项了
-         */
-        *(U32 *)pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
-        /* 把整张页表初始化为0 */
-        memset(pteVaddr & 0xFFFFF000, 0, OS_PG_SIZE);
-        /* 写入页表项 */
-        *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+        return TRUE;
     }
+
+    /* 页目录项不存在：先申请4K物理内存作为页表，页表内存由内核出 */
+    ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
+    if (ptPhyAddr == (uintptr_t)NULL) {
+        /* 物理池耗尽：不能把0写进PDE再去memset，那会清掉物理0(实模式IVT) */
+        OS_LOG_ERROR("OsMapVir2Phy: alloc page table failed, vaddr=0x%x\n", (U32)virAddr);
+        return FALSE;
+    }
+    /*
+     * 因为页目录的最后一项是本身地址，一旦把页表物理地址写入页目录,
+     * 无论内核态还是用户态，都可以通过pteVaddr来访问页表项了
+     */
+    *(U32 *)pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    /* 把整张页表初始化为0 */
+    memset(pteVaddr & 0xFFFFF000, 0, OS_PG_SIZE);
+    /* 写入页表项 */
+    *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    return TRUE;
 }
 
 /* 根据虚拟地址获取对应的物理地址 */

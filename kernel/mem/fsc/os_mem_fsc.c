@@ -292,7 +292,9 @@ OS_SEC_KERNEL_TEXT void OsMemFscFree(void *addr)
     }
     ((struct OsMemFscHead *)((uintptr_t)memHead + memHead->size))->preSize = memHead->size;
     OsMemFscFreeListInsertBlk(ctrl, memHead);
-    memHead->ctrl->freeSize += size;
+    /* 用入口处捕获的 ctrl：左合并后 memHead 指向左邻空闲块，其 ctrl==NULL，
+       直接用 memHead->ctrl 会解引用 NULL 把账记到地址 0，导致 freeSize 永不增加 */
+    ctrl->freeSize += size;
     memHead->ctrl = NULL;
     OsIntRestore(intSave);
     return;

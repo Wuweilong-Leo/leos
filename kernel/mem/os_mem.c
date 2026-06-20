@@ -71,16 +71,11 @@ OS_SEC_KERNEL_TEXT U32 OsMemConfigInit(void)
     OsMemPoolInit(&g_kernelVirMemPool, (uintptr_t)OS_KERNEL_VIR_HEAP_MEM_BASE,
                   OS_KERNEL_VIR_HEAP_MEM_SIZE, (U8 *)g_memPoolBtmp[2]);
 
-    /* 为虚拟堆映射所有物理页，OsMemFscInitPt需要整个区域可写 */
-    {
-        U32 heapPages = OS_KERNEL_VIR_HEAP_MEM_SIZE / OS_PG_SIZE;
-        U32 mapOffset;
-        for (mapOffset = 0; mapOffset < heapPages * OS_PG_SIZE; mapOffset += OS_PG_SIZE) {
-            OsMapVir2Phy((uintptr_t)OS_KERNEL_VIR_HEAP_MEM_BASE + mapOffset,
-                         OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1));
-        }
-    }
-
+    /*
+     * 虚拟堆不预先映射：OsMemFscInitPt 只写第 0 页(控块+freeList+首个空闲块头都在堆首)，
+     * 该写入触发缺页，由 OsExcHandleKernelPgFault -> OsMemKernelAllocPgByAddr 按需补一页物理并建映射。
+     * 后续 FSC 向堆尾切片时，每碰到一个未映射页再缺页补一页，堆按需长出，虚拟位图由缺页处理程序逐位置位。
+     */
     g_kernelMemPtCtrl = OsMemFscInitPt(OS_KERNEL_VIR_HEAP_MEM_BASE, OS_KERNEL_VIR_HEAP_MEM_SIZE);
     OS_DEBUG_KPRINT("g_kernelMemPtCtrl = 0x%x\n", (U32)g_kernelMemPtCtrl);
 
@@ -107,6 +102,31 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt
     }
 
     return addr;
+}
+
+/* 回滚：取消已映射的页表项、释放已占用的物理页与虚拟页 */
+static OS_SEC_KERNEL_TEXT void OsMemAllocPgsRollback(struct OsMemPool *virMemPool,
+                                                     struct OsMemPool *phyMemPool,
+                                                     uintptr_t virAddrBase, U32 cnt, U32 allocated)
+{
+    U32 i;
+    U32 virAddr = (U32)virAddrBase;
+    uintptr_t phyAddr;
+
+    for (i = 0; i < allocated; i++) {
+        phyAddr = OsUnmapVir2Phy((uintptr_t)virAddr);
+        if (phyAddr != (uintptr_t)NULL) {
+            U32 phyIdx = (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE;
+            OsBtmpClear(&phyMemPool->btmp, phyIdx);
+        }
+        virAddr += OS_PG_SIZE;
+    }
+    {
+        U32 virIdx = ((U32)virAddrBase - (U32)virMemPool->base) / OS_PG_SIZE;
+        for (i = 0; i < cnt; i++) {
+            OsBtmpClear(&virMemPool->btmp, virIdx + i);
+        }
+    }
 }
 
 OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
@@ -137,28 +157,17 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, U32 cnt)
     for (i = 0; i < cnt; i++) {
         phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
         if (phyAddr == (uintptr_t)NULL) {
-            OS_LOG_ERROR("phyMemPool alloc page %u/%u failed, rollback\n", allocated,
-                         cnt);
-            /* 回滚：取消已映射的页表项并释放物理页 */
-            virAddr = (U32)virAddrBase;
-            for (i = 0; i < allocated; i++) {
-                phyAddr = OsUnmapVir2Phy((uintptr_t)virAddr);
-                if (phyAddr != (uintptr_t)NULL) {
-                    U32 phyIdx = (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE;
-                    OsBtmpClear(&phyMemPool->btmp, phyIdx);
-                }
-                virAddr += OS_PG_SIZE;
-            }
-            /* 回滚：释放虚拟页 */
-            {
-                U32 virIdx = ((U32)virAddrBase - (U32)virMemPool->base) / OS_PG_SIZE;
-                for (i = 0; i < cnt; i++) {
-                    OsBtmpClear(&virMemPool->btmp, virIdx + i);
-                }
-            }
+            OS_LOG_ERROR("phyMemPool alloc page %u/%u failed, rollback\n", allocated, cnt);
+            OsMemAllocPgsRollback(virMemPool, phyMemPool, virAddrBase, cnt, allocated);
             return (uintptr_t)NULL;
         }
-        OsMapVir2Phy((uintptr_t)virAddr, phyAddr);
+        if (!OsMapVir2Phy((uintptr_t)virAddr, phyAddr)) {
+            OS_LOG_ERROR("OsMemAllocPgs: map vaddr 0x%x failed, rollback\n", virAddr);
+            /* 本页物理已分配但未映射成功，先归还 */
+            OsBtmpClear(&phyMemPool->btmp, (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE);
+            OsMemAllocPgsRollback(virMemPool, phyMemPool, virAddrBase, cnt, allocated);
+            return (uintptr_t)NULL;
+        }
         virAddr += OS_PG_SIZE;
         allocated++;
     }
@@ -207,8 +216,11 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
         return NULL;
     }
 
-    /* 进行虚实映射 */
-    OsMapVir2Phy(virAddr, phyAddr);
+    /* 进行虚实映射；失败则归还物理页，虚拟位图保持不变 */
+    if (!OsMapVir2Phy(virAddr, phyAddr)) {
+        OsBtmpClear(&phyMemPool->btmp, (phyAddr - (U32)phyMemPool->base) / OS_PG_SIZE);
+        return NULL;
+    }
 
     /* 虚拟地址位图置1 */
     OsBtmpSet(&virMemPool->btmp, idx);

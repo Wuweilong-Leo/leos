@@ -22,6 +22,7 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/arch/cpu/i386/tss \
            $(CUR_DIR)/arch/cpu/i386/reset \
            $(CUR_DIR)/arch/io/i386 \
+           $(CUR_DIR)/arch/dev/uart \
            $(CUR_DIR)/lib/include \
            $(CUR_DIR)/kernel/sched \
            $(CUR_DIR)/kernel/task/process \
@@ -63,6 +64,7 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/arch/cpu/i386/reset \
             $(CUR_DIR)/dev/print \
             $(CUR_DIR)/arch/dev/vga \
+            $(CUR_DIR)/arch/dev/uart/i386 \
             $(CUR_DIR)/debug \
             $(CUR_DIR)/test
 

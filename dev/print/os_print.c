@@ -1,9 +1,17 @@
 #include "os_print_internal.h"
 #include "os_hwi.h"
 #include "os_print_external.h"
+#include "os_uart_external.h"
 #include "string.h"
 
 OS_SEC_KERNEL_BSS struct OsPrintOps g_printOps;
+/* kprintf/OS_LOG 等通用输出是否镜像到串口(默认开,可用 OsPrintMirrorSerial 关) */
+OS_SEC_KERNEL_DATA bool g_printMirrorSerial = TRUE;
+
+OS_SEC_KERNEL_TEXT void OsPrintMirrorSerial(bool on)
+{
+    g_printMirrorSerial = on;
+}
 
 OS_SEC_KERNEL_TEXT void OsPrintRegisterOps(const struct OsPrintOps *ops)
 {
@@ -42,6 +50,16 @@ OS_SEC_KERNEL_TEXT void OsPrintChar(char c)
 {
     U16 curPos;
     U16 nextCurPos;
+
+    /* 镜像到串口:终端换行需 \r\n;\r 不单独发(避免重复) */
+    if (g_printMirrorSerial) {
+        if (c == '\n') {
+            OsUartPutc('\r');
+            OsUartPutc('\n');
+        } else if (c != '\r') {
+            OsUartPutc(c);
+        }
+    }
 
     if (g_printOps.colNum == 0 || g_printOps.posNum == 0) {
         return;
@@ -186,6 +204,25 @@ OS_SEC_KERNEL_TEXT S32 kprintf(const char *fmt, ...)
     len = vsprintf(buf, fmt, args);
     OS_VA_END(args);
     OsPrintStr(buf);
+    OsIntRestore(intSave);
+
+    return len;
+}
+
+/* 串口专用格式化打印(不经 VGA):与 kprintf 同格式,但只输出到 COM1。
+ * 供需要"只进串口日志、不污染 VGA 屏幕"的场景(如测试逐条输出)使用。 */
+OS_SEC_KERNEL_TEXT S32 OsUartPrintf(const char *fmt, ...)
+{
+    char buf[256] = {0};
+    void *args;
+    U32 len;
+    enum OsIntStatus intSave;
+
+    intSave = OsIntLock();
+    OS_VA_START(args, fmt);
+    len = vsprintf(buf, fmt, args);
+    OS_VA_END(args);
+    OsUartPuts(buf);
     OsIntRestore(intSave);
 
     return len;

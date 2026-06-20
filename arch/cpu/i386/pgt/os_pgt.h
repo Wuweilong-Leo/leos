@@ -46,7 +46,7 @@ extern struct OsPgtEntry g_pgt[256][OS_PGD_ENTRY_NUM];
 /* 由于页目录最后一项是页目录本身，可通过此地址获取页目录的虚拟地址 */
 #define OS_CUR_PGD_VIR_ADDR 0xFFFFF000
 
-extern void OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr);
+extern bool OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr);
 extern uintptr_t OsUnmapVir2Phy(uintptr_t virAddr);
 extern uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr);
 extern void OsLoadPgd(uintptr_t pgdPhyAddr);

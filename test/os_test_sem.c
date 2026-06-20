@@ -5,36 +5,7 @@
 #include "os_sem_external.h"
 #include "os_test.h"
 #include "string.h"
-
-/* ====== 串口输出（直接写 COM1 端口 0x3F8） ====== */
-#include "arch/io/i386/os_io_i386.h"
-
-static OS_SEC_KERNEL_TEXT void TestSerialPutc(char c)
-{
-    /* 等待发送缓冲区空 */
-    while ((OsInb(0x3F8 + 5) & 0x20) == 0)
-        ;
-    OsOutb(0x3F8, (U8)c);
-}
-
-static OS_SEC_KERNEL_TEXT void TestSerialPuts(const char *s)
-{
-    while (*s) {
-        if (*s == '\n')
-            TestSerialPutc('\r');
-        TestSerialPutc(*s++);
-    }
-}
-
-static OS_SEC_KERNEL_TEXT void TestSerialPutHex(U32 val)
-{
-    int i;
-    TestSerialPuts("0x");
-    for (i = 7; i >= 0; i--) {
-        U32 nibble = (val >> (i * 4)) & 0xF;
-        TestSerialPutc("0123456789ABCDEF"[nibble]);
-    }
-}
+#include "os_uart_external.h"
 
 /* ====== 测试结果全局变量 ====== */
 OS_SEC_KERNEL_BSS volatile U32 g_semTestResult;
@@ -337,9 +308,7 @@ OS_SEC_KERNEL_TEXT void TestSemResultCollector(void *p1, void *p2, void *p3, voi
         }
 
         /* 输出结果到串口 */
-        TestSerialPuts("[SEM_RESULT] ");
-        TestSerialPutHex(g_semTestResult);
-        TestSerialPuts("\n");
+        OsUartPrintf("[SEM_RESULT] 0x%x\n", g_semTestResult);
 
         /* VGA输出PI测试结果（第8行） */
         {

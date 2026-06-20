@@ -1,8 +1,13 @@
 #ifndef OS_MEM_EXTERNAL_H
 #define OS_MEM_EXTERNAL_H
+#include "os_def.h"
+#include "os_sys.h"
 #include "os_btmp_external.h"
 #include "os_mem_fsc_internal.h"
 #include "os_list_external.h"
+
+/* 内存模块错误码 */
+#define OS_MEM_MAP_FAIL  OS_BUILD_ERR_CODE(OS_MID_MEM, 0x0) /* 虚实映射失败(如物理页耗尽) */
 
 struct OsMemCtrl {
     struct OsList listNode;
