@@ -49,7 +49,7 @@ dd if=kernel.bin of=leos_hdd.img bs=512 seek=9 conv=notrunc
 qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32
 ```
 
-你应该能看到 VGA 屏幕上显示初始化日志和三个线程（A/B/C）在屏幕上显示各自的计数器。
+你应该能看到 VGA 屏幕上显示三个线程（A/B/C）在屏幕上显示各自的计数器。第 0 行是 MBR 输出的 "1 MBR"，内核输出从第 2 行开始。
 
 ---
 
@@ -82,7 +82,11 @@ qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32
 
 #### 2.1 加载内核
 
-用 BIOS `int 0x13, AH=42h`（LBA 模式读盘）把内核从硬盘第 9 扇区读到内存 `0xD000`。
+用 BIOS `int 0x13, AH=42h`（LBA 扩展读盘）把内核从硬盘第 9 扇区读到内存 `0xD000`。
+
+由于 kernel.bin 可能超过 128 扇区（64KB），Loader 采用**循环读盘**策略：每批读 64 扇区，循环直到读完最多 768 扇区（覆盖 KERNEL_MEM 最大 0x60000 字节）。
+
+**⚠️ SeaBIOS DAP 格式陷阱：** DAP（磁盘地址包）偏移 4-7 的 buffer 字段是**段:偏移格式**（2字节 offset + 2字节 segment），不是 32 位线性地址。例如目标地址 `0x1D000` 必须拆成 `segment=0x1000, offset=0xD000`（0x1000×16+0xD000=0x1D000）。直接写 `0x0001D000` 会被 SeaBIOS 解析为 `offset=0xD000, segment=0x0001`，数据写到错误地址。Loader 把 DAP 放在物理地址 `0x500`（BIOS 数据区之后的安全区域），每批读完后 segment 递增 0x800（64×512/16）。
 
 ```
 为什么是第 9 扇区？
@@ -156,7 +160,7 @@ PTE[13]  → 指向物理地址 0xD000（内核代码所在位置）
 
 #### 2.5 跳入内核
 
-1. 重新 `lgdt` 加载高地址版的 GDT（GDT 里的基地址改为 `0xC00015E0`）
+1. 重新 `lgdt` 加载高地址版的 GDT（GDT 里的基地址改为 `0xC0001600`）
 2. 长跳转到 `0xC000D000`（内核的 `main` 函数）
 
 ---
@@ -190,10 +194,12 @@ main()
 地址              内容                    大小
 ─────────────────────────────────────────────────────
 0x00001000       Loader 代码+数据        ~1.6KB
-0x000015E0       GDT 表                  128 字节
-0x00002000       启动栈                  16KB
+0x000015E0       Loader 数据               ~0x200
+0x00001600       GDT 表 (g_gdt)            ~128 字节
+0x00001680       GDT 描述符 (g_gdtInfo)    6 字节
+0x00002000       启动栈                   16KB
 0x00007C00       MBR                     512 字节
-0x0000D000       kernel.bin              ~57KB
+0x0000D000       kernel.bin              ~65KB
 0x00100000       页目录 (g_pgd)          4KB
 0x00101000       页表 (g_pgt[0-255])     1MB (256张页表)
 0x00201000       空闲物理内存起点         ← g_kernelPhyMemPool
@@ -234,10 +240,12 @@ main()
 每个任务有一个 `OsTaskCb` 结构体，记录：
 - `stkPtr`：上下文保存点的栈指针
 - `entry`：任务入口函数
-- `prio`：优先级（0 最高，31 最低）
-- `status`：状态（USED / READY / RUNNING / IN_DELAY）
+- `prio`：当前优先级（0 最高，31 最低，可能被优先级继承临时提升）
+- `oriPrio`：创建时的原始优先级（优先级继承恢复时用）
+- `status`：状态（USED / READY / RUNNING / PENDING / IN_DELAY / SUSPENDED）
 - `timeSliceTicks`：剩余时间片
 - `expiredTick`：延时到期时刻
+- `holdSemList`：该任务持有的所有互斥信号量链表（优先级继承用）
 
 ### 任务状态机
 
@@ -266,6 +274,26 @@ OsFastSaveContext:
 
 `OsLoadTsk` 把栈指针切到新任务的 `stkPtr`，然后 `OsFastLoad` 弹出寄存器，`ret` 跳到新任务的 `eip`。
 
+### 优先级继承 (Priority Inheritance)
+
+BINARY_MUTEX 信号量支持优先级继承，防止优先级反转：
+
+1. **Pend 时提升**：高优先级任务 pend 一个被低优先级任务持有的 mutex 时，`OsSemPrioInherit` 把持有者的 `prio` 提升到 pend 者的优先级，并重新插入就绪队列。
+2. **Post 时恢复**：持有者释放 mutex 时，`OsSemPrioRestore` 遍历该任务仍持有的所有 mutex 的 pend 队列，找到最高优先级作为恢复值；若没有其他 pend，恢复为 `oriPrio`。
+
+测试场景（`os_test_sem.c`）：
+- PILow(prio=20) 获取 mutex → delay 60 让出 CPU
+- PIMid(prio=15) 开始运行 → delay 10 后运行
+- PIHigh(prio=5) pend mutex → 触发 PI，PILow 被提升到 prio=5
+- PILow 恢复运行，post mutex → 优先级恢复为 20，PIHigh 被唤醒
+
+### BGD 调度状态
+
+系统初始化阶段（`OsConfigInit`）调用 `OsTaskResume` 入就绪队列时不应触发调度。通过 `uniFlag` 的 `OS_BGD_TSK_MSK` 位控制：
+- `OsSchedConfigInit` 初始化时设僵尸线程为 `runningTsk`（prio=31），防止 `OsSchedRdyListEnqueTsk` 空指针
+- `OsTaskResume` 在 BGD 未置位时只入就绪队列，不调 `OsTaskSchedule`
+- `OsSchedSwitchFirstTsk` 执行第一次调度后置位 BGD，后续 `OsTaskResume` 可正常触发调度
+
 ---
 
 ## 项目结构
@@ -290,7 +318,8 @@ leos/
 ├── test/                  ← 测试模块
 │   ├── os_test.h          ← 测试框架头文件
 │   ├── os_test_app.c      ← APP 初始化入口（configInit 表调用）
-│   └── os_test_task.c     ← 任务调度测试（TaskA/B/C）
+│   ├── os_test_task.c     ← 任务调度测试（TaskA/B/C）
+│   └── os_test_sem.c      ← 信号量测试（计数/二值/互斥/优先级继承）
 ├── debug/                 ← 调试打印宏
 ├── lib/                   ← C 库函数（memset, strcpy 等）
 ├── ld_script/             ← 链接脚本
@@ -328,13 +357,15 @@ dd if=kernel.bin of=leos_hdd.img bs=512 seek=9 conv=notrunc
 
 # 运行，串口输出到文件
 qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32 \
-    -serial file:/tmp/leos_serial.log -display none -daemonize
+    -serial file:/tmp/leos_serial.log -display none
 
-# 等内核跑一会儿后查看结果
+# 等内核跑一会儿后查看结果（另开终端）
 sleep 30
 cat /tmp/leos_serial.log
 killall qemu-system-i386
 ```
+
+**注意：** 串口输出由 `TestSemResultCollector` 任务产生（周期性打印 `[SEM_RESULT] 0x...`）。如果内核在信号量测试完成前 crash，串口不会有输出。如果串口无输出，改用下面的 QMP 方式检查内核状态。
 
 ### GDB 远程调试
 
@@ -369,4 +400,41 @@ VGA 文本模式缓冲区虚拟地址 `0xC00B8000`，物理地址 `0xB8000`。GD
 
 # dump 整个 VGA 缓冲区到文件
 (gdb) dump binary memory /tmp/vga.bin 0xc00b8000 0xc00b8fa0
+```
+
+### QMP 读物理内存（不暂停 CPU）
+
+GDB 会暂停 CPU，串口需要内核跑起来才有输出。QMP 可以在不暂停 CPU 的情况下读物理内存，适合检查内核是否在运行、VGA 输出内容等。
+
+```bash
+# 启动 QEMU 并开 QMP 端口
+qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32 \
+    -qmp tcp:127.0.0.1:4444,server,nowait -display none &
+
+# 等几秒后用 Python 读物理内存
+sleep 5
+python3 -c "
+import socket, time
+s = socket.socket(); s.settimeout(5)
+s.connect(('127.0.0.1', 4444)); s.recv(4096)
+s.send(b'{\"execute\":\"qmp_capabilities\"}'); time.sleep(0.1); s.recv(4096)
+# 读物理地址 0xB8000 开始的 VGA 内容（前5行）
+for row in range(5):
+    addr = 0xB8000 + row * 160
+    s.send(('{\"execute\":\"human-monitor-command\",\"arguments\":{\"command-line\":\"xp /80bx 0x%x\"}}' % addr).encode())
+    time.sleep(0.15)
+    r = s.recv(8192).decode()
+    print('Row', row, r.strip())
+s.close()
+"
+killall qemu-system-i386
+```
+
+**读内核变量：** 用 `nm os_kernel.elf` 查符号虚拟地址，物理地址 = 虚拟地址 - 0xC0000000。用 `xp /4bx <物理地址>` 读 4 字节，小端拼成 U32。
+
+```bash
+# 例：读 g_uniTicks（内核运行 tick 数）
+nm build/output/os_kernel.elf | grep g_uniTicks
+# 输出: c0018068 D g_uniTicks  → 物理地址 0x18068
+# QMP: xp /4bx 0x18068  → 0xf2 0x00 0x00 0x00 = 242 (内核跑了242 tick)
 ```
