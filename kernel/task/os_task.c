@@ -78,7 +78,10 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
 
 static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
 {
-    OsTaskDelete(OS_RUNNING_TASK()->pid);
+    U32 ret = OsTaskDelete(OS_RUNNING_TASK()->pid);
+    if (ret != OS_OK) {
+        OS_PANIC("task exit delete failed, ret=%u\n", ret);
+    }
 }
 
 OS_SEC_KERNEL_TEXT void OsTaskCommonEntry(U32 tskId)
