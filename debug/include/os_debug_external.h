@@ -24,7 +24,7 @@ extern enum OsLogLevel OsDebugGetLogLevel(void);
 #define OS_PANIC(...)                                                                               \
     do {                                                                                           \
         kprintf("[PANIC][%s:%d] " __VA_ARGS__, __func__, __LINE__);                                 \
-        while (1) {}                                                                                \
+        OsPanic();                                                                                  \
     } while (0)
 extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, const char *cond);
 
