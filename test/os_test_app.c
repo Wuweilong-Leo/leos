@@ -9,6 +9,7 @@ OS_SEC_KERNEL_TEXT U32 OsAppConfigInit(void)
     OsTestPgFaultInit();
     OsTestTaskInit();
     OsTestSemInit();
+    OsTestRrInit();
 
     return OS_OK;
 }

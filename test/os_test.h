@@ -11,5 +11,6 @@ extern U32 OsTestTaskInit(void);
 extern U32 OsTestSemInit(void);
 extern U32 OsTestMemInit(void);
 extern U32 OsTestPgFaultInit(void);
+extern U32 OsTestRrInit(void);
 
 #endif /* OS_TEST_H */
