@@ -34,6 +34,5 @@ extern struct OsTaskCb *OsSchedPickHighestPrioTsk(void);
 extern void OsSchedMain(void);
 extern void OsSchedRdyListEnqueTsk(struct OsTaskCb *tsk);
 extern void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk);
-extern void OsSchedModifyTskPrio(struct OsTaskCb *tsk);
 extern void OsSchedSwitchFirstTsk(void);
 #endif

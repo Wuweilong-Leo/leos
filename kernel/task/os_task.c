@@ -117,9 +117,9 @@ OS_INLINE void OsTaskInitKernelStack(uintptr_t stkBase, size_t stkSize)
     ((U32 *)stkBase)[0] = OS_TASK_STACK_TOP_MAGIC;
 }
 
-OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId)
+/* 实际创建逻辑(无优先级校验),供 OsTaskCreate 与 OsTaskCreateIdle 复用 */
+static OS_SEC_KERNEL_TEXT U32 OsTaskCreateInternal(struct OsTaskCreateParam *param, U32 *tskId)
 {
-    U32 ret;
     struct OsTaskCb *tskCb;
     uintptr_t stkMemBase;
     enum OsIntStatus intSave;
@@ -154,6 +154,17 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId)
 
     OsIntRestore(intSave);
     return OS_OK;
+}
+
+OS_SEC_KERNEL_TEXT U32 OsTaskCreate(struct OsTaskCreateParam *param, U32 *tskId)
+{
+    /* 普通任务不得占用 idle 专属的最低优先级层 */
+    if (param->prio >= OS_TASK_LOWEST_PRIO) {
+        OS_LOG_ERROR("task prio %u invalid, must < %u\n", param->prio, OS_TASK_LOWEST_PRIO);
+        return OS_TASK_CREATE_PRIO_ILL;
+    }
+
+    return OsTaskCreateInternal(param, tskId);
 }
 
 OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
@@ -325,7 +336,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskCreateIdle(void)
     param.prio = OS_TASK_LOWEST_PRIO;
     param.entryFunc = OsTaskIdleEntry;
 
-    ret = OsTaskCreate(&param, &idleTskId);
+    ret = OsTaskCreateInternal(&param, &idleTskId);
     if (ret != OS_OK) {
         OS_LOG_ERROR("create idle task failed, ret=%u\n", ret);
         return ret;

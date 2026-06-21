@@ -76,11 +76,8 @@ OS_SEC_KERNEL_TEXT void OsTickHandleTimeSlice(void)
     curTsk->timeSliceTicks--;
     // 时间片耗尽是冷分支
     if (UNLIKELY(curTsk->timeSliceTicks == 0)) {
-        // 任务先出队
+        // 同优先级时间片轮转:出队再入队尾,触发 needSched 切到同优先级下一个任务
         OsSchedRdyListDequeTsk(curTsk);
-        // 调整任务优先级，时间片轮转
-        OsTaskAdjustPrio(curTsk);
-        // 加回到就绪队列
         OsSchedRdyListEnqueTsk(curTsk);
         // 重新设置时间片
         OsTaskSetTimeSlice(curTsk, OsTaskCalTimeSlice(curTsk));

@@ -6,6 +6,8 @@
 
 #define OS_TASK_LOWEST_PRIO  31
 #define OS_TASK_PRIO_MAX_NUM (OS_TASK_LOWEST_PRIO + 1)
+/* 默认时间片(滴答数),固定值,同优先级内时间片轮转用 */
+#define OS_TASK_TIME_SLICE_DEFAULT 10
 
 #define OS_TASK_NAME_MAX_SIZE     0x10
 #define OS_TASK_MAX_NUM           32
@@ -70,6 +72,7 @@ struct OsTaskCreateParam {
 #define OS_TASK_SET_PRIO_PARAM_ILL     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x8);
 #define OS_TASK_DELETE_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x9);
 #define OS_TASK_DELETE_HOLD_SEM       OS_BUILD_ERR_CODE(OS_MID_TASK, 0xA); /* 持有互斥信号量不允许删除 */
+#define OS_TASK_CREATE_PRIO_ILL      OS_BUILD_ERR_CODE(OS_MID_TASK, 0xB); /* 优先级非法(>= LOWEST_PRIO,占用 idle 层) */
 
 extern void OsTaskIdleEntry(void);
 extern U32 OsTaskConfigInit(void);
@@ -85,15 +88,11 @@ extern void OsTaskRecycleStk(void);
 
 extern struct OsTaskCb *g_tskCbArray;
 
-OS_INLINE void OsTaskAdjustPrio(struct OsTaskCb *tsk)
-{
-    tsk->prio = (tsk->prio + 1) % OS_TASK_PRIO_MAX_NUM;
-}
-
-// 时间片跟优先级挂钩，优先级越高时间片越短
+/* 固定时间片,同优先级内时间片轮转用 */
 OS_INLINE U32 OsTaskCalTimeSlice(struct OsTaskCb *tsk)
 {
-    return tsk->prio + 1;
+    (void)tsk;
+    return OS_TASK_TIME_SLICE_DEFAULT;
 }
 
 OS_INLINE void OsTaskSetTimeSlice(struct OsTaskCb *tsk, U32 timeSlice)

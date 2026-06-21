@@ -108,11 +108,6 @@ OS_SEC_KERNEL_TEXT void OsSchedRdyListDequeTsk(struct OsTaskCb *tsk)
     tsk->status &= ~OS_TASK_STATUS_READY;
 }
 
-OS_SEC_KERNEL_TEXT void OsSchedModifyTskPrio(struct OsTaskCb *tsk)
-{
-    tsk->prio = (tsk->prio + 1) % OS_TASK_LOWEST_PRIO;
-}
-
 OS_SEC_KERNEL_TEXT void OsSchedMain(void)
 {
     struct OsRunQue *rq = OS_RUN_QUE();
