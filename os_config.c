@@ -20,14 +20,15 @@ extern U32 OsSchedConfigInit(void);
 extern U32 OsTaskConfigInit(void);
 extern U32 OsSemConfigInit(void);
 extern U32 OsDevConfigInit(void);
+extern U32 OsExcConfigInit(void);
 
 OS_SEC_KERNEL_DATA struct OsConfigInitInfo g_configInitTab[] = {
     {OS_MID_BSS, OsBssConfigInit},   {OS_MID_DEV, OsDevConfigInit},
-    {OS_MID_SYS, OsSysConfigInit},    {OS_MID_HWI, OsHwiConfigInit},
-    {OS_MID_MEM, OsMemConfigInit},    {OS_MID_USR, OsUsrConfigInit},
-    {OS_MID_SCHED, OsSchedConfigInit}, {OS_MID_TASK, OsTaskConfigInit},
-    {OS_MID_TIMER, OsTimerConfigInit}, {OS_MID_SEM, OsSemConfigInit},
-    {OS_MID_APP, OsAppConfigInit}};
+    {OS_MID_SYS, OsSysConfigInit},    {OS_MID_EXC, OsExcConfigInit},
+    {OS_MID_HWI, OsHwiConfigInit},    {OS_MID_MEM, OsMemConfigInit},
+    {OS_MID_USR, OsUsrConfigInit},    {OS_MID_SCHED, OsSchedConfigInit},
+    {OS_MID_TASK, OsTaskConfigInit}, {OS_MID_TIMER, OsTimerConfigInit},
+    {OS_MID_SEM, OsSemConfigInit},    {OS_MID_APP, OsAppConfigInit}};
 
 OS_SEC_KERNEL_TEXT U32 OsConfigInit(void)
 {

@@ -14,6 +14,8 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/kernel/include \
            $(CUR_DIR)/arch/cpu/i386 \
            $(CUR_DIR)/arch/hwi/i386 \
+           $(CUR_DIR)/arch/exc/i386 \
+           $(CUR_DIR)/arch/idt/i386 \
            $(CUR_DIR)/arch/boot \
            $(CUR_DIR)/arch/sys \
            $(CUR_DIR)/arch/timer/i386 \
@@ -54,6 +56,8 @@ SRC_DIRS := $(CUR_DIR) \
 			$(CUR_DIR)/arch/sys \
             $(CUR_DIR)/arch/io/i386 \
             $(CUR_DIR)/arch/hwi/i386 \
+            $(CUR_DIR)/arch/exc/i386 \
+            $(CUR_DIR)/arch/idt/i386 \
             $(CUR_DIR)/arch/timer/i386 \
             $(CUR_DIR)/arch/cpu/i386/gdt \
             $(CUR_DIR)/arch/cpu/i386/pgt \

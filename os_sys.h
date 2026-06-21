@@ -3,6 +3,7 @@
 enum OsMid {
     OS_MID_BSS,
     OS_MID_SYS,
+    OS_MID_EXC,
     OS_MID_HWI,
     OS_MID_TASK,
     OS_MID_MEM,
