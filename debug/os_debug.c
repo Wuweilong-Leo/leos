@@ -51,8 +51,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintList(struct OsList *list)
 {
     struct OsList *tmpNode;
 
-    OS_LIST_FOR_EACH(list, tmpNode)
-    {
+    OS_LIST_FOR_EACH(list, tmpNode) {
         kprintf("0x%x<->0x%x ", (U32)tmpNode->prev, (U32)tmpNode->next);
     }
     kprintf("[end]\n");
@@ -99,8 +98,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
 
     for (i = 0; i < OS_TASK_PRIO_MAX_NUM; i++) {
         struct OsList *node;
-        OS_LIST_FOR_EACH(&rq->rdyList[i], node)
-        {
+        OS_LIST_FOR_EACH(&rq->rdyList[i], node) {
             /* 通过 rdyListNode 偏移反推 OsTaskCb */
             struct OsTaskCb *tsk =
                 (struct OsTaskCb *)((U8 *)node - (U32)(&((struct OsTaskCb *)0)->rdyListNode));

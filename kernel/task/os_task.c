@@ -358,8 +358,7 @@ OS_SEC_KERNEL_TEXT void OsTaskTimerListInsert(struct OsTaskCb *tsk)
     if (OsListIsEmpty(timerList)) {
         OsListAddTail(timerList, &tsk->timerListNode);
     } else {
-        OS_LIST_FOR_EACH(timerList, tmpNode)
-        {
+        OS_LIST_FOR_EACH(timerList, tmpNode) {
             tmpTsk = OS_GET_STRUCT_ENTRY(struct OsTaskCb, timerListNode, tmpNode);
             if (tsk->expiredTick < tmpTsk->expiredTick) {
                 break;

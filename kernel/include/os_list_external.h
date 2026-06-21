@@ -71,8 +71,7 @@ OS_INLINE bool OsListFindNode(struct OsList *list, struct OsList *node)
 {
     struct OsList *tmpNode;
 
-    OS_LIST_FOR_EACH(list, tmpNode)
-    {
+    OS_LIST_FOR_EACH(list, tmpNode) {
         if (node == tmpNode) {
             return TRUE;
         }
