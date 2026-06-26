@@ -40,6 +40,9 @@ extern void TestTaskSetup(void);        extern void TestTaskVerify(void);
 /* RR */
 extern void TestRrSetup(void);          extern void TestRrVerify(void);
 
+/* STRESS */
+extern void TestStressSetup(void);      extern void TestStressVerify(void);
+
 /* ====== 注册数组 ====== */
 
 #define TC(suite_, name_, func_, delay_, setup_)  \
@@ -79,6 +82,8 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("TASK", "self-delete", TestTaskVerify, 100, TestTaskSetup),
     /* RR (异步) */
     TC("RR", "round-robin", TestRrVerify, 100, TestRrSetup),
+    /* STRESS (长时间常稳，约 5min) */
+    TC("STRESS", "soak", TestStressVerify, 0, TestStressSetup),
 };
 
 OS_SEC_KERNEL_DATA const U32 g_osTestCaseCnt = sizeof(g_osTestCases) / sizeof(struct OsTestCase);

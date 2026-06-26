@@ -21,12 +21,20 @@ static OS_SEC_KERNEL_TEXT U32 TestCreateTask(const char *name, U32 prio, OsTaskE
     return tskId;
 }
 
-/* 删除任务（不关心返回值，任务可能已自行退出） */
+/* 删除任务（不关心返回值，任务可能已自行退出或暂时持有 mutex） */
 static OS_SEC_KERNEL_TEXT void TestCleanupTask(U32 tskId)
 {
-    /* suspend 让任务停下来，再删除 */
+    U32 ret;
+    U32 retry = 0;
     OsTaskSuspend(tskId);
-    OsTaskDelete(tskId);
+    /* 如果任务持有 mutex，resume 让它释放后再试 */
+    while ((ret = OsTaskDelete(tskId)) != OS_OK && retry < 5) {
+        OsTaskResume(tskId);
+        OsTaskDelay(2);
+        OsTaskSuspend(tskId);
+        retry++;
+    }
+    (void)ret;
 }
 
 /* ====== 计数信号量（FIFO 唤醒） ====== */
@@ -490,6 +498,11 @@ OS_SEC_KERNEL_TEXT void TestSemSusVerify(void)
 }
 
 /* ====== OsSemDelete 测试 ====== */
+
+OS_SEC_KERNEL_TEXT void TestSemDeleteSetup(void)
+{
+    /* 纯同步测试，无需 setup */
+}
 
 OS_SEC_KERNEL_TEXT void TestSemDeleteVerify(void)
 {

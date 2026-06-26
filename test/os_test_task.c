@@ -87,11 +87,19 @@ static OS_SEC_KERNEL_TEXT U32 TestCreateTask2(const char *name, U32 prio, OsTask
     return tskId;
 }
 
-/* 辅助：删除任务 */
+/* 辅助：删除任务（若暂时持有 mutex 则重试） */
 static OS_SEC_KERNEL_TEXT void TestCleanupTask(U32 tskId)
 {
+    U32 ret;
+    U32 retry = 0;
     OsTaskSuspend(tskId);
-    OsTaskDelete(tskId);
+    while ((ret = OsTaskDelete(tskId)) != OS_OK && retry < 5) {
+        OsTaskResume(tskId);
+        OsTaskDelay(2);
+        OsTaskSuspend(tskId);
+        retry++;
+    }
+    (void)ret;
 }
 
 OS_SEC_KERNEL_TEXT void TestTaskSetup(void)
