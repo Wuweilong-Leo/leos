@@ -343,3 +343,51 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
 
     return OS_OK;
 }
+
+/* ====== 信号量删除 ====== */
+
+OS_SEC_KERNEL_TEXT U32 OsSemDelete(U32 semId)
+{
+    struct OsSemCb *semCb;
+    enum OsIntStatus intSave;
+
+    if (semId >= g_semMaxNum) {
+        return OS_SEM_SEM_ID_INVALID;
+    }
+
+    intSave = OsIntLock();
+
+    semCb = OS_SEM_GET_CB(semId);
+
+    /* 有任务在等，不允许删除 */
+    if (!OsListIsEmpty(&semCb->pendList)) {
+        OsIntRestore(intSave);
+        return OS_SEM_DELETE_HAS_PENDER;
+    }
+
+    /* BINARY_MUTEX 被持有，不允许删除 */
+    if (semCb->type == OS_SEM_BINARY_MUTEX && semCb->holder != NULL) {
+        OsIntRestore(intSave);
+        return OS_SEM_DELETE_HAS_HOLDER;
+    }
+
+    /* 如果 holdNode 仍在持有者链表上（val=1 且未被 pend 的 mutex），移除 */
+    OsListRemoveNode(&semCb->holdNode);
+
+    /* 重置控制块 */
+    semCb->val = 0;
+    semCb->maxCnt = 0;
+    semCb->type = 0;
+    semCb->wakePolicy = 0;
+    semCb->holder = NULL;
+#ifdef OS_SEM_BIN_SUPPORT_RECUR
+    semCb->nestCnt = 0;
+#endif
+    OsListInit(&semCb->pendList);
+
+    /* 归还空闲链表 */
+    OsListAddTail(&g_semFreeList, &semCb->freeListNode);
+
+    OsIntRestore(intSave);
+    return OS_OK;
+}

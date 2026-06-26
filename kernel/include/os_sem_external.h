@@ -42,10 +42,13 @@ struct OsSemCb {
 #define OS_SEM_PEND_UNAVAILABLE          OS_BUILD_ERR_CODE(OS_MID_SEM, 0x4)
 #define OS_SEM_PARAM_INVALID             OS_BUILD_ERR_CODE(OS_MID_SEM, 0x5)
 #define OS_SEM_POST_NOT_HOLDER           OS_BUILD_ERR_CODE(OS_MID_SEM, 0x6) /* BINARY_MUTEX 非持有者 Post */
+#define OS_SEM_DELETE_HAS_PENDER         OS_BUILD_ERR_CODE(OS_MID_SEM, 0x7) /* 有任务在等，不允许删除 */
+#define OS_SEM_DELETE_HAS_HOLDER         OS_BUILD_ERR_CODE(OS_MID_SEM, 0x8) /* BINARY_MUTEX 被持有，不允许删除 */
 
 extern U32 OsSemCreate(enum OsSemType type, U32 initVal, U32 maxCnt,
                        enum OsSemWakePolicy policy, U32 *semId);
 extern U32 OsSemPend(U32 semId, U32 timeout);
 extern U32 OsSemPost(U32 semId);
+extern U32 OsSemDelete(U32 semId);
 extern U32 OsSemConfigInit(void);
 #endif
