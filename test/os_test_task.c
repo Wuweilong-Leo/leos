@@ -5,7 +5,6 @@
 #include "os_test_framework.h"
 #include "string.h"
 
-/* 通过打印模块在指定行列写字符 */
 static OS_SEC_KERNEL_TEXT void TestPutChar(int row, int col, char c)
 {
     OsPrintSetCursor((U16)(row * 80 + col));
@@ -14,6 +13,10 @@ static OS_SEC_KERNEL_TEXT void TestPutChar(int row, int col, char c)
 
 /* ====== 自删除测试 ====== */
 OS_SEC_KERNEL_BSS volatile U32 g_testSelfDeleteDone;
+OS_SEC_KERNEL_BSS U32 g_testTaskTskA;
+OS_SEC_KERNEL_BSS U32 g_testTaskTskB;
+OS_SEC_KERNEL_BSS U32 g_testTaskTskC;
+OS_SEC_KERNEL_BSS U32 g_testTaskTskD;
 
 /* 任务D：跑几圈后自己删自己 */
 OS_SEC_KERNEL_TEXT void TestTaskSelfDelete(void *para1, void *param2, void *param3, void *param4)
@@ -71,46 +74,45 @@ OS_SEC_KERNEL_TEXT void TestTaskC(void *para1, void *param2, void *param3, void 
     }
 }
 
-/* setup: 创建 A/B/C/D 四个任务 */
-OS_SEC_KERNEL_TEXT void TestTaskSetup(void)
+/* 辅助：创建任务 */
+static OS_SEC_KERNEL_TEXT U32 TestCreateTask2(const char *name, U32 prio, OsTaskEntryFunc entry)
 {
-    U32 tskIdA, tskIdB, tskIdC, tskIdD;
+    U32 tskId;
     struct OsTaskCreateParam param;
-
-    g_testSelfDeleteDone = 0;
-
     memset(&param, 0, sizeof(param));
-    strcpy(param.name, "TaskA");
-    param.prio = 5;
-    param.entryFunc = TestTaskA;
-    OsTaskCreate(&param, &tskIdA);
-
-    memset(&param, 0, sizeof(param));
-    strcpy(param.name, "TaskB");
-    param.prio = 5;
-    param.entryFunc = TestTaskB;
-    OsTaskCreate(&param, &tskIdB);
-
-    memset(&param, 0, sizeof(param));
-    strcpy(param.name, "TaskC");
-    param.prio = 5;
-    param.entryFunc = TestTaskC;
-    OsTaskCreate(&param, &tskIdC);
-
-    memset(&param, 0, sizeof(param));
-    strcpy(param.name, "TaskD");
-    param.prio = 6;
-    param.entryFunc = TestTaskSelfDelete;
-    OsTaskCreate(&param, &tskIdD);
-
-    OsTaskResume(tskIdA);
-    OsTaskResume(tskIdB);
-    OsTaskResume(tskIdC);
-    OsTaskResume(tskIdD);
+    strcpy(param.name, name);
+    param.prio = prio;
+    param.entryFunc = entry;
+    OsTaskCreate(&param, &tskId);
+    return tskId;
 }
 
-/* verify: 检查 TaskD 自删除成功 */
+/* 辅助：删除任务 */
+static OS_SEC_KERNEL_TEXT void TestCleanupTask(U32 tskId)
+{
+    OsTaskSuspend(tskId);
+    OsTaskDelete(tskId);
+}
+
+OS_SEC_KERNEL_TEXT void TestTaskSetup(void)
+{
+    g_testSelfDeleteDone = 0;
+    g_testTaskTskA = TestCreateTask2("TaskA", 5, TestTaskA);
+    g_testTaskTskB = TestCreateTask2("TaskB", 5, TestTaskB);
+    g_testTaskTskC = TestCreateTask2("TaskC", 5, TestTaskC);
+    g_testTaskTskD = TestCreateTask2("TaskD", 6, TestTaskSelfDelete);
+    OsTaskResume(g_testTaskTskA);
+    OsTaskResume(g_testTaskTskB);
+    OsTaskResume(g_testTaskTskC);
+    OsTaskResume(g_testTaskTskD);
+}
+
 OS_SEC_KERNEL_TEXT void TestTaskVerify(void)
 {
     OS_TEST_ASSERT(g_testSelfDeleteDone == 1);
+    /* 清理 A/B/C（while(1) 任务） */
+    TestCleanupTask(g_testTaskTskA);
+    TestCleanupTask(g_testTaskTskB);
+    TestCleanupTask(g_testTaskTskC);
+    /* D 已自删除，不需要再删 */
 }

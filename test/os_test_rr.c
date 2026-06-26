@@ -24,6 +24,8 @@ static const char g_hexTbl[] = "0123456789ABCDEF";
 /* 计数器（供 verify 采样） */
 OS_SEC_KERNEL_BSS volatile U32 g_rrCountE;
 OS_SEC_KERNEL_BSS volatile U32 g_rrCountF;
+OS_SEC_KERNEL_BSS U32 g_rrTskIdE;
+OS_SEC_KERNEL_BSS U32 g_rrTskIdF;
 
 /* 任务E:第 6 行,永不阻塞,纯计数 + 显示 */
 OS_SEC_KERNEL_TEXT void TestTaskRrE(void *arg1, void *arg2, void *arg3, void *arg4)
@@ -53,10 +55,16 @@ OS_SEC_KERNEL_TEXT void TestTaskRrF(void *arg1, void *arg2, void *arg3, void *ar
     }
 }
 
+/* 辅助：删除任务 */
+static OS_SEC_KERNEL_TEXT void TestCleanupTask(U32 tskId)
+{
+    OsTaskSuspend(tskId);
+    OsTaskDelete(tskId);
+}
+
 /* setup: 创建两个 RR 任务 */
 OS_SEC_KERNEL_TEXT void TestRrSetup(void)
 {
-    U32 tskIdE, tskIdF;
     struct OsTaskCreateParam param;
 
     g_rrCountE = 0;
@@ -66,19 +74,19 @@ OS_SEC_KERNEL_TEXT void TestRrSetup(void)
     strcpy(param.name, "TaskRrE");
     param.prio = OS_TEST_RR_PRIO;
     param.entryFunc = TestTaskRrE;
-    OsTaskCreate(&param, &tskIdE);
+    OsTaskCreate(&param, &g_rrTskIdE);
 
     memset(&param, 0, sizeof(param));
     strcpy(param.name, "TaskRrF");
     param.prio = OS_TEST_RR_PRIO;
     param.entryFunc = TestTaskRrF;
-    OsTaskCreate(&param, &tskIdF);
+    OsTaskCreate(&param, &g_rrTskIdF);
 
-    OsTaskResume(tskIdE);
-    OsTaskResume(tskIdF);
+    OsTaskResume(g_rrTskIdE);
+    OsTaskResume(g_rrTskIdF);
 }
 
-/* verify: 采样 → delay → 检查计数增长 */
+/* verify: 采样 → delay → 检查计数增长 → 清理 */
 OS_SEC_KERNEL_TEXT void TestRrVerify(void)
 {
     U32 e1 = g_rrCountE;
@@ -86,4 +94,7 @@ OS_SEC_KERNEL_TEXT void TestRrVerify(void)
     OsTaskDelay(50);
     OS_TEST_ASSERT(g_rrCountE > e1);
     OS_TEST_ASSERT(g_rrCountF > f1);
+    /* 清理 */
+    TestCleanupTask(g_rrTskIdE);
+    TestCleanupTask(g_rrTskIdF);
 }

@@ -385,8 +385,8 @@ OS_SEC_KERNEL_TEXT U32 OsSemDelete(U32 semId)
 #endif
     OsListInit(&semCb->pendList);
 
-    /* 归还空闲链表 */
-    OsListAddTail(&g_semFreeList, &semCb->freeListNode);
+    /* 归还空闲链表（LIFO：刚释放的 ID 优先复用） */
+    OsListAddHead(&g_semFreeList, &semCb->freeListNode);
 
     OsIntRestore(intSave);
     return OS_OK;

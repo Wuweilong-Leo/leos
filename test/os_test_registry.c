@@ -32,6 +32,7 @@ extern void TestSemTmoSetup(void);      extern void TestSemTmoVerify(void);
 extern void TestSemNotHolderSetup(void);extern void TestSemNotHolderVerify(void);
 extern void TestSemPISetup(void);       extern void TestSemPIVerify(void);
 extern void TestSemSusSetup(void);      extern void TestSemSusVerify(void);
+extern void TestSemDeleteSetup(void);  extern void TestSemDeleteVerify(void);
 
 /* TASK */
 extern void TestTaskSetup(void);        extern void TestTaskVerify(void);
@@ -73,6 +74,7 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("SEM", "not-holder", TestSemNotHolderVerify,100, TestSemNotHolderSetup),
     TC("SEM", "pi",         TestSemPIVerify,       200, TestSemPISetup),
     TC("SEM", "suspend",    TestSemSusVerify,       60, TestSemSusSetup),
+    TC("SEM", "delete",     TestSemDeleteVerify,    0,  TestSemDeleteSetup),
     /* TASK (异步) */
     TC("TASK", "self-delete", TestTaskVerify, 100, TestTaskSetup),
     /* RR (异步) */
