@@ -9,7 +9,7 @@ qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32 \
     -monitor unix:/tmp/qemu-leos.sock,server,nowait \
     -daemonize 2>/dev/null
 
-sleep 5
+sleep 45
 
 echo 'pmemsave 0xb8000 0xfa0 "/tmp/vga_dump.bin"' | socat - UNIX-CONNECT:/tmp/qemu-leos.sock 2>/dev/null
 sleep 1

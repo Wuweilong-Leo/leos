@@ -2,47 +2,31 @@
 #include "os_print_external.h"
 #include "os_mem_external.h"
 #include "os_mem_fsc_internal.h"
-#include "os_test.h"
+#include "os_test_framework.h"
 #include "string.h"
 #include "os_hwi.h"
 #include "os_debug_external.h"
 #include "os_uart_external.h"
 
-/* ====== 缺页分配机制白盒测试 ======
- * 直接对真实内核堆(g_kernelMemPtCtrl / g_kernelVirMemPool)验证:
- *   1. 核心不变量: 每个堆页的 PTE-present == 虚拟位图位
- *   2. 缺页确实发生: FSC 分配触及新页 -> 虚拟位图 popcount 增加(位图只能由
- *      缺页处理程序 OsMemKernelAllocPgByAddr 置位,FSC 自身不碰它)
- *   3. 物理记账: 新映射的堆数据页 + 新建的堆页表 == 物理池消耗增量
- *   4. 双映射守卫: 对已映射页再调 OsMemKernelAllocPgByAddr 应被拒绝
- *   5. 原语端到端: 对未映射页映射/读写/解映射/回收,状态可还原
- *   6. 跨 PDE: 堆尾落在 PDE 769,首次映射会经 OsMapVir2Phy 建新页表
- *   7. 压力: 大量 alloc/free 后不变量与记账仍成立
- */
+/* ====== 缺页分配机制白盒测试 ====== */
 
-/* ====== 结果位 ====== */
-#define PGF_FAULT_OK    0x01U /* 缺页确实映射了新页 */
-#define PGF_INV_OK      0x02U /* PTE-present == 虚拟位图位(全程) */
-#define PGF_PHYS_OK     0x04U /* 物理池消耗 == 新映射堆页 + 新建堆页表 */
-#define PGF_GUARD_OK    0x08U /* 已映射页不被重复映射 */
-#define PGF_PRIM_OK     0x10U /* 映射/读写/解映射/回收可还原 */
-#define PGF_CROSSPDE_OK 0x20U /* 跨 PDE 建页表成功 */
-#define PGF_STRESS_OK   0x40U /* 压力后不变量与记账仍成立 */
-#define PGF_ALL_OK      0x7FU
-
-OS_SEC_KERNEL_BSS volatile U32 g_pgfTestResult;
-OS_SEC_KERNEL_BSS volatile U32 g_pgfTestFailCnt;
-
-/* ====== 自映射地址计算(与 os_pgt.c 的 OsGetPte/PdeVirAddr 同公式) ====== */
-#define PGF_PDE_VADDR(v) (0xFFFFF000U + (((U32)(v) >> 22) * 4U))
-#define PGF_PTE_VADDR(v) (0xFFC00000U + (((U32)(v) & 0xFFC00000U) >> 10) + (((U32)(v) >> 12 & 0x3FFU) * 4U))
 #define PGF_PRESENT      0x1U
 
 #define PGF_HEAP_BASE    OS_KERNEL_VIR_HEAP_MEM_BASE
 #define PGF_HEAP_PAGES   (OS_KERNEL_VIR_HEAP_MEM_SIZE / OS_PG_SIZE)
-/* 堆跨越的 PDE: 0xC0200000-0xC05FFFFF -> PDE 768 与 769 */
 #define PGF_PDE_LO       (PGF_HEAP_BASE >> 22)
 #define PGF_PDE_HI       ((PGF_HEAP_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE - 1) >> 22)
+
+#define PGF_PDE_VADDR(v) (0xFFFFF000U + (((U32)(v) >> 22) * 4U))
+#define PGF_PTE_VADDR(v) (0xFFC00000U + (((U32)(v) & 0xFFC00000U) >> 10) + (((U32)(v) >> 12 & 0x3FFU) * 4U))
+
+/* ====== 共享状态 ====== */
+OS_SEC_KERNEL_BSS void *g_pgfBlks[48];
+OS_SEC_KERNEL_BSS U32 g_pgfBlkN;
+OS_SEC_KERNEL_BSS U32 g_pgfV0, g_pgfP0, g_pgfH0;   /* 第一批快照 */
+OS_SEC_KERNEL_BSS U32 g_pgfV1, g_pgfP1, g_pgfH1;   /* 第二批快照 */
+
+/* ====== 工具函数 ====== */
 
 static OS_SEC_KERNEL_TEXT U32 TestPgfBtmpPop(struct OsBtmp *b, U32 n)
 {
@@ -75,8 +59,6 @@ static OS_SEC_KERNEL_TEXT bool TestPgfPtePresent(uintptr_t v)
     return (*(volatile U32 *)PGF_PTE_VADDR(v) & PGF_PRESENT) != 0;
 }
 
-/* 堆范围内现存的 PDE 数(每个现存 PDE = 一张从物理池分配的页表,但 PDE 768
-   的页表由内核镜像预映射占用、非来自物理池;用 DELTA 时此差异自动抵消) */
 static OS_SEC_KERNEL_TEXT U32 TestPgfPresentHeapPde(void)
 {
     U32 cnt = 0, idx;
@@ -88,10 +70,7 @@ static OS_SEC_KERNEL_TEXT U32 TestPgfPresentHeapPde(void)
     return cnt;
 }
 
-/* 核心不变量: 遍历所有堆页,PTE-present == 虚拟位图位。返回不一致数(0=OK)。
-   PDE 不存在时其下所有 PTE 视为 not present,且禁止读 PTE(读会触发自映射缺页),
-   此时只要求位图位为 0。 */
-static OS_SEC_KERNEL_TEXT U32 TestPgfInvariant(void)
+OS_SEC_KERNEL_TEXT U32 TestPgfInvariant(void)
 {
     U32 i, bad = 0;
     for (i = 0; i < PGF_HEAP_PAGES; i++) {
@@ -104,234 +83,163 @@ static OS_SEC_KERNEL_TEXT U32 TestPgfInvariant(void)
             }
             continue;
         }
-        bool pteBit = TestPgfPtePresent(v);
-        if (pteBit != btmpBit) {
+        if (TestPgfPtePresent(v) != btmpBit) {
             bad++;
         }
     }
     return bad;
 }
 
-static OS_SEC_KERNEL_TEXT void TestPgfReport(const char *name, bool ok)
+/* ====== setup: 批量分配 + 快照 ====== */
+
+OS_SEC_KERNEL_TEXT void TestPgfSetup(void)
 {
-    OsUartPrintf("[PGF] %s %s\n", name, ok ? "OK" : "FAIL");
+    U32 k;
+    g_pgfBlkN = 24;
+    for (k = 0; k < g_pgfBlkN; k++) {
+        g_pgfBlks[k] = OsMemKernelAlloc(3000, 16);
+    }
+    g_pgfV0 = TestPgfVirPop();
+    g_pgfP0 = TestPgfPhyUsed();
+    g_pgfH0 = TestPgfPresentHeapPde();
+
+    for (k = 0; k < g_pgfBlkN; k++) {
+        g_pgfBlks[g_pgfBlkN + k] = OsMemKernelAlloc(3000, 16);
+    }
+    g_pgfBlkN *= 2;
+    g_pgfV1 = TestPgfVirPop();
+    g_pgfP1 = TestPgfPhyUsed();
+    g_pgfH1 = TestPgfPresentHeapPde();
 }
 
-OS_SEC_KERNEL_TEXT U32 OsTestPgFaultInit(void)
+/* ====== 用例 ====== */
+
+OS_SEC_KERNEL_TEXT void TestPgfFault(void)
 {
-    U32 invBad = 0;
-    U32 v0, p0, h0, v1, p1, h1, dVir, dPhy, dPde;
     U32 k;
-    void *blks[48];
-    U32 blkN;
-    enum OsLogLevel savedLevel;
-
-    g_pgfTestResult = 0;
-    g_pgfTestFailCnt = 0;
-
-    OsUartPuts("\n==== PAGE FAULT DEMAND-PAGING TEST START ====\n");
-
-    /* 初始不变量(此时 task/sem 初始化已映射了堆首页 + 若干尾页) */
-    if (TestPgfInvariant() == 0) {
-        invBad = 0;
-    } else {
-        invBad = 1;
-        OsUartPuts("[PGF] invariant broken at START\n");
+    OS_TEST_ASSERT(g_pgfV1 > g_pgfV0);
+    for (k = 0; k < g_pgfBlkN; k++) {
+        OS_TEST_ASSERT(g_pgfBlks[k] != NULL);
     }
+}
 
-    /* ---- 批量 FSC 分配,强制按需缺页 ---- */
-    blkN = 24;
-    for (k = 0; k < blkN; k++) {
-        blks[k] = OsMemKernelAlloc(3000, 16);
-    }
-    v0 = TestPgfVirPop();
-    p0 = TestPgfPhyUsed();
-    h0 = TestPgfPresentHeapPde();
-    /* 再分配一批,观察 delta(确保触及新页) */
-    for (k = 0; k < blkN; k++) {
-        blks[blkN + k] = OsMemKernelAlloc(3000, 16);
-    }
-    blkN *= 2;
-    v1 = TestPgfVirPop();
-    p1 = TestPgfPhyUsed();
-    h1 = TestPgfPresentHeapPde();
+OS_SEC_KERNEL_TEXT void TestPgfPhys(void)
+{
+    U32 dVir = g_pgfV1 - g_pgfV0;
+    U32 dPhy = g_pgfP1 - g_pgfP0;
+    U32 dPde = g_pgfH1 - g_pgfH0;
+    OS_TEST_ASSERT_EQ(dPhy, dVir + dPde);
+}
 
-    /* PGF_FAULT_OK: 虚拟位图 popcount 增加 -> 缺页处理程序确实映射了新页 */
+OS_SEC_KERNEL_TEXT void TestPgfCrossPde(void)
+{
+    OS_TEST_ASSERT(TestPgfPdePresent(PGF_PDE_HI));
+}
+
+OS_SEC_KERNEL_TEXT void TestPgfGuard(void)
+{
+    U32 before = TestPgfVirPop();
+    U32 pbefore = TestPgfPhyUsed();
+    uintptr_t r;
+    enum OsLogLevel savedLevel = OsDebugGetLogLevel();
+    OsDebugSetLogLevel(OS_LOG_NONE);
+    r = OsMemKernelAllocPgByAddr((uintptr_t)PGF_HEAP_BASE);
+    OsDebugSetLogLevel(savedLevel);
+    OS_TEST_ASSERT(r == (uintptr_t)NULL);
+    OS_TEST_ASSERT_EQ(TestPgfVirPop(), before);
+    OS_TEST_ASSERT_EQ(TestPgfPhyUsed(), pbefore);
+}
+
+OS_SEC_KERNEL_TEXT void TestPgfPrimitive(void)
+{
+    uintptr_t mid = (uintptr_t)(PGF_HEAP_BASE + 256 * OS_PG_SIZE);
+    U32 bv0 = TestPgfVirPop();
+    U32 bp0 = TestPgfPhyUsed();
+    bool preUnmapped = (OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0) && !TestPgfPtePresent(mid);
+    uintptr_t r = OsMemKernelAllocPgByAddr(mid);
+
+    if (!(preUnmapped && r == mid)) {
+        OS_TEST_ASSERT(0);
+        return;
+    }
+    *(volatile U8 *)mid = 0x5A;
     {
-        bool ok = (v1 > v0);
-        for (k = 0; k < blkN; k++) {
-            if (blks[k] == NULL) {
-                ok = FALSE;
+        U8 rd = *(volatile U8 *)mid;
+        U32 bv1 = TestPgfVirPop();
+        U32 bp1 = TestPgfPhyUsed();
+        OS_TEST_ASSERT(rd == 0x5A);
+        OS_TEST_ASSERT(OsBtmpGet(&g_kernelVirMemPool.btmp, 256) != 0);
+        OS_TEST_ASSERT(TestPgfPtePresent(mid));
+        OS_TEST_ASSERT_EQ(bv1 - bv0, 1);
+        OS_TEST_ASSERT_EQ(bp1 - bp0, 1);
+    }
+    {
+        uintptr_t phy = OsUnmapVir2Phy(mid);
+        if (phy != (uintptr_t)NULL) {
+            OsBtmpClear(&g_kernelVirMemPool.btmp, 256);
+            OsBtmpClear(&g_kernelPhyMemPool.btmp,
+                        (U32)((phy - g_kernelPhyMemPool.base) / OS_PG_SIZE));
+        }
+        OS_TEST_ASSERT(OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0);
+        OS_TEST_ASSERT(!TestPgfPtePresent(mid));
+        OS_TEST_ASSERT_EQ(TestPgfVirPop(), bv0);
+        OS_TEST_ASSERT_EQ(TestPgfPhyUsed(), bp0);
+    }
+}
+
+OS_SEC_KERNEL_TEXT void TestPgfStress(void)
+{
+    U32 vs = TestPgfVirPop();
+    U32 ps = TestPgfPhyUsed();
+    U32 hs = TestPgfPresentHeapPde();
+    U32 j;
+    void *sblk[32];
+
+    for (j = 0; j < 32; j++) {
+        sblk[j] = OsMemKernelAlloc(2000, 16);
+    }
+    for (j = 0; j < 32; j++) {
+        if (sblk[j] != NULL) {
+            OsMemKernelFree(sblk[j]);
+        }
+    }
+    for (j = 0; j < 16; j++) {
+        sblk[j] = OsMemKernelAlloc(4000, 16);
+    }
+    for (j = 0; j < 16; j++) {
+        if (sblk[j] != NULL) {
+            OsMemKernelFree(sblk[j]);
+        }
+    }
+    {
+        U32 ve = TestPgfVirPop();
+        U32 pe = TestPgfPhyUsed();
+        U32 he = TestPgfPresentHeapPde();
+        OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
+        OS_TEST_ASSERT_EQ(pe - ps, (ve - vs) + (he - hs));
+    }
+}
+
+OS_SEC_KERNEL_TEXT void TestPgfInvariantCase(void)
+{
+    OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
+    /* 释放批量块 */
+    {
+        U32 k;
+        for (k = 0; k < g_pgfBlkN; k++) {
+            if (g_pgfBlks[k] != NULL) {
+                OsMemKernelFree(g_pgfBlks[k]);
             }
         }
-        if (ok) {
-            g_pgfTestResult |= PGF_FAULT_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("fault-maps-new-page", ok);
-        OsUartPrintf("[PGF] virPop %d -> %d\n", v0, v1);
     }
+    OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
+}
 
-    /* PGF_PHYS_OK: 物理池消耗增量 == 新映射堆页 + 新建堆页表 */
-    dVir = v1 - v0;
-    dPhy = p1 - p0;
-    dPde = h1 - h0;
-    {
-        bool ok = (dPhy == dVir + dPde);
-        if (ok) {
-            g_pgfTestResult |= PGF_PHYS_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("phys-accounting", ok);
-        OsUartPrintf("[PGF] dVir=%d dPhy=%d dPde=%d\n", dVir, dPhy, dPde);
-    }
-
-    /* PGF_CROSSPDE_OK: 堆尾在 PDE 769,FSC 从尾切必然先建 PDE 769 页表 */
-    {
-        bool ok = TestPgfPdePresent(PGF_PDE_HI);
-        if (ok) {
-            g_pgfTestResult |= PGF_CROSSPDE_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("cross-pde-769", ok);
-    }
-
-    /* 分配后再查不变量 */
-    if (TestPgfInvariant() != 0) {
-        invBad++;
-        OsUartPuts("[PGF] invariant broken after ALLOC\n");
-    }
-
-    /* ---- 双映射守卫:对已映射页(堆首页,ctrl 所在)再要求映射应被拒绝 ---- */
-    {
-        U32 before = TestPgfVirPop();
-        U32 pbefore = TestPgfPhyUsed();
-        uintptr_t r;
-        savedLevel = OsDebugGetLogLevel();
-        OsDebugSetLogLevel(OS_LOG_NONE); /* 屏蔽 "already allocated" WARN */
-        r = OsMemKernelAllocPgByAddr((uintptr_t)PGF_HEAP_BASE);
-        OsDebugSetLogLevel(savedLevel);
-        {
-            bool ok = (r == (uintptr_t)NULL) && (TestPgfVirPop() == before) &&
-                      (TestPgfPhyUsed() == pbefore);
-            if (ok) {
-                g_pgfTestResult |= PGF_GUARD_OK;
-            } else {
-                g_pgfTestFailCnt++;
-            }
-            TestPgfReport("guard-no-remap", ok);
-        }
-    }
-
-    /* ---- 原语端到端:对未映射的中段页 映射/读写/解映射/回收 ---- */
-    {
-        uintptr_t mid = (uintptr_t)(PGF_HEAP_BASE + 256 * OS_PG_SIZE); /* PDE 768 中段,FSC 不会触及 */
-        U32 bv0 = TestPgfVirPop();
-        U32 bp0 = TestPgfPhyUsed();
-        bool preUnmapped = (OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0) && !TestPgfPtePresent(mid);
-        uintptr_t r = OsMemKernelAllocPgByAddr(mid);
-        bool ok = FALSE;
-        if (preUnmapped && r == mid) {
-            *(volatile U8 *)mid = 0x5A;
-            U8 rd = *(volatile U8 *)mid;
-            U32 bv1 = TestPgfVirPop();
-            U32 bp1 = TestPgfPhyUsed();
-            if (rd == 0x5A && OsBtmpGet(&g_kernelVirMemPool.btmp, 256) != 0 && TestPgfPtePresent(mid) &&
-                (bv1 - bv0) == 1 && (bp1 - bp0) == 1) {
-                /* 回收:解映射 + 清虚拟位图 + 清物理位图 */
-                uintptr_t phy = OsUnmapVir2Phy(mid);
-                if (phy != (uintptr_t)NULL) {
-                    OsBtmpClear(&g_kernelVirMemPool.btmp, 256);
-                    OsBtmpClear(&g_kernelPhyMemPool.btmp,
-                                (U32)((phy - g_kernelPhyMemPool.base) / OS_PG_SIZE));
-                }
-                if (OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0 && !TestPgfPtePresent(mid) &&
-                    TestPgfVirPop() == bv0 && TestPgfPhyUsed() == bp0) {
-                    ok = TRUE;
-                }
-            }
-        }
-        if (ok) {
-            g_pgfTestResult |= PGF_PRIM_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("primitive-map-verify-unmap", ok);
-    }
-
-    /* ---- 压力:大量 alloc/free 后不变量与记账仍成立 ---- */
-    {
-        U32 vs = TestPgfVirPop();
-        U32 ps = TestPgfPhyUsed();
-        U32 hs = TestPgfPresentHeapPde();
-        U32 j;
-        bool ok;
-        void *sblk[32]; /* 独立数组,避免与 blks[] 混用导致 double-free */
-        for (j = 0; j < 32; j++) {
-            sblk[j] = OsMemKernelAlloc(2000, 16);
-        }
-        for (j = 0; j < 32; j++) {
-            if (sblk[j] != NULL) {
-                OsMemKernelFree(sblk[j]);
-            }
-        }
-        for (j = 0; j < 16; j++) {
-            sblk[j] = OsMemKernelAlloc(4000, 16);
-        }
-        for (j = 0; j < 16; j++) {
-            if (sblk[j] != NULL) {
-                OsMemKernelFree(sblk[j]);
-            }
-        }
-        {
-            U32 ve = TestPgfVirPop();
-            U32 pe = TestPgfPhyUsed();
-            U32 he = TestPgfPresentHeapPde();
-            ok = (TestPgfInvariant() == 0) && ((pe - ps) == ((ve - vs) + (he - hs)));
-        }
-        if (ok) {
-            g_pgfTestResult |= PGF_STRESS_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("stress-invariant+accounting", ok);
-    }
-
-    /* 释放批量分配的块(堆页一旦映射不再解映射,这是按需分页的预期行为) */
-    for (k = 0; k < blkN; k++) {
-        if (blks[k] != NULL) {
-            OsMemKernelFree(blks[k]);
-        }
-    }
-
-    /* 全程不变量汇总 */
-    if (TestPgfInvariant() != 0) {
-        invBad++;
-        OsUartPuts("[PGF] invariant broken at END\n");
-    }
-    {
-        bool ok = (invBad == 0);
-        if (ok) {
-            g_pgfTestResult |= PGF_INV_OK;
-        } else {
-            g_pgfTestFailCnt++;
-        }
-        TestPgfReport("invariant-PTE==btmp", ok);
-    }
-
-    OsUartPrintf("[PGF_RESULT] 0x%x  fails=%d\n", g_pgfTestResult, g_pgfTestFailCnt);
-    OsUartPuts("==== PAGE FAULT DEMAND-PAGING TEST END ====\n\n");
-
+/* PGF VGA 汇总（Row 11） */
+OS_SEC_KERNEL_TEXT void TestPgfPrintVga(void)
+{
     OsPrintSetCursor((U16)(11 * 80));
-    kprintf("PGF: result=0x%x fails=%d fault=%d inv=%d phys=%d guard=%d prim=%d xpde=%d stress=%d",
-            g_pgfTestResult, g_pgfTestFailCnt,
-            (g_pgfTestResult & PGF_FAULT_OK) != 0, (g_pgfTestResult & PGF_INV_OK) != 0,
-            (g_pgfTestResult & PGF_PHYS_OK) != 0, (g_pgfTestResult & PGF_GUARD_OK) != 0,
-            (g_pgfTestResult & PGF_PRIM_OK) != 0, (g_pgfTestResult & PGF_CROSSPDE_OK) != 0,
-            (g_pgfTestResult & PGF_STRESS_OK) != 0);
-
-    return OS_OK;
+    kprintf("PGF: vir=%d phy=%d pde=%d inv=%d",
+            TestPgfVirPop(), TestPgfPhyUsed(),
+            TestPgfPresentHeapPde(), TestPgfInvariant());
 }

@@ -2,11 +2,10 @@
 #include "os_print_external.h"
 #include "os_task_external.h"
 #include "os_sched_external.h"
-#include "os_test.h"
+#include "os_test_framework.h"
 #include "string.h"
-#include "os_hwi.h"
 
-/* 通过打印模块在指定行列写字符（统一走 OsPrintSetCursor + OsPrintChar） */
+/* 通过打印模块在指定行列写字符 */
 static OS_SEC_KERNEL_TEXT void TestPutChar(int row, int col, char c)
 {
     OsPrintSetCursor((U16)(row * 80 + col));
@@ -28,7 +27,6 @@ OS_SEC_KERNEL_TEXT void TestTaskSelfDelete(void *para1, void *param2, void *para
         if (count >= 5) {
             g_testSelfDeleteDone = 1;
             OsTaskDelete(OS_RUNNING_TASK()->pid);
-            /* 不会到这里 */
         }
         OsTaskDelay(10);
     }
@@ -73,13 +71,15 @@ OS_SEC_KERNEL_TEXT void TestTaskC(void *para1, void *param2, void *param3, void 
     }
 }
 
-OS_SEC_KERNEL_TEXT U32 OsTestTaskInit(void)
+/* setup: 创建 A/B/C/D 四个任务 */
+OS_SEC_KERNEL_TEXT void TestTaskSetup(void)
 {
     U32 tskIdA, tskIdB, tskIdC, tskIdD;
     struct OsTaskCreateParam param;
 
-    memset(&param, 0, sizeof(param));
+    g_testSelfDeleteDone = 0;
 
+    memset(&param, 0, sizeof(param));
     strcpy(param.name, "TaskA");
     param.prio = 5;
     param.entryFunc = TestTaskA;
@@ -107,6 +107,10 @@ OS_SEC_KERNEL_TEXT U32 OsTestTaskInit(void)
     OsTaskResume(tskIdB);
     OsTaskResume(tskIdC);
     OsTaskResume(tskIdD);
+}
 
-    return OS_OK;
+/* verify: 检查 TaskD 自删除成功 */
+OS_SEC_KERNEL_TEXT void TestTaskVerify(void)
+{
+    OS_TEST_ASSERT(g_testSelfDeleteDone == 1);
 }
