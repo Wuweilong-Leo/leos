@@ -314,8 +314,10 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         semCb->val++;
     }
 
-    /* 如果有人在等，唤醒队首，Pend 醒来后 val-- 取走资源 */
-    if (!OsListIsEmpty(&semCb->pendList)) {
+    /* 唤醒等待者：循环弹出直到找到非 SUSPENDED 的任务入就绪队列，
+     * 由被唤醒者在 Pend 侧 val-- 消费资源；
+     * SUSPENDED 任务接不住资源，跳过继续弹下一个。 */
+    while (!OsListIsEmpty(&semCb->pendList)) {
         pendTsk =
             OS_GET_STRUCT_ENTRY(struct OsTaskCb, pendListNode, OsListPopHead(&semCb->pendList));
 
@@ -328,11 +330,13 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
             OsRefreshNearestTick();
         }
 
-        /* SUSPENDED 任务不加就绪队列 */
         if (!(pendTsk->status & OS_TASK_STATUS_SUSPENDED)) {
+            /* 找到能接住资源的任务，入就绪队列 */
             OsSchedRdyListEnqueTsk(pendTsk);
             OsTaskSchedule();
+            break;
         }
+        /* SUSPENDED 任务接不住资源，继续弹下一个等待者 */
     }
 
     OsIntRestore(intSave);
