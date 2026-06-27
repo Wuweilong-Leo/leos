@@ -200,7 +200,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
     }
 #endif
 
-    if (semCb->val == 0) {
+    while (semCb->val == 0) {
         /* 无可用资源 */
 
         if (timeout == OS_SEM_NO_WAIT) {
