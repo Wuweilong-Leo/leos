@@ -30,8 +30,7 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/kernel/task/process \
            $(CUR_DIR)/kernel/tick \
            $(CUR_DIR)/kernel/hwi \
-           $(CUR_DIR)/dev/print \
-           $(CUR_DIR)/dev/include \
+           $(CUR_DIR)/kernel/print \
            $(CUR_DIR)/arch/dev/vga \
            $(CUR_DIR)/arch/dev/kbd \
            $(CUR_DIR)/arch/dev/kbd/i386 \
@@ -70,7 +69,7 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/lib/btmp \
             $(CUR_DIR)/arch/cpu/i386 \
             $(CUR_DIR)/arch/cpu/i386/reset \
-            $(CUR_DIR)/dev/print \
+            $(CUR_DIR)/kernel/print \
             $(CUR_DIR)/arch/dev/vga \
             $(CUR_DIR)/arch/dev/uart/i386 \
             $(CUR_DIR)/arch/dev/kbd/i386 \

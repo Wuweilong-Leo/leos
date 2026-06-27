@@ -1,6 +1,8 @@
 #include "os_def.h"
 #include "os_uart_external.h"
 #include "os_io_i386.h"
+#include "os_hwi.h"
+#include "os_print_external.h"
 
 /* COM1 8250/16550 寄存器 */
 #define OS_UART_COM1_BASE 0x3F8
@@ -39,4 +41,21 @@ OS_SEC_KERNEL_TEXT void OsUartPuts(const char *s)
         }
         OsUartPutc(*s++);
     }
+}
+
+OS_SEC_KERNEL_TEXT S32 OsUartPrintf(const char *fmt, ...)
+{
+    char buf[256] = {0};
+    void *args;
+    U32 len;
+    enum OsIntStatus intSave;
+
+    intSave = OsIntLock();
+    OS_VA_START(args, fmt);
+    len = vsprintf(buf, fmt, args);
+    OS_VA_END(args);
+    OsUartPuts(buf);
+    OsIntRestore(intSave);
+
+    return len;
 }

@@ -1,6 +1,5 @@
 #include "os_def.h"
 #include "os_print_external.h"
-#include "os_print_internal.h"
 #include "os_vga_external.h"
 #include "os_uart_external.h"
 #include "os_kbd_external.h"
