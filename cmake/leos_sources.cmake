@@ -47,6 +47,7 @@ set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/kernel/tick
     ${CMAKE_SOURCE_DIR}/kernel/hwi
     ${CMAKE_SOURCE_DIR}/kernel/ipc/sem
+    ${CMAKE_SOURCE_DIR}/kernel/ipc/msg
     ${CMAKE_SOURCE_DIR}/kernel/task/process
     ${CMAKE_SOURCE_DIR}/arch/boot/i386
     ${CMAKE_SOURCE_DIR}/arch/boot

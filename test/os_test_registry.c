@@ -43,6 +43,15 @@ extern void TestRrSetup(void);          extern void TestRrVerify(void);
 /* STRESS */
 extern void TestStressSetup(void);      extern void TestStressVerify(void);
 
+/* MSG */
+extern void TestMsgBasicSetup(void);    extern void TestMsgBasicVerify(void);
+extern void TestMsgMultiSetup(void);    extern void TestMsgMultiVerify(void);
+extern void TestMsgBlockSetup(void);    extern void TestMsgBlockVerify(void);
+extern void TestMsgTmoSetup(void);      extern void TestMsgTmoVerify(void);
+extern void TestMsgNoWaitSetup(void);   extern void TestMsgNoWaitVerify(void);
+extern void TestMsgAllocFreeSetup(void);extern void TestMsgAllocFreeVerify(void);
+extern void TestMsgInvPidSetup(void);   extern void TestMsgInvPidVerify(void);
+
 /* ====== 注册数组 ====== */
 
 #define TC(suite_, name_, func_, delay_, setup_)  \
@@ -82,6 +91,15 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("TASK", "self-delete", TestTaskVerify, 100, TestTaskSetup),
     /* RR (异步) */
     TC("RR", "round-robin", TestRrVerify, 100, TestRrSetup),
+    /* MSG (异步) */
+    TC("MSG", "basic",      TestMsgBasicVerify,   100, TestMsgBasicSetup),
+    TC("MSG", "multi",      TestMsgMultiVerify,   100, TestMsgMultiSetup),
+    TC("MSG", "block-recv", TestMsgBlockVerify,   100, TestMsgBlockSetup),
+    TC("MSG", "timeout",    TestMsgTmoVerify,      80, TestMsgTmoSetup),
+    TC("MSG", "no-wait",    TestMsgNoWaitVerify,   30, TestMsgNoWaitSetup),
+    /* MSG (同步) */
+    TC("MSG", "alloc-free", TestMsgAllocFreeVerify,  0, TestMsgAllocFreeSetup),
+    TC("MSG", "inv-pid",    TestMsgInvPidVerify,     0, TestMsgInvPidSetup),
     /* STRESS (长时间常稳，约 5min) */
     TC("STRESS", "soak", TestStressVerify, 0, TestStressSetup),
 };

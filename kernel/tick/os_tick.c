@@ -29,6 +29,12 @@ OS_SEC_KERNEL_TEXT bool OsTickTryHandleExpiredTsk(void)
             expiredTsk->status |= OS_TASK_STATUS_TIMEOUT;
         }
 
+        // 如果任务在等消息，标记超时
+        if (expiredTsk->status & OS_TASK_STATUS_PEND_MSG) {
+            expiredTsk->status &= ~OS_TASK_STATUS_PEND_MSG;
+            expiredTsk->status |= OS_TASK_STATUS_TIMEOUT;
+        }
+
         // SUSPENDED 任务不加就绪队列
         if (!(expiredTsk->status & OS_TASK_STATUS_SUSPENDED)) {
             OsSchedRdyListEnqueTsk(expiredTsk);

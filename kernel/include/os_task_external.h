@@ -25,6 +25,7 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 #define OS_TASK_STATUS_IN_DELAY   0x10U
 #define OS_TASK_STATUS_TIMEOUT    0x20U
 #define OS_TASK_STATUS_SUSPENDED  0x40U
+#define OS_TASK_STATUS_PEND_MSG   0x80U  /* 在等消息接收 */
 
 // 两种任务类型，线程和进程
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
@@ -51,6 +52,7 @@ struct OsTaskCb {
     enum OsTaskType tskType;
     uintptr_t pgDir;                /* 进程页目录，线程为NULL */
     struct OsList holdSemList;     /* 该任务持有的所有互斥信号量（通过 semCb->holdNode 挂入） */
+    struct OsList msgList;         /* 该任务的消息信箱（OsMsgHeader.queueNode 挂入） */
     struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
 };
 

@@ -8,6 +8,7 @@ enum OsMid {
     OS_MID_TASK,
     OS_MID_MEM,
     OS_MID_SEM,
+    OS_MID_MSG,
     OS_MID_USR,
     OS_MID_SCHED,
     OS_MID_TIMER,

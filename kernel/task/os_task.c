@@ -48,6 +48,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskConfigInit(void)
         OsListInit(&tskCb->pendListNode);
         OsListInit(&tskCb->timerListNode);
         OsListInit(&tskCb->holdSemList);
+        OsListInit(&tskCb->msgList);
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
@@ -186,7 +187,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskResume(U32 tskId)
 
     tskCb->status &= ~OS_TASK_STATUS_SUSPENDED;
 
-    if (!(tskCb->status & (OS_TASK_STATUS_PENDING | OS_TASK_STATUS_IN_DELAY))) {
+    if (!(tskCb->status & (OS_TASK_STATUS_PENDING | OS_TASK_STATUS_PEND_MSG | OS_TASK_STATUS_IN_DELAY))) {
         OsSchedRdyListEnqueTsk(tskCb);
     }
 
@@ -272,6 +273,11 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         tskCb->status &= ~OS_TASK_STATUS_PENDING;
     }
 
+    /* 清除等消息标志 */
+    if (tskCb->status & OS_TASK_STATUS_PEND_MSG) {
+        tskCb->status &= ~OS_TASK_STATUS_PEND_MSG;
+    }
+
     /* 从延时链表移除 */
     if (tskCb->status & OS_TASK_STATUS_IN_DELAY) {
         OsListRemoveNode(&tskCb->timerListNode);
@@ -282,6 +288,12 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     /* 从就绪队列移除 */
     if (tskCb->status & OS_TASK_STATUS_READY) {
         OsSchedRdyListDequeTsk(tskCb);
+    }
+
+    /* 释放该任务消息信箱中所有未读消息 */
+    while (!OsListIsEmpty(&tskCb->msgList)) {
+        struct OsList *msgNode = OsListPopHead(&tskCb->msgList);
+        OsMemKernelFree(msgNode);
     }
 
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {

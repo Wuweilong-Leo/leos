@@ -50,6 +50,7 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/kernel/tick \
             $(CUR_DIR)/kernel/hwi \
             $(CUR_DIR)/kernel/ipc/sem \
+            $(CUR_DIR)/kernel/ipc/msg \
             $(CUR_DIR)/kernel/task/process \
             $(CUR_DIR)/arch/boot/i386 \
             $(CUR_DIR)/arch/boot \
