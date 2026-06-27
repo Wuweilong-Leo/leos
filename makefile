@@ -33,6 +33,9 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/dev/print \
            $(CUR_DIR)/dev/include \
            $(CUR_DIR)/arch/dev/vga \
+           $(CUR_DIR)/arch/dev/kbd \
+           $(CUR_DIR)/arch/dev/kbd/i386 \
+           $(CUR_DIR)/kernel/shell \
            $(CUR_DIR)/debug/include \
            $(CUR_DIR)/kernel/mem \
            $(CUR_DIR)/kernel/mem/fsc \
@@ -70,6 +73,8 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/dev/print \
             $(CUR_DIR)/arch/dev/vga \
             $(CUR_DIR)/arch/dev/uart/i386 \
+            $(CUR_DIR)/arch/dev/kbd/i386 \
+            $(CUR_DIR)/kernel/shell \
             $(CUR_DIR)/debug \
             $(CUR_DIR)/test
 

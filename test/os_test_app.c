@@ -3,7 +3,7 @@
 #include "os_test.h"
 #include "string.h"
 
-/* APP 模块初始化：只创建一个总测试任务 */
+/* APP 模块初始化：只创建测试任务 */
 OS_SEC_KERNEL_TEXT U32 OsAppConfigInit(void)
 {
     U32 tskId;

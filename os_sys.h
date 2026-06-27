@@ -13,6 +13,7 @@ enum OsMid {
     OS_MID_SCHED,
     OS_MID_TIMER,
     OS_MID_DEV,
+    OS_MID_SHELL,
     OS_MID_APP,
 };
 
