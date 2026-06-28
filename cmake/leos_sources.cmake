@@ -31,6 +31,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/arch/dev/kbd
     ${CMAKE_SOURCE_DIR}/arch/dev/kbd/i386
     ${CMAKE_SOURCE_DIR}/kernel/shell
+    ${CMAKE_SOURCE_DIR}/kernel/symtab
     ${CMAKE_SOURCE_DIR}/debug/include
     ${CMAKE_SOURCE_DIR}/kernel/mem
     ${CMAKE_SOURCE_DIR}/kernel/mem/fsc
@@ -71,6 +72,7 @@ set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/arch/dev/uart/i386
     ${CMAKE_SOURCE_DIR}/arch/dev/kbd/i386
     ${CMAKE_SOURCE_DIR}/kernel/shell
+    ${CMAKE_SOURCE_DIR}/kernel/symtab
     ${CMAKE_SOURCE_DIR}/debug
     ${CMAKE_SOURCE_DIR}/test
 )

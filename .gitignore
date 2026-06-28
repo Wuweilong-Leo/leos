@@ -2,3 +2,4 @@
 /cmake-build/
 /bochs/
 *.ps1
+kernel/symtab/os_symtab_data.c

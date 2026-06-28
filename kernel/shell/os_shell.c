@@ -6,6 +6,7 @@
 #include "os_tick_external.h"
 #include "os_mem_external.h"
 #include "os_test_framework.h"
+#include "os_symtab_external.h"
 #include "string.h"
 
 /*
@@ -51,6 +52,8 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdMemInfo(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdUptime(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdLogLevel(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdTest(U32 argc, char *argv[]);
+static OS_SEC_KERNEL_TEXT U32 OsShellCmdSyms(U32 argc, char *argv[]);
+static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[]);
 
 /* ====== 命令注册表 ====== */
 
@@ -63,6 +66,8 @@ OS_SEC_KERNEL_DATA const struct OsShellCmd g_shellCmds[] = {
     OS_SHELL_CMD("uptime",   "show system ticks",   OsShellCmdUptime),
     OS_SHELL_CMD("loglevel", "set log level 0-4",   OsShellCmdLogLevel),
     OS_SHELL_CMD("test",     "run all tests",       OsShellCmdTest),
+    OS_SHELL_CMD("syms",     "list/search symbols", OsShellCmdSyms),
+    OS_SHELL_CMD("addr2name","addr to symbol name", OsShellCmdAddr2Name),
 };
 
 OS_SEC_KERNEL_DATA const U32 g_shellCmdCnt = sizeof(g_shellCmds) / sizeof(struct OsShellCmd);
@@ -152,6 +157,73 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdTest(U32 argc, char *argv[])
     (void)argc; (void)argv;
     OsTestRunAll();
     OsTestPrintSummary();
+    return 0;
+}
+
+static OS_SEC_KERNEL_TEXT void OsShellSymPrintCb(const struct OsSymtabEntry *ent)
+{
+    kprintf("0x%08x %s\n", (U32)ent->addr, ent->name);
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsShellCmdSyms(U32 argc, char *argv[])
+{
+    if (argc < 2) {
+        kprintf("%u symbols\n", g_symtabCnt);
+        return 0;
+    }
+
+    /* 前缀匹配 */
+    U32 match = OsSymtabPrefixMatch(argv[1], OsShellSymPrintCb);
+    kprintf("(%u matched)\n", match);
+    return 0;
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[])
+{
+    uintptr_t addr;
+    const struct OsSymtabEntry *ent;
+    const char *name;
+
+    if (argc < 2) {
+        kprintf("usage: addr2name 0xXXXXXXXX\n");
+        return 1;
+    }
+
+    /* 解析十六进制地址 */
+    addr = 0;
+    name = argv[1];
+
+    if (name[0] == '0' && (name[1] == 'x' || name[1] == 'X')) {
+        name += 2;
+    }
+
+    while (*name) {
+        U32 digit;
+        if (*name >= '0' && *name <= '9') {
+            digit = *name - '0';
+        } else if (*name >= 'a' && *name <= 'f') {
+            digit = *name - 'a' + 10;
+        } else if (*name >= 'A' && *name <= 'F') {
+            digit = *name - 'A' + 10;
+        } else {
+            break;
+        }
+        addr = addr * 16 + digit;
+        name++;
+    }
+
+    ent = OsSymtabLookup(addr);
+    if (ent == (void *)0) {
+        kprintf("0x%08x <unknown>\n", (U32)addr);
+        return 1;
+    }
+
+    if (addr == ent->addr) {
+        kprintf("0x%08x %s\n", (U32)addr, ent->name);
+    } else {
+        kprintf("0x%08x %s+0x%x\n", (U32)addr, ent->name, (U32)(addr - ent->addr));
+    }
+
     return 0;
 }
 
