@@ -17,7 +17,7 @@
 #define OS_MSG_PARAM_INVALID     OS_BUILD_ERR_CODE(OS_MID_MSG, 0x6)
 
 /* 公共 API */
-extern void *OsMsgAlloc(U32 size);
+extern void *OsMsgAlloc(size_t size);
 extern U32   OsMsgSend(U32 targetPid, void *msgBuf);
 extern U32   OsMsgRecv(U32 timeout, void **msgBuf);
 extern U32   OsMsgFree(void *msgBuf);

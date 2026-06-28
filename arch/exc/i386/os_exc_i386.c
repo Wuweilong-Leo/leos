@@ -78,7 +78,7 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
         return OsMemKernelAllocPgByAddr(pgBase) != NULL;
     } else {
-        OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (U32)errAddr);
+        OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (uintptr_t)errAddr);
         return FALSE;
     }
 }

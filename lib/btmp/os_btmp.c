@@ -3,7 +3,7 @@
 #include "string.h"
 #include "os_debug_external.h"
 
-OS_SEC_KERNEL_TEXT void OsBtmpInit(struct OsBtmp *btmp, U8 *base, U32 bitNum)
+OS_SEC_KERNEL_TEXT void OsBtmpInit(struct OsBtmp *btmp, U8 *base, size_t bitNum)
 {
     btmp->base = base;
     btmp->byteLen = OS_BTMP_BITNUM_2_BYTELEN(bitNum);
@@ -36,7 +36,7 @@ OS_SEC_KERNEL_TEXT void OsBtmpClear(struct OsBtmp *btmp, U32 idx)
 }
 
 /* 连续申请cnt个为val的位, val只能为1或者0 */
-OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *idx)
+OS_SEC_KERNEL_TEXT bool OsBtmpScan(struct OsBtmp *btmp, size_t cnt, U8 val, U32 *idx)
 {
     U32 left = 0;
     U32 right = 0;

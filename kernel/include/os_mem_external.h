@@ -31,12 +31,12 @@ struct OsMemPool {
 #define OS_KERNEL_VIR_HEAP_MEM_SIZE (4 * 1024 * 1024)
 
 extern U32 OsMemConfigInit(void);
-extern uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, U32 cnt);
-extern uintptr_t OsMemKernelAllocPgs(U32 cnt);
-extern uintptr_t OsMemUsrAllocPgs(U32 cnt);
+extern uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, size_t cnt);
+extern uintptr_t OsMemKernelAllocPgs(size_t cnt);
+extern uintptr_t OsMemUsrAllocPgs(size_t cnt);
 extern uintptr_t OsMemUsrAllocPgByAddr(uintptr_t virAddr);
 extern uintptr_t OsMemKernelAllocPgByAddr(uintptr_t virAddr);
-extern void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, U32 memSize, U8 *btmpBase);
+extern void OsMemPoolInit(struct OsMemPool *memPool, uintptr_t memBase, size_t memSize, U8 *btmpBase);
 
 extern struct OsMemPool g_kernelPhyMemPool;
 extern struct OsMemPool g_usrPhyMemPool;

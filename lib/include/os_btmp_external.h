@@ -4,8 +4,8 @@
 #include "os_cpu.h"
 
 struct OsBtmp {
-    U32 byteLen;
-    U32 bitNum;
+    size_t byteLen;
+    size_t bitNum;
     U8 *base;
 };
 
@@ -14,8 +14,8 @@ struct OsBtmp {
 extern U8 OsBtmpGet(struct OsBtmp *btmp, U32 idx);
 extern void OsBtmpSet(struct OsBtmp *btmp, U32 idx);
 extern void OsBtmpClear(struct OsBtmp *btmp, U32 idx);
-extern bool OsBtmpScan(struct OsBtmp *btmp, U32 cnt, U8 val, U32 *idx);
-extern void OsBtmpInit(struct OsBtmp *btmp, U8 *base, U32 bitNum);
+extern bool OsBtmpScan(struct OsBtmp *btmp, size_t cnt, U8 val, U32 *idx);
+extern void OsBtmpInit(struct OsBtmp *btmp, U8 *base, size_t bitNum);
 
 /* 用位图需要管理的内存大小获取位图所需内存页数 */
 #define OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(memSize)                                                    \

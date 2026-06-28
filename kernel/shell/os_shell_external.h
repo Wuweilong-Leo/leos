@@ -16,7 +16,7 @@ struct OsShellCmd {
 /* ====== Shell API ====== */
 
 /* 将一行键盘输入提交给 shell 任务（由 kbd ISR 调用） */
-extern void OsShellInput(const char *cmd, U32 len);
+extern void OsShellInput(const char *cmd, size_t len);
 
 /* Shell 模块初始化（创建 shell 任务） */
 extern U32 OsShellConfigInit(void);

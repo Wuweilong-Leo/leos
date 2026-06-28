@@ -1,8 +1,8 @@
 #include "os_def.h"
 
-OS_SEC_KERNEL_TEXT void memset(void *const dst, U8 value, U32 size)
+OS_SEC_KERNEL_TEXT void memset(void *const dst, U8 value, size_t size)
 {
-    U32 i;
+    size_t i;
     U8 *dstTmp = (U8 *)dst;
 
     for (i = 0; i < size; i++) {
@@ -10,20 +10,20 @@ OS_SEC_KERNEL_TEXT void memset(void *const dst, U8 value, U32 size)
     }
 }
 
-OS_SEC_KERNEL_TEXT void memcpy(void *dst, const void *src, U32 size)
+OS_SEC_KERNEL_TEXT void memcpy(void *dst, const void *src, size_t size)
 {
     U8 *dstTmp = (U8 *)dst;
     U8 *srcTmp = (U8 *)src;
-    for (U32 i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
         dstTmp[i] = srcTmp[i];
     }
 }
 
-OS_SEC_KERNEL_TEXT S32 memcmp(void *s1, void *s2, U32 size)
+OS_SEC_KERNEL_TEXT S32 memcmp(void *s1, void *s2, size_t size)
 {
     const char *s1Tmp = (const char *)s1;
     const char *s2Tmp = (const char *)s2;
-    for (U32 i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
         if (s1Tmp[i] != s2Tmp[i]) {
             return s1Tmp[i] > s2Tmp[i] ? 1 : -1;
         }
@@ -43,7 +43,7 @@ OS_SEC_KERNEL_TEXT char *strcpy(char *dst, const char *src)
     return ret;
 }
 
-OS_SEC_KERNEL_TEXT U32 strlen(const char *str)
+OS_SEC_KERNEL_TEXT size_t strlen(const char *str)
 {
     const char *p = str;
     while (*p++) {
@@ -94,9 +94,9 @@ OS_SEC_KERNEL_TEXT char *strcat(char *dst, const char *src)
     return dst;
 }
 
-OS_SEC_KERNEL_TEXT U32 strchrs(const char *str, U8 ch)
+OS_SEC_KERNEL_TEXT size_t strchrs(const char *str, U8 ch)
 {
-    U32 chCnt = 0;
+    size_t chCnt = 0;
     const char *p = str;
     while (*p != 0) {
         if (*p == ch) {

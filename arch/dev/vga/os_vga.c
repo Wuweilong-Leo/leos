@@ -43,7 +43,7 @@ OS_SEC_KERNEL_TEXT void OsVgaScrollUp(void)
 {
     U8 *dst = (U8 *)OS_VGA_BUF_ADDR;
     U8 *src = dst + OS_VGA_COL_NUM * 2;
-    U32 size = (OS_VGA_POS_NUM - OS_VGA_COL_NUM) * 2;
+    size_t size = (OS_VGA_POS_NUM - OS_VGA_COL_NUM) * 2;
 
     memcpy(dst, src, size);
 }

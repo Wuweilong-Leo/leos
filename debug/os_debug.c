@@ -52,7 +52,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintList(struct OsList *list)
     struct OsList *tmpNode;
 
     OS_LIST_FOR_EACH(list, tmpNode) {
-        kprintf("0x%x<->0x%x ", (U32)tmpNode->prev, (U32)tmpNode->next);
+        kprintf("0x%x<->0x%x ", (uintptr_t)tmpNode->prev, (uintptr_t)tmpNode->next);
     }
     kprintf("[end]\n");
 }
@@ -82,7 +82,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintTaskInfo(struct OsTaskCb *tsk)
         return;
     }
     kprintf("Task pid=%u name=%s prio=%u status=0x%x stkTop=0x%x\n", tsk->pid, tsk->name, tsk->prio,
-            tsk->status, (U32)tsk->kernelStkTop);
+            tsk->status, (uintptr_t)tsk->kernelStkTop);
 }
 
 OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
@@ -101,7 +101,7 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintAllTasks(void)
         OS_LIST_FOR_EACH(&rq->rdyList[i], node) {
             /* 通过 rdyListNode 偏移反推 OsTaskCb */
             struct OsTaskCb *tsk =
-                (struct OsTaskCb *)((U8 *)node - (U32)(&((struct OsTaskCb *)0)->rdyListNode));
+                (struct OsTaskCb *)((U8 *)node - (uintptr_t)(&((struct OsTaskCb *)0)->rdyListNode));
             OsDebugPrintTaskInfo(tsk);
         }
     }
@@ -116,8 +116,8 @@ OS_SEC_KERNEL_TEXT void OsDebugPrintMemPool(struct OsMemPool *pool, const char *
         kprintf("MemPool [%s]: NULL\n", name);
         return;
     }
-    kprintf("MemPool [%s] base=0x%x size=0x%x btmp.base=0x%x btmp.bits=%u\n", name, (U32)pool->base,
-            (U32)pool->size, (U32)pool->btmp.base, pool->btmp.bitNum);
+    kprintf("MemPool [%s] base=0x%x size=0x%x btmp.base=0x%x btmp.bits=%u\n", name, (uintptr_t)pool->base,
+            (size_t)pool->size, (uintptr_t)pool->btmp.base, pool->btmp.bitNum);
 }
 
 /* ---- 系统状态概览 ---- */

@@ -43,11 +43,11 @@ OS_SEC_KERNEL_TEXT void OsUartPuts(const char *s)
     }
 }
 
-OS_SEC_KERNEL_TEXT S32 OsUartPrintf(const char *fmt, ...)
+OS_SEC_KERNEL_TEXT size_t OsUartPrintf(const char *fmt, ...)
 {
     char buf[256] = {0};
     void *args;
-    U32 len;
+    size_t len;
     enum OsIntStatus intSave;
 
     intSave = OsIntLock();

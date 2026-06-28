@@ -195,7 +195,7 @@ OS_SEC_KERNEL_TEXT void *OsMemFscAlloc(struct OsMemFscCtrl *ptCtrl, size_t size,
     if (blk == NULL) {
         blk = OsMemFscExactSearch(ptCtrl, allocSize, alignSize, align);
         if (blk == NULL) {
-            OS_LOG_ERROR("no suitable block, size=%u align=%u\n", (U32)size, align);
+            OS_LOG_ERROR("no suitable block, size=%u align=%u\n", (size_t)size, align);
             OsIntRestore(intSave);
             return NULL;
         }

@@ -27,7 +27,7 @@ OS_SEC_KERNEL_TEXT U32 OsMsgConfigInit(void)
     return OS_OK;
 }
 
-OS_SEC_KERNEL_TEXT void *OsMsgAlloc(U32 size)
+OS_SEC_KERNEL_TEXT void *OsMsgAlloc(size_t size)
 {
     struct OsList *header;
     size_t totalSize;

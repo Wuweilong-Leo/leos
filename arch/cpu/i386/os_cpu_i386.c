@@ -44,7 +44,7 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
 
     /* 当前tcb里保存的栈顶指针还指向之前伪造的栈顶 */
     stkTop =
-        (U32)curTsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE - sizeof(struct OsAllSaveContext);
+        (uintptr_t)curTsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE - sizeof(struct OsAllSaveContext);
 
     allSaveContext = (struct OsAllSaveContext *)stkTop;
     allSaveContext->saveFlag = OS_ALL_SAVE_FLAG;
@@ -71,10 +71,10 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
         OS_PANIC("OsMemUsrAllocPgByAddr failed\n");
     }
 
-    allSaveContext->esp = (uintptr_t)((U32)memBase + OS_PG_SIZE);
+    allSaveContext->esp = memBase + OS_PG_SIZE;
 
     /* 通过中断返回切到进程，我们设置过eflags，因此切出去直接开中断 */
-    OS_EMBED_ASM("mov %0, %%esp; jmp OsSwitch2Process" ::"g"((U32)allSaveContext) : "memory");
+    OS_EMBED_ASM("mov %0, %%esp; jmp OsSwitch2Process" ::"g"((uintptr_t)allSaveContext) : "memory");
 }
 
 OS_SEC_KERNEL_TEXT void OsProcessInitArch(struct OsTaskCb *process)
@@ -107,7 +107,7 @@ OS_SEC_KERNEL_TEXT void OsConfigTssForTskSwitch(struct OsTaskCb *tsk)
 {
     if (tsk->tskType == OS_TASK_PROCESS) {
         OsTssUpdateEsp0(OS_SELECTOR_K_DATA,
-                        (uintptr_t)((U32)tsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE));
+                        tsk->kernelStkTop + OS_TASK_KERNEL_STACK_SIZE);
     }
 }
 

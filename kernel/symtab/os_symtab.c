@@ -58,7 +58,7 @@ OS_SEC_KERNEL_TEXT const char *OsSymtabAddr2Name(uintptr_t addr)
 
     ent = OsSymtabLookup(addr);
     if (ent == (void *)0) {
-        kprintf("0x%x", (U32)addr);
+        kprintf("0x%x", (uintptr_t)addr);
         return (void *)0;
     }
 
@@ -66,7 +66,7 @@ OS_SEC_KERNEL_TEXT const char *OsSymtabAddr2Name(uintptr_t addr)
 
     kprintf("%s", ent->name);
     if (offset != 0) {
-        kprintf("+0x%x", (U32)offset);
+        kprintf("+0x%x", (uintptr_t)offset);
     }
 
     return ent->name;
@@ -90,11 +90,11 @@ OS_SEC_KERNEL_TEXT U32 OsSymtabPrefixMatch(const char *prefix,
 {
     U32 i;
     U32 count = 0;
-    U32 prefixLen;
-    U32 j;
+    size_t prefixLen;
+    size_t j;
     bool match;
 
-    prefixLen = (U32)strlen(prefix);
+    prefixLen = strlen(prefix);
 
     for (i = 0; i < g_symtabCnt; i++) {
         match = TRUE;

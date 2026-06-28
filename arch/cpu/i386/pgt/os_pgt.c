@@ -34,7 +34,7 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
     *(U32 *)((uintptr_t)pgd + 0xc00) = firstPgtBase | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
     /* 最后一个页目录项指向页目录本身 */
-    *(U32 *)((uintptr_t)pgd + 4092) = (U32)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
+    *(U32 *)((uintptr_t)pgd + 4092) = (uintptr_t)pgd | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
 
     /* 给第一张页表每个页表项赋值，完成2M映射 */
     for (i = 0; i < 512; i++) {
@@ -42,7 +42,7 @@ OS_SEC_LOADER_TEXT void OsSetupPgt(void)
         addr += OS_PG_SIZE;
     }
 
-    addr = (U32)&g_pgt[1][0];
+    addr = (uintptr_t)&g_pgt[1][0];
     for (i = 769; i < 1023; i++) {
         *(U32 *)(&pgd[i]) = addr | OS_PG_P | OS_PG_RW_W | OS_PG_US_U;
         addr += OS_PG_SIZE;
@@ -54,7 +54,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba28(U32 secId, U32 secNum, uintptr_t dst)
 {
     volatile U8 status;
     U32 readTimes;
-    U32 dstAddr = (U32)dst;
+    U32 dstAddr = (uintptr_t)dst;
     U16 data;
 
     /* 1. 等待 BSY=0 */
@@ -105,7 +105,7 @@ OS_SEC_LOADER_TEXT void OsReadDiskLba48(U32 secId, U32 secNum, uintptr_t dst)
 {
     volatile U8 status;
     U32 readTimes;
-    U32 dstAddr = (U32)dst;
+    U32 dstAddr = (uintptr_t)dst;
     U16 data;
 
     /* 1. 等待 BSY=0 */
@@ -198,7 +198,7 @@ OS_SEC_KERNEL_TEXT bool OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
     if (OsPdeIsExisted(pdeVaddr)) {
         /* 如果页表项还不存在，添加页表项 */
         if (!OsPteIsExisted(pteVaddr)) {
-            *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+            *(U32 *)pteVaddr = (uintptr_t)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
         } else {
             /* PTE 已存在，可能是预映射的页，跳过 */
         }
@@ -209,18 +209,18 @@ OS_SEC_KERNEL_TEXT bool OsMapVir2Phy(uintptr_t virAddr, uintptr_t phyAddr)
     ptPhyAddr = OsMemPoolGetFreePgs(&g_kernelPhyMemPool, 1);
     if (ptPhyAddr == (uintptr_t)NULL) {
         /* 物理池耗尽：不能把0写进PDE再去memset，那会清掉物理0(实模式IVT) */
-        OS_LOG_ERROR("OsMapVir2Phy: alloc page table failed, vaddr=0x%x\n", (U32)virAddr);
+        OS_LOG_ERROR("OsMapVir2Phy: alloc page table failed, vaddr=0x%x\n", (uintptr_t)virAddr);
         return FALSE;
     }
     /*
      * 因为页目录的最后一项是本身地址，一旦把页表物理地址写入页目录,
      * 无论内核态还是用户态，都可以通过pteVaddr来访问页表项了
      */
-    *(U32 *)pdeVaddr = (U32)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    *(U32 *)pdeVaddr = (uintptr_t)ptPhyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
     /* 把整张页表初始化为0 */
     memset(pteVaddr & 0xFFFFF000, 0, OS_PG_SIZE);
     /* 写入页表项 */
-    *(U32 *)pteVaddr = (U32)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
+    *(U32 *)pteVaddr = (uintptr_t)phyAddr | OS_PG_US_U | OS_PG_RW_W | OS_PG_P;
     return TRUE;
 }
 
@@ -229,7 +229,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsGetPaddrByVaddr(uintptr_t vaddr)
 {
     uintptr_t pte = OsGetPteVirAddr(vaddr);
 
-    return (uintptr_t)(((*(U32 *)pte) & 0xfffff000) + ((U32)vaddr & 0xfff));
+    return (uintptr_t)(((*(U32 *)pte) & 0xfffff000) + ((uintptr_t)vaddr & 0xfff));
 }
 
 /* 取消虚实映射，返回对应的物理地址 */
@@ -266,18 +266,18 @@ OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
         return NULL;
     }
 
-    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdBase = 0x%x\n", (U32)pgdBase);
+    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdBase = 0x%x\n", (uintptr_t)pgdBase);
 
     /* 对页目录项进行复制，要把内核1G全部复制过来 */
     memcpy(
-        (uintptr_t)((U32)pgdBase + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry)),
-        (uintptr_t)((U32)OS_CUR_PGD_VIR_ADDR + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry)),
+        (uintptr_t)pgdBase + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry),
+        (uintptr_t)OS_CUR_PGD_VIR_ADDR + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry),
         OS_PG_SIZE / 4);
 
     /* 要把页目录的物理地址写入最后一项 */
     pgdPhyAddr = OsGetPaddrByVaddr((uintptr_t)pgdBase);
-    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdPhyAddr = 0x%x\n", (U32)pgdPhyAddr);
-    *(U32 *)(&pgdBase[OS_PGD_ENTRY_NUM - 1]) = (U32)pgdPhyAddr | OS_PG_RW_W | OS_PG_US_U | OS_PG_P;
+    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdPhyAddr = 0x%x\n", (uintptr_t)pgdPhyAddr);
+    *(U32 *)(&pgdBase[OS_PGD_ENTRY_NUM - 1]) = (uintptr_t)pgdPhyAddr | OS_PG_RW_W | OS_PG_US_U | OS_PG_P;
 
     return (uintptr_t)pgdBase;
 }

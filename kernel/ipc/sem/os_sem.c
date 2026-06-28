@@ -23,7 +23,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemConfigInit(void)
     size = g_semMaxNum * sizeof(struct OsSemCb);
     g_semCbArray = (struct OsSemCb *)OsMemKernelAlloc(size, 4);
     if (g_semCbArray == NULL) {
-        OS_PANIC("alloc semCbArray failed, size=%u\n", (U32)size);
+        OS_PANIC("alloc semCbArray failed, size=%u\n", (size_t)size);
     }
 
     memset(g_semCbArray, 0, size);

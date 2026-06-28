@@ -24,7 +24,7 @@ static OS_SEC_KERNEL_BSS U32 g_shellPid;
 
 /* ====== 供 kbd ISR 调用 ====== */
 
-OS_SEC_KERNEL_TEXT void OsShellInput(const char *cmd, U32 len)
+OS_SEC_KERNEL_TEXT void OsShellInput(const char *cmd, size_t len)
 {
     void *msg;
 
@@ -162,7 +162,7 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdTest(U32 argc, char *argv[])
 
 static OS_SEC_KERNEL_TEXT void OsShellSymPrintCb(const struct OsSymtabEntry *ent)
 {
-    kprintf("0x%08x %s\n", (U32)ent->addr, ent->name);
+    kprintf("0x%08x %s\n", (uintptr_t)ent->addr, ent->name);
 }
 
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdSyms(U32 argc, char *argv[])
@@ -214,14 +214,14 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[])
 
     ent = OsSymtabLookup(addr);
     if (ent == (void *)0) {
-        kprintf("0x%08x <unknown>\n", (U32)addr);
+        kprintf("0x%08x <unknown>\n", (uintptr_t)addr);
         return 1;
     }
 
     if (addr == (uintptr_t)ent->addr) {
-        kprintf("0x%08x %s\n", (U32)addr, ent->name);
+        kprintf("0x%08x %s\n", (uintptr_t)addr, ent->name);
     } else {
-        kprintf("0x%08x %s+0x%x\n", (U32)addr, ent->name, (U32)(addr - (uintptr_t)ent->addr));
+        kprintf("0x%08x %s+0x%x\n", (uintptr_t)addr, ent->name, (uintptr_t)(addr - (uintptr_t)ent->addr));
     }
 
     return 0;

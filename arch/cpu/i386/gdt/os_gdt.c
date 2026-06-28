@@ -73,9 +73,9 @@ OS_SEC_KERNEL_TEXT void OsBuildGdtEntry(U32 gdtIdx, uintptr_t addr, U32 limit, U
 
     entry->limitLowWord = limit & 0xFFFF;
     entry->limitHigh = (limit & 0xF0000) >> 16;
-    entry->baseLowWord = (U32)addr & 0xFFFF;
-    entry->baseMidByte = ((U32)addr & 0xFF0000) >> 16;
-    entry->baseHighByte = ((U32)addr & 0xFF000000) >> 24;
+    entry->baseLowWord = (uintptr_t)addr & 0xFFFF;
+    entry->baseMidByte = ((uintptr_t)addr & 0xFF0000) >> 16;
+    entry->baseHighByte = ((uintptr_t)addr & 0xFF000000) >> 24;
 
     entry->attrType = attrType;
     entry->attrS = attrS;

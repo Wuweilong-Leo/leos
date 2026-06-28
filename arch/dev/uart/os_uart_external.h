@@ -10,6 +10,6 @@ extern void OsUartInit(void);
 extern void OsUartPutc(char c);
 extern void OsUartPuts(const char *s);
 /* 串口专用格式化打印(与 kprintf 同 %s/%x/%d/%c 语法,只输出到 COM1,不进 VGA) */
-extern S32 OsUartPrintf(const char *fmt, ...);
+extern size_t OsUartPrintf(const char *fmt, ...);
 
 #endif /* OS_UART_EXTERNAL_H */
