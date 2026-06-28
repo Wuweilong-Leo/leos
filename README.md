@@ -49,7 +49,7 @@ dd if=kernel.bin of=leos_hdd.img bs=512 seek=9 conv=notrunc
 qemu-system-i386 -drive format=raw,file=leos_hdd.img,if=ide -boot c -m 32
 ```
 
-你应该能看到 VGA 屏幕上显示三个线程（A/B/C）在屏幕上显示各自的计数器。第 0 行是 MBR 输出的 "1 MBR"，内核输出从第 2 行开始。
+你应该能看到 VGA 屏幕上显示多个任务计数器（A/B/C/D/E/F）和测试结果。第 0 行是 MBR 输出的 "1 MBR"，内核输出从第 2 行开始。
 
 ---
 
@@ -171,16 +171,22 @@ PTE[13]  → 指向物理地址 0xD000（内核代码所在位置）
 
 ```
 main()
- ├── OsConfigInit()          ← 调用所有模块的 Init 函数
- │    ├── OsTaskConfigInit()  ← 分配任务控制块数组
- │    ├── OsSchedConfigInit() ← 初始化就绪队列
- │    ├── OsMemConfigInit()   ← 初始化内存管理 + 映射虚拟堆
- │    ├── OsHwiConfigInit()   ← 安装中断处理程序
- │    ├── OsUsrConfigInit()   ← 用户态配置
- │    ├── OsSemConfigInit()   ← 初始化信号量
-    └── OsAppConfigInit()    ← APP测试模块（创建TaskA/B/C）
- ├── 创建测试线程 TaskA/B/C
- ├── OsSchedSwitchFirstTsk() ← 切换到最高优先级就绪任务
+ ├── OsConfigInit()             ← 调用所有模块的 Init 函数
+ │    ├── OsBssConfigInit()     ← BSS 段清零
+ │    ├── OsDevConfigInit()     ← 设备初始化（VGA、键盘、串口）
+ │    ├── OsSysConfigInit()     ← 系统栈注册
+ │    ├── OsExcConfigInit()     ← 异常处理初始化
+ │    ├── OsHwiConfigInit()     ← 安装中断处理程序
+ │    ├── OsMemConfigInit()     ← 初始化内存管理 + 映射虚拟堆
+ │    ├── OsUsrConfigInit()     ← 用户态 GDT/TSS 配置
+ │    ├── OsSchedConfigInit()   ← 初始化就绪队列
+ │    ├── OsTaskConfigInit()    ← 分配任务控制块数组
+ │    ├── OsTimerConfigInit()   ← PIT 定时器初始化
+ │    ├── OsSemConfigInit()     ← 初始化信号量
+ │    ├── OsMsgConfigInit()     ← 初始化消息 IPC
+ │    ├── OsShellConfigInit()   ← Shell 初始化
+ │    └── OsAppConfigInit()     ← APP 测试模块（创建测试任务）
+ ├── OsSchedSwitchFirstTsk()    ← 切换到最高优先级就绪任务
  └── （永远不会返回）
 ```
 
@@ -303,7 +309,10 @@ leos/
 ├── arch/                  ← 架构相关代码
 │   ├── boot/i386/         ← MBR、Loader（汇编）
 │   ├── cpu/i386/          ← CPU 初始化、GDT、页表、TSS、上下文切换
+│   ├── dev/               ← 设备驱动（VGA、键盘、串口）
+│   ├── exc/i386/          ← 异常处理（缺页等）
 │   ├── hwi/i386/          ← 中断控制器（8259A）、中断处理
+│   ├── idt/i386/          ← 中断描述符表
 │   ├── timer/i386/        ← PIT 定时器
 │   ├── io/i386/           ← I/O 端口操作
 │   └── sys/               ← 系统栈注册
@@ -312,14 +321,14 @@ leos/
 │   ├── sched/             ← 调度器
 │   ├── tick/              ← 时钟滴答处理
 │   ├── mem/               ← 内存管理（物理池 + FSC 虚拟堆）
-│   └── ipc/sem/           ← 信号量
-├── dev/                   ← 设备驱动
-│   └── print/             ← kprintf 内核打印
+│   ├── ipc/               ← 进程间通信
+│   │   ├── sem/           ← 信号量（计数/二值/互斥/优先级继承）
+│   │   └── msg/           ← 消息 IPC
+│   ├── print/             ← kprintf 内核打印
+│   ├── shell/             ← Shell 命令行
+│   ├── symtab/            ← 符号表（地址→函数名）
+│   └── hwi/               ← 中断框架
 ├── test/                  ← 测试模块
-│   ├── os_test.h          ← 测试框架头文件
-│   ├── os_test_app.c      ← APP 初始化入口（configInit 表调用）
-│   ├── os_test_task.c     ← 任务调度测试（TaskA/B/C）
-│   └── os_test_sem.c      ← 信号量测试（计数/二值/互斥/优先级继承）
 ├── debug/                 ← 调试打印宏
 ├── lib/                   ← C 库函数（memset, strcpy 等）
 ├── ld_script/             ← 链接脚本
@@ -333,9 +342,8 @@ leos/
 ## 已知限制
 
 - 虚拟堆固定 4MB，需要实现按需映射才能扩大
-- 只支持内核线程（Ring 0），用户态进程（Ring 3）尚未测试
 - 没有文件系统
-- 没有键盘/网络驱动
+- 没有网络驱动
 - 单核 only
 
 ---
@@ -365,7 +373,7 @@ cat /tmp/leos_serial.log
 killall qemu-system-i386
 ```
 
-**注意：** 串口输出由 `TestSemResultCollector` 任务产生（周期性打印 `[SEM_RESULT] 0x...`）。如果内核在信号量测试完成前 crash，串口不会有输出。如果串口无输出，改用下面的 QMP 方式检查内核状态。
+**注意：** 串口输出由内核测试模块产生（逐条打印 `[PASS]`/`[FAIL]` 结果）。如果内核在测试完成前 crash，串口不会有输出。如果串口无输出，改用下面的 QMP 方式检查内核状态。
 
 ### GDB 远程调试
 
