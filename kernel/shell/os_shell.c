@@ -218,10 +218,10 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[])
         return 1;
     }
 
-    if (addr == ent->addr) {
+    if (addr == (uintptr_t)ent->addr) {
         kprintf("0x%08x %s\n", (U32)addr, ent->name);
     } else {
-        kprintf("0x%08x %s+0x%x\n", (U32)addr, ent->name, (U32)(addr - ent->addr));
+        kprintf("0x%08x %s+0x%x\n", (U32)addr, ent->name, (U32)(addr - (uintptr_t)ent->addr));
     }
 
     return 0;

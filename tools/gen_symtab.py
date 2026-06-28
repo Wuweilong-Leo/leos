@@ -4,30 +4,30 @@ gen_symtab.py — 从 GNU ld -Map 输出中提取内核符号表
 
 用法: python3 gen_symtab.py <kernel.map> <output.c>
 
-解析 kernel.map，提取 Os*/main* 前缀且位于内核空间(0xC000xxxx)的符号，
-生成包含字符串池 + 排序 entry 数组的 C 源文件。
+解析 kernel.map，提取 Os*/main* 前缀且位于内核空间的符号，
+生成包含 OS_SYMTAB_ENTRY() 宏调用的 C 数组。
+编译器通过 &(sym) 解析地址，#sym 字符串化函数名。
 """
 
 import re
 import sys
 
 # 匹配符号行: 大量空格 + 0x + 16位hex地址 + 空格 + 符号名
-# 例: "                0x00000000c000d000                main"
 SYM_RE = re.compile(r'^\s+0x[0-9a-fA-F]{16}\s+(\S+)$')
 
 # 内核地址范围
 KERNEL_ADDR_MIN = 0xC0000000
 KERNEL_ADDR_MAX = 0xC0FFFFFF
 
-# 允许的符号前缀（Os* / main*）
+# 允许的符号前缀
 ALLOWED_PREFIXES = ('Os', 'main')
 
 # 排除的模式
-EXCLUDE_PATTERNS = re.compile(r'^[$.]')  # $d, $x, .hidden 等
+EXCLUDE_PATTERNS = re.compile(r'^[$.]')
 
 
 def parse_map(map_path):
-    """解析 kernel.map，返回 [(addr, name), ...] 列表"""
+    """解析 kernel.map，返回按地址升序排列的符号名列表"""
     symbols = []
     seen = set()
 
@@ -39,7 +39,6 @@ def parse_map(map_path):
 
             name = m.group(1)
 
-            # 提取地址：从行中解析
             parts = line.strip().split()
             if len(parts) < 2:
                 continue
@@ -49,66 +48,58 @@ def parse_map(map_path):
             except ValueError:
                 continue
 
-            # 过滤：内核地址范围
             if addr < KERNEL_ADDR_MIN or addr > KERNEL_ADDR_MAX:
                 continue
-
-            # 过滤：允许的前缀
             if not any(name.startswith(p) for p in ALLOWED_PREFIXES):
                 continue
-
-            # 过滤：排除链接器辅助符号
             if EXCLUDE_PATTERNS.match(name):
                 continue
-
-            # 去重（同名符号取第一个出现的）
             if name in seen:
                 continue
             seen.add(name)
 
             symbols.append((addr, name))
 
-    # 按地址升序排序
     symbols.sort(key=lambda x: x[0])
     return symbols
 
 
 def gen_c_source(symbols):
-    """生成 C 源文件内容"""
+    """生成 C 源文件内容
+
+    不 include os_symtab_external.h，避免与同名函数声明冲突。
+    直接前置声明 struct OsSymtabEntry 和宏 OS_SYMTAB_ENTRY。
+    """
     lines = []
     lines.append('/*')
     lines.append(' * os_symtab_data.c — 自动生成，勿手动编辑')
     lines.append(' * 由 tools/gen_symtab.py 从 kernel.map 生成')
     lines.append(' */')
     lines.append('')
-    lines.append('#include "os_symtab_external.h"')
     lines.append('#include "os_def.h"')
     lines.append('')
-
-    # 字符串池
-    lines.append('OS_SEC_KERNEL_DATA const char g_symtab_str[] =')
-    offset_map = {}
-    current_offset = 0
-
-    for addr, name in symbols:
-        offset_map[name] = current_offset
-        lines.append(f'    "{name}\\0"')
-        current_offset += len(name) + 1  # +1 for \0
-
-    lines.append(';')
+    lines.append('struct OsSymtabEntry {')
+    lines.append('    const void *addr;')
+    lines.append('    const char *name;')
+    lines.append('};')
+    lines.append('')
+    lines.append('#define OS_SYMTAB_ENTRY(sym) { (const void *)&(sym), #sym }')
     lines.append('')
 
-    # entry 数组
+    # extern 声明：让编译器知道这些符号存在
+    lines.append('/* extern 声明 */')
+    for _, name in symbols:
+        lines.append(f'extern const char {name}[];')
+    lines.append('')
+
     lines.append('OS_SEC_KERNEL_DATA const struct OsSymtabEntry g_symtab[] = {')
 
     for addr, name in symbols:
-        lines.append(f'    {{0x{addr:08X}, &g_symtab_str[{offset_map[name]}]}},  /* {name} */')
+        lines.append(f'    OS_SYMTAB_ENTRY({name}),')
 
     lines.append('};')
     lines.append('')
-
-    # count
-    lines.append(f'OS_SEC_KERNEL_DATA const U32 g_symtabCnt = {len(symbols)};')
+    lines.append(f'OS_SEC_KERNEL_DATA const U32 g_symtabCnt = sizeof(g_symtab) / sizeof(struct OsSymtabEntry);')
     lines.append('')
 
     return '\n'.join(lines)

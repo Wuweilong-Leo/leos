@@ -5,9 +5,11 @@
 /* ====== 符号表条目 ====== */
 
 struct OsSymtabEntry {
-    uintptr_t addr;       /* 符号地址 */
-    const char *name;     /* 符号名（指向字符串池） */
+    const void *addr;     /* &func — 链接器解析地址 */
+    const char *name;     /* #func — 编译器字符串化 */
 };
+
+#define OS_SYMTAB_ENTRY(sym) { (const void *)&(sym), #sym }
 
 /* ====== 符号表数据（由 gen_symtab.py 生成） ====== */
 

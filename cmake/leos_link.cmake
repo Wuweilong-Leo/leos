@@ -22,7 +22,6 @@ if(NOT EXISTS ${LEOS_SYMTAB_SRC})
         "#include \"os_symtab_external.h\"\n"
         "#include \"os_def.h\"\n"
         "\n"
-        "OS_SEC_KERNEL_DATA const char g_symtab_str[] = \"\";\n"
         "OS_SEC_KERNEL_DATA const struct OsSymtabEntry g_symtab[] = { {0, 0} };\n"
         "OS_SEC_KERNEL_DATA const U32 g_symtabCnt = 0;\n"
     )
