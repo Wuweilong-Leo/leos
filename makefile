@@ -35,6 +35,7 @@ INC_DIR := $(CUR_DIR) \
            $(CUR_DIR)/arch/dev/kbd \
            $(CUR_DIR)/arch/dev/kbd/i386 \
            $(CUR_DIR)/kernel/shell \
+           $(CUR_DIR)/kernel/symtab \
            $(CUR_DIR)/debug/include \
            $(CUR_DIR)/kernel/mem \
            $(CUR_DIR)/kernel/mem/fsc \
@@ -74,12 +75,22 @@ SRC_DIRS := $(CUR_DIR) \
             $(CUR_DIR)/arch/dev/uart/i386 \
             $(CUR_DIR)/arch/dev/kbd/i386 \
             $(CUR_DIR)/kernel/shell \
+            $(CUR_DIR)/kernel/symtab \
             $(CUR_DIR)/debug \
             $(CUR_DIR)/test
 
 # 查找所有源文件
 C_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.c))
 ASM_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.S))
+
+# 符号表生成脚本
+SYMTAB_SCRIPT := $(CUR_DIR)/tools/gen_symtab.py
+SYMTAB_DATA   := $(CUR_DIR)/kernel/symtab/os_symtab_data.c
+
+# 确保 os_symtab_data.c 占位文件存在
+ifeq ($(wildcard $(SYMTAB_DATA)),)
+$(shell printf '/* placeholder */\n#include "os_def.h"\nstruct OsSymtabEntry { const void *addr; const char *name; };\n#define OS_SYMTAB_ENTRY(sym) { (const void *)&(sym), #sym }\nOS_SEC_KERNEL_DATA const struct OsSymtabEntry g_symtab[] = { {0, 0} };\nOS_SEC_KERNEL_DATA const U32 g_symtabCnt = 0;\n' > $(SYMTAB_DATA))
+endif
 
 # 目标文件列表
 OBJS := $(patsubst $(CUR_DIR)/%.c, $(OBJ_DIR)/%.o, $(C_SRCS)) \
@@ -89,6 +100,8 @@ OBJS := $(patsubst $(CUR_DIR)/%.c, $(OBJ_DIR)/%.o, $(C_SRCS)) \
 $(BIN_DIR)/os_kernel.elf: $(OBJS)
 	@echo "Linking $@"
 	ld -T ld_script/os_ld.S -m elf_i386 -Map $(MAP_DIR)/kernel.map $^ -o $@
+	@echo "Generating symbol table"
+	@python3 $(SYMTAB_SCRIPT) $(MAP_DIR)/kernel.map $(SYMTAB_DATA)
 
 # 通用C文件编译规则
 $(OBJ_DIR)/%.o: $(CUR_DIR)/%.c

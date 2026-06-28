@@ -120,10 +120,19 @@ def main():
 
     source = gen_c_source(symbols)
 
-    with open(out_path, 'w') as f:
-        f.write(source)
+    # 只在内容变化时才写文件，避免触发不必要的重编译
+    try:
+        with open(out_path, 'r') as f:
+            old = f.read()
+    except FileNotFoundError:
+        old = None
 
-    print(f'已生成 {out_path}: {len(symbols)} 个符号')
+    if old != source:
+        with open(out_path, 'w') as f:
+            f.write(source)
+        print(f'已生成 {out_path}: {len(symbols)} 个符号')
+    else:
+        print(f'{out_path}: {len(symbols)} 个符号（无变化）')
 
 
 if __name__ == '__main__':
