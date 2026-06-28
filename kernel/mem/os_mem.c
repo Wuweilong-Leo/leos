@@ -88,7 +88,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, size_t 
     uintptr_t addr;
     U32 idx;
     struct OsBtmp *btmp = &pool->btmp;
-    size_t i;
+    U32 i;
 
     if (!OsBtmpScan(btmp, cnt, 0, &idx)) {
         OS_LOG_WARN("pool 0x%x needs %u pages, not enough\n", (uintptr_t)pool->base, (size_t)cnt);
@@ -97,8 +97,8 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, size_t 
 
     addr = pool->base + (uintptr_t)idx * OS_PG_SIZE;
 
-    for (i = 0; i < cnt; i++) {
-        OsBtmpSet(btmp, idx + (U32)i);  /* idx is U32 from OsBtmpScan */
+    for (i = 0; i < (U32)cnt; i++) {
+        OsBtmpSet(btmp, idx + i);
     }
 
     return addr;
@@ -109,21 +109,21 @@ static OS_SEC_KERNEL_TEXT void OsMemAllocPgsRollback(struct OsMemPool *virMemPoo
                                                      struct OsMemPool *phyMemPool,
                                                      uintptr_t virAddrBase, size_t cnt, size_t allocated)
 {
-    size_t i;
+    U32 i;
     uintptr_t virAddr = virAddrBase;
     uintptr_t phyAddr;
 
-    for (i = 0; i < allocated; i++) {
+    for (i = 0; i < (U32)allocated; i++) {
         phyAddr = OsUnmapVir2Phy(virAddr);
         if (phyAddr != (uintptr_t)NULL) {
-            size_t phyIdx = (phyAddr - phyMemPool->base) / OS_PG_SIZE;
+            U32 phyIdx = (U32)((phyAddr - phyMemPool->base) / OS_PG_SIZE);
             OsBtmpClear(&phyMemPool->btmp, phyIdx);
         }
         virAddr += OS_PG_SIZE;
     }
     {
-        size_t virIdx = (virAddrBase - virMemPool->base) / OS_PG_SIZE;
-        for (i = 0; i < cnt; i++) {
+        U32 virIdx = (U32)((virAddrBase - virMemPool->base) / OS_PG_SIZE);
+        for (i = 0; i < (U32)cnt; i++) {
             OsBtmpClear(&virMemPool->btmp, virIdx + i);
         }
     }
@@ -135,7 +135,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, size_t cnt)
     struct OsMemPool *phyMemPool;
     uintptr_t virAddr;
     uintptr_t virAddrBase;
-    size_t i;
+    U32 i;
     uintptr_t phyAddr;
     size_t allocated = 0;
 
@@ -154,7 +154,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, size_t cnt)
     }
 
     virAddr = virAddrBase;
-    for (i = 0; i < cnt; i++) {
+    for (i = 0; i < (U32)cnt; i++) {
         phyAddr = OsMemPoolGetFreePgs(phyMemPool, 1);
         if (phyAddr == (uintptr_t)NULL) {
             OS_LOG_ERROR("phyMemPool alloc page %u/%u failed, rollback\n", (size_t)allocated, (size_t)cnt);
@@ -164,7 +164,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgs(enum OsMemFlag flag, size_t cnt)
         if (!OsMapVir2Phy(virAddr, phyAddr)) {
             OS_LOG_ERROR("OsMemAllocPgs: map vaddr 0x%x failed, rollback\n", (uintptr_t)virAddr);
             /* 本页物理已分配但未映射成功，先归还 */
-            OsBtmpClear(&phyMemPool->btmp, (phyAddr - phyMemPool->base) / OS_PG_SIZE);
+            OsBtmpClear(&phyMemPool->btmp, (U32)((phyAddr - phyMemPool->base) / OS_PG_SIZE));
             OsMemAllocPgsRollback(virMemPool, phyMemPool, virAddrBase, cnt, allocated);
             return (uintptr_t)NULL;
         }
@@ -192,7 +192,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
     struct OsMemPool *virMemPool;
     struct OsMemPool *phyMemPool;
     uintptr_t phyAddr;
-    size_t idx;
+    U32 idx;
 
     if (flag == OS_MEM_KERNEL) {
         virMemPool = &g_kernelVirMemPool;
@@ -202,7 +202,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
         phyMemPool = &g_usrPhyMemPool;
     }
 
-    idx = (virAddr - virMemPool->base) / OS_PG_SIZE;
+    idx = (U32)((virAddr - virMemPool->base) / OS_PG_SIZE);
     /* 这个地址已经被分配出去了 */
     if (OsBtmpGet(&virMemPool->btmp, idx) != 0) {
         OS_LOG_WARN("vaddr 0x%x already allocated\n", (uintptr_t)virAddr);
@@ -218,7 +218,7 @@ OS_SEC_KERNEL_TEXT uintptr_t OsMemAllocPgByAddr(enum OsMemFlag flag, uintptr_t v
 
     /* 进行虚实映射；失败则归还物理页，虚拟位图保持不变 */
     if (!OsMapVir2Phy(virAddr, phyAddr)) {
-        OsBtmpClear(&phyMemPool->btmp, (phyAddr - phyMemPool->base) / OS_PG_SIZE);
+        OsBtmpClear(&phyMemPool->btmp, (U32)((phyAddr - phyMemPool->base) / OS_PG_SIZE));
         return NULL;
     }
 
