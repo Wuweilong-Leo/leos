@@ -138,15 +138,18 @@ OS_SEC_KERNEL_TEXT void itoa(U32 val, char **bufPtrAddr, U8 base)
     }
 }
 
-OS_SEC_KERNEL_TEXT size_t vsprintf(char *str, const char *fmt, void *ap)
+#define KPRINTF_BUF_SIZE 512
+
+OS_SEC_KERNEL_TEXT size_t vsprintf(char *str, size_t bufSize, const char *fmt, void *ap)
 {
     char *bufPtr = str;
+    char *bufEnd = str + bufSize - 1; /* 留 1 字节给 '\0' */
     const char *idxPtr = fmt;
     char idxChar = *idxPtr;
     S32 argInt;
     char *argStr;
 
-    while (idxChar)
+    while (idxChar && bufPtr < bufEnd)
     {
         if (idxChar != '%') {
             *(bufPtr++) = idxChar;
@@ -157,42 +160,116 @@ OS_SEC_KERNEL_TEXT size_t vsprintf(char *str, const char *fmt, void *ap)
         switch (idxChar) {
         case 's':
             argStr = OS_VA_ARG(ap, char *);
-            strcpy(bufPtr, argStr);
-            bufPtr += strlen(argStr);
+            if (argStr == NULL) {
+                argStr = "(null)";
+            }
+            {
+                size_t slen = strlen(argStr);
+                size_t avail = (size_t)(bufEnd - bufPtr);
+                if (slen > avail) {
+                    slen = avail;
+                }
+                memcpy(bufPtr, argStr, slen);
+                bufPtr += slen;
+            }
             idxChar = *(++idxPtr);
             break;
         case 'x':
             argInt = OS_VA_ARG(ap, int);
-            itoa(argInt, &bufPtr, 16);
+            {
+                /* 最多 8 位十六进制 + 可能的 0x 前缀 */
+                char numBuf[9];
+                char *numPtr = numBuf;
+                itoa(argInt, &numPtr, 16);
+                *numPtr = '\0';
+                size_t slen = strlen(numBuf);
+                size_t avail = (size_t)(bufEnd - bufPtr);
+                if (slen > avail) {
+                    slen = avail;
+                }
+                memcpy(bufPtr, numBuf, slen);
+                bufPtr += slen;
+            }
+            idxChar = *(++idxPtr);
+            break;
+        case 'u':
+            argInt = OS_VA_ARG(ap, int);
+            {
+                char numBuf[11]; /* 4294967295 = 10 digits + NUL */
+                char *numPtr = numBuf;
+                itoa((U32)argInt, &numPtr, 10);
+                *numPtr = '\0';
+                size_t slen = strlen(numBuf);
+                size_t avail = (size_t)(bufEnd - bufPtr);
+                if (slen > avail) {
+                    slen = avail;
+                }
+                memcpy(bufPtr, numBuf, slen);
+                bufPtr += slen;
+            }
             idxChar = *(++idxPtr);
             break;
         case 'd':
             argInt = OS_VA_ARG(ap, int);
             if (argInt < 0) {
+                if (bufPtr < bufEnd) {
+                    *(bufPtr++) = '-';
+                }
                 argInt = 0 - argInt;
-                *(bufPtr++) = '-';
             }
-            itoa(argInt, &bufPtr, 10);
+            {
+                char numBuf[11];
+                char *numPtr = numBuf;
+                itoa(argInt, &numPtr, 10);
+                *numPtr = '\0';
+                size_t slen = strlen(numBuf);
+                size_t avail = (size_t)(bufEnd - bufPtr);
+                if (slen > avail) {
+                    slen = avail;
+                }
+                memcpy(bufPtr, numBuf, slen);
+                bufPtr += slen;
+            }
             idxChar = *(++idxPtr);
             break;
         case 'c':
-            *(bufPtr++) = OS_VA_ARG(ap, char);
+            if (bufPtr < bufEnd) {
+                *(bufPtr++) = OS_VA_ARG(ap, char);
+            }
             idxChar = *(++idxPtr);
+            break;
+        case '%':
+            if (bufPtr < bufEnd) {
+                *(bufPtr++) = '%';
+            }
+            idxChar = *(++idxPtr);
+            break;
+        default:
+            /* 未知格式符，原样输出 % 和字符 */
+            if (bufPtr < bufEnd) {
+                *(bufPtr++) = '%';
+            }
+            if (bufPtr < bufEnd) {
+                *(bufPtr++) = idxChar;
+            }
+            idxChar = *(++idxPtr);
+            break;
         }
     }
-    return strlen(str);
+    *bufPtr = '\0';
+    return (size_t)(bufPtr - str);
 }
 
 OS_SEC_KERNEL_TEXT size_t kprintf(const char *fmt, ...)
 {
-    char buf[256] = {0};
+    char buf[KPRINTF_BUF_SIZE];
     void *args;
     size_t len;
     enum OsIntStatus intSave;
 
     intSave = OsIntLock();
     OS_VA_START(args, fmt);
-    len = vsprintf(buf, fmt, args);
+    len = vsprintf(buf, sizeof(buf), fmt, args);
     OS_VA_END(args);
     OsPrintStr(buf);
     OsIntRestore(intSave);

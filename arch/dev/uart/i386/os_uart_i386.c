@@ -52,7 +52,7 @@ OS_SEC_KERNEL_TEXT size_t OsUartPrintf(const char *fmt, ...)
 
     intSave = OsIntLock();
     OS_VA_START(args, fmt);
-    len = vsprintf(buf, fmt, args);
+    len = vsprintf(buf, sizeof(buf), fmt, args);
     OS_VA_END(args);
     OsUartPuts(buf);
     OsIntRestore(intSave);
