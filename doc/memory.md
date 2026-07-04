@@ -6,9 +6,9 @@
 |------|------|
 | 模块名称 | 内存管理（Memory） |
 | 模块路径 | kernel/mem/、kernel/mem/fsc/ |
-| 子模块 | 物理页池管理、FSC 堆分配器 |
-| 文档版本 | V1.0 |
-| 编写日期 | 2026-07-03 |
+| 子模块 | 物理页池管理、FSC 堆分配器（内核堆+用户堆） |
+| 文档版本 | V2.0 |
+| 编写日期 | 2026-07-04 |
 
 ## 2 模块概述
 
@@ -24,6 +24,7 @@
 
 - 页面大小 4K（OS_PG_SIZE）
 - 内核虚拟堆 4M（0xC0200000~0xC0600000），按需缺页增长
+- 用户虚拟堆 4M（0x08049000~0x08449000），按需缺页增长，FSC 惰性初始化
 - FSC 分配器最大块 2^31 字节，最小块约 28 字节
 - 物理页池使用位图管理，不支持伙伴系统
 
@@ -43,6 +44,10 @@
 | MEM-008 | FSC 精确搜索 | 在对应级别链表中逐个查找满足条件的块 |
 | MEM-009 | FSC 块分裂 | 分配后剩余空间切为左右独立空闲块 |
 | MEM-010 | FSC 块合并 | 释放时与相邻空闲块合并 |
+| MEM-011 | 用户堆分配 | 通过 syscall 从用户堆 FSC 分配内存 |
+| MEM-012 | 用户堆释放 | 通过 syscall 释放用户堆内存 |
+| MEM-013 | 用户堆惰性初始化 | 第一次 malloc 时初始化 FSC，缺页自动扩展 |
+| MEM-014 | FSC 尾部哨兵 | 初始化时在堆末尾写入哨兵块，防止 free 合并越界 |
 
 ## 4 数据设计
 
@@ -65,6 +70,8 @@
   g_kernelPhyMemPool  - 内核物理页池
   g_usrPhyMemPool     - 用户物理页池
   g_kernelVirMemPool  - 内核虚拟页池（0xC0200000, 4M）
+
+每个进程还有一个 usrVirMemPool，管理 0x08048000~0xBFFFFFFF 的用户虚拟空间。
 ```
 
 ### 4.2 FSC 块头
@@ -106,6 +113,8 @@
 
 全局实例：g_kernelMemPtCtrl（内核堆 FSC 控制块）
 
+每个进程还有一个 usrFscCtrl（用户堆 FSC 控制块），通过 TCB 的 usrFscCtrl 指针访问。
+
 级别映射：idx = 31 - clz(size)
   第 i 级管理大小 ∈ [2^i, 2^(i+1)) 的空闲块
   bit 0 永远为 1（2^0 大小不会挂块，但标记存在）
@@ -137,6 +146,8 @@
 | OS_MEM_FSC_MIN_SIZE | 头+4+尾魔数 | 最小可分裂块大小 |
 | OS_KERNEL_VIR_HEAP_MEM_BASE | 0xC0200000 | 内核虚拟堆基址 |
 | OS_KERNEL_VIR_HEAP_MEM_SIZE | 4M | 内核虚拟堆大小 |
+| OS_PROCESS_USR_HEAP_BASE | 0x08049000 | 用户堆基址（代码段1页之后） |
+| OS_USR_HEAP_MEM_SIZE | 4M | 用户堆大小 |
 
 ## 5 接口设计
 
@@ -179,7 +190,9 @@
 功能：为指定用户虚拟地址分配物理页并建立映射
 参数：virAddr [IN] - 虚拟地址
 返回值：virAddr；NULL=失败
-用途：进程用户栈分配
+用途：用户栈分配、用户堆缺页扩展
+注意：内部通过 OS_RUNNING_TASK()->usrVirMemPool 获取虚拟池，
+      因此必须在进程运行上下文中调用（不能在 OsProcessCreate 期间调用）
 ```
 
 ### 5.2 堆分配接口
@@ -290,17 +303,61 @@ OsMemAllocPgsRollback(virMemPool, phyMemPool, virAddrBase, cnt, allocated):
 FSC 分配器写入未映射地址
   │
   ├─ 触发缺页异常（int 0x0E）
-  ├─ OsExcDispatcher 判断缺页地址在内核虚拟堆范围
-  ├─ OsMemKernelAllocPgByAddr(cr2)
-  │    ├─ 检查虚拟位图：该页未分配
-  │    ├─ OsMemPoolGetFreePgs(kernelPhyMemPool, 1) 取物理页
-  │    ├─ OsMapVir2Phy(virAddr, phyAddr) 建立映射
-  │    └─ OsBtmpSet(virMemPool, idx) 标记虚拟页已分配
+  ├─ OsExcDispatcher 判断缺页来源
   │
-  └─ 返回，缺页解决，FSC 写入成功
+  ├─ [内核态缺页] OsExcHandleKernelPgFault:
+  │    ├─ errAddr 在内核堆范围 (0xC0200000~0xC0600000)?
+  │    │    └─ OsMemKernelAllocPgByAddr → 映射 → 返回
+  │    └─ errAddr 在用户堆范围 (0x08049000~0x08449000)?
+  │         └─ OsMemUsrAllocPgByAddr → 映射 → 返回
+  │              （内核代为访问用户堆，如 syscall 拷贝数据时触发）
+  │
+  └─ [用户态缺页] OsExcDispatcher 用户态分支:
+       ├─ cr2 在用户堆范围?
+       │    └─ OsMemUsrAllocPgByAddr → 映射 → iret 回用户态继续
+       └─ 不在堆范围 → 杀进程
 ```
 
-### 6.4 FSC 块合并流程
+### 6.4 用户堆惰性初始化流程
+
+```
+第一次 OS_SYS_MALLOC:
+  │
+  ├─ OsSysMalloc 发现 usrFscCtrl == NULL
+  │
+  ├─ OsMemFscInitPt(0x08049000, 4MB)
+  │    ├─ 在堆首写入 FSC ctrl 结构体 → 缺页（页未映射）
+  │    │    └─ OsExcHandleKernelPgFault → OsMemUsrAllocPgByAddr
+  │    │         └─ OS_RUNNING_TASK() 是进程自己 ✓ → 位图正确 → 映射成功
+  │    ├─ 初始化空闲链表
+  │    ├─ 创建大空闲块
+  │    └─ 初始化尾部哨兵块（ctrl=ptCtrl，非 NULL）
+  │         └─ 写入堆末尾 → 可能缺页 → 同上处理
+  │
+  ├─ usrFscCtrl 赋值给 tsk->usrFscCtrl
+  │
+  └─ OsMemFscAlloc(usrFscCtrl, size, 4) → 分配内存
+       └─ 写入触发缺页 → 自动映射 → 返回
+```
+
+### 6.5 FSC 尾部哨兵
+
+FSC 初始化时在堆末尾预留 `OS_MEM_FSC_HEAD_SIZE` 大小的占位。这个占位被初始化为一个"使用中"的哨兵块：
+
+```
+堆内存布局：
+0x08049000  [FSC ctrl 结构体]
+            [空闲块 HEAD]  size = blkSize
+            [空闲块数据 ~4MB]
+            [尾部哨兵 HEAD]  ctrl = ptCtrl (非NULL), size = 0   ← 阻止合并越界
+0x08449000  （堆外）
+```
+
+free 时 `OsMemFscTryMergeRight` 检查 `rightBlk->ctrl`：
+- 哨兵块 `ctrl != NULL` → 判定使用中 → 不合并 → 正常
+- 若未初始化（全零页），`ctrl == NULL` → 误判空闲 → 链表操作解引用 NULL → 崩溃
+
+### 6.6 FSC 块合并流程
 
 ```
 OsMemFscFree(addr):
@@ -338,6 +395,9 @@ OsMemFscFree(addr):
 | 尾魔数检测 | 块末尾 4 字节 0xCDCDCDCD，可检测用户越界写（覆写时魔数改变） |
 | 左合并依赖 preSize | 释放时通过 preSize 判断前邻是否空闲，无需遍历；preSize 由合并时更新 |
 | 回滚机制 | 页面分配部分成功部分失败时，自动回滚已完成的映射和分配，保证一致性 |
+| 用户堆 FSC 惰性初始化 | OsProcessCreate 期间 OS_RUNNING_TASK() 是创建者线程，缺页处理取不到新进程的位图；第一次 malloc 时进程已在运行，一切正常 |
+| FSC 尾部哨兵 | 新映射物理页全零，ctrl=NULL 被误判为空闲块导致 free 崩溃；初始化 ctrl 非 NULL 阻止合并越界 |
+| 用户堆复用 FSC 分配器 | 内核堆和用户堆用同一个分配器，通过 syscall 调用（用户态不能直接调内核函数） |
 
 ## 8 模块依赖
 
@@ -347,3 +407,5 @@ OsMemFscFree(addr):
 | 中断 | OsIntLock/OsIntRestore |
 | 调试 | OS_LOG_ERROR/OS_LOG_WARN |
 | 位图 | OsBtmp 系列操作 |
+| 调度 | OS_RUNNING_TASK()（OsMemUsrAllocPgByAddr 取用户虚拟池） |
+| Syscall | OS_SYS_MALLOC/OS_SYS_FREE（用户堆分配/释放入口） |
