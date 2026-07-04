@@ -10,14 +10,14 @@
  */
 
 /* 系统调用号 */
-#define OS_SYS_WRITE  1   /* arg1=字符串指针, arg2=长度; 返回写入字节数 */
-#define OS_SYS_EXIT   2   /* arg1=退出码; 不返回 */
-#define OS_SYS_MALLOC 3   /* arg1=大小; 返回分配的地址(0=失败) */
-#define OS_SYS_FREE   4   /* arg1=地址; 无返回值 */
-#define OS_SYS_SEM_CREATE 5   /* arg1=type, arg2=initVal, arg3=maxCnt; 返回semId, >=0x10000为错误码 */
-#define OS_SYS_SEM_PEND 6     /* arg1=semId, arg2=timeout; 返回OS_OK/错误码 */
-#define OS_SYS_SEM_POST 7     /* arg1=semId; 返回OS_OK/错误码 */
-#define OS_SYS_SEM_DELETE 8   /* arg1=semId; 返回OS_OK/错误码 */
+#define OS_SYS_WRITE  1   /* buf=字符串指针, len=长度; 返回写入字节数 */
+#define OS_SYS_EXIT   2   /* exitCode=退出码; 不返回 */
+#define OS_SYS_MALLOC 3   /* size=大小; 返回分配地址, 0=失败 */
+#define OS_SYS_FREE   4   /* addr=地址; 返回 OS_OK */
+#define OS_SYS_SEM_CREATE 5   /* type=信号量类型, initVal=初始值, maxCnt=最大计数; 返回 semId, >=0x10000 为错误码 */
+#define OS_SYS_SEM_PEND 6     /* semId=信号量ID, timeout=超时; 返回 OS_OK/错误码 */
+#define OS_SYS_SEM_POST 7     /* semId=信号量ID; 返回 OS_OK/错误码 */
+#define OS_SYS_SEM_DELETE 8   /* semId=信号量ID; 返回 OS_OK/错误码 */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
 #define OS_SYS_NUM    9

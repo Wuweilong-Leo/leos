@@ -16,16 +16,7 @@
 
 OS_SEC_KERNEL_DATA OsSyscallFunc g_syscallTab[OS_SYS_NUM];
 
-/* ====== 各 syscall 的处理函数 ====== */
-
-/*
- * OsSysWrite — 写字符串到 UART
- * @buf:  用户态字符串指针
- * @len:  字节数
- * @arg3: 未使用
- * @arg4: 未使用
- * 返回: 实际写入字节数
- */
+/* 写字符串到 UART，返回写入字节数 */
 static OS_SEC_KERNEL_TEXT U32 OsSysWrite(U32 buf, U32 len, U32 arg3, U32 arg4)
 {
     const char *str = (const char *)(uintptr_t)buf;
@@ -38,14 +29,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysWrite(U32 buf, U32 len, U32 arg3, U32 arg4)
     return len;
 }
 
-/*
- * OsSysExit — 终止当前进程
- * @exitCode: 退出码（暂未使用）
- * @arg2:     未使用
- * @arg3:     未使用
- * @arg4:     未使用
- * 返回: 不返回
- */
+/* 终止当前进程，不返回 */
 static OS_SEC_KERNEL_TEXT U32 OsSysExit(U32 exitCode, U32 arg2, U32 arg3, U32 arg4)
 {
     (void)exitCode;
@@ -58,14 +42,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysExit(U32 exitCode, U32 arg2, U32 arg3, U32 ar
     return 0;
 }
 
-/*
- * OsSysMalloc — 用户态动态内存分配
- * @size: 请求字节数
- * @arg2: 未使用
- * @arg3: 未使用
- * @arg4: 未使用
- * 返回: 分配的地址，0 表示失败
- */
+/* 用户态动态内存分配，返回分配地址，0 表示失败 */
 static OS_SEC_KERNEL_TEXT U32 OsSysMalloc(U32 size, U32 arg2, U32 arg3, U32 arg4)
 {
     struct OsTaskCb *tsk = OS_RUNNING_TASK();
@@ -85,14 +62,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysMalloc(U32 size, U32 arg2, U32 arg3, U32 arg4
     return (U32)(uintptr_t)OsMemFscAlloc(tsk->usrFscCtrl, (size_t)size, 4);
 }
 
-/*
- * OsSysFree — 释放用户态动态内存
- * @addr:  待释放地址，0 时直接返回
- * @arg2:  未使用
- * @arg3:  未使用
- * @arg4:  未使用
- * 返回: OS_OK
- */
+/* 释放用户态动态内存，addr=0 时直接返回 */
 static OS_SEC_KERNEL_TEXT U32 OsSysFree(U32 addr, U32 arg2, U32 arg3, U32 arg4)
 {
     (void)arg2;
@@ -105,14 +75,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysFree(U32 addr, U32 arg2, U32 arg3, U32 arg4)
     return OS_OK;
 }
 
-/*
- * OsSysSemCreate — 创建信号量
- * @type:    OsSemType 枚举值 (0=BINARY_SYNC, 1=BINARY_MUTEX, 2=COUNTING)
- * @initVal: 初始计数值
- * @maxCnt:  最大计数值
- * @arg4:    未使用
- * 返回: 信号量 ID [0, OS_SEM_MAX_NUM)；失败返回 OsSemCreate 错误码
- */
+/* 创建信号量，成功返回 semId，失败返回 OsSemCreate 错误码 */
 static OS_SEC_KERNEL_TEXT U32 OsSysSemCreate(U32 type, U32 initVal, U32 maxCnt, U32 arg4)
 {
     U32 semId;
@@ -125,14 +88,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysSemCreate(U32 type, U32 initVal, U32 maxCnt, 
     return semId;
 }
 
-/*
- * OsSysSemPend — 等待信号量
- * @semId:   信号量 ID
- * @timeout: 超时 (tick)，OS_SEM_NO_WAIT=不等待，OS_SEM_WAIT_FOREVER=永久等待
- * @arg3:    未使用
- * @arg4:    未使用
- * 返回: OS_OK / OS_SEM_PEND_TIMEOUT / 其他错误码
- */
+/* 等待信号量，timeout=0 不等待，OS_SEM_WAIT_FOREVER 永久等待 */
 static OS_SEC_KERNEL_TEXT U32 OsSysSemPend(U32 semId, U32 timeout, U32 arg3, U32 arg4)
 {
     (void)arg3;
@@ -140,14 +96,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysSemPend(U32 semId, U32 timeout, U32 arg3, U32
     return OsSemPend(semId, timeout);
 }
 
-/*
- * OsSysSemPost — 释放信号量
- * @semId: 信号量 ID
- * @arg2:  未使用
- * @arg3:  未使用
- * @arg4:  未使用
- * 返回: OS_OK / 错误码
- */
+/* 释放信号量 */
 static OS_SEC_KERNEL_TEXT U32 OsSysSemPost(U32 semId, U32 arg2, U32 arg3, U32 arg4)
 {
     (void)arg2;
@@ -156,14 +105,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysSemPost(U32 semId, U32 arg2, U32 arg3, U32 ar
     return OsSemPost(semId);
 }
 
-/*
- * OsSysSemDelete — 删除信号量
- * @semId: 信号量 ID
- * @arg2:  未使用
- * @arg3:  未使用
- * @arg4:  未使用
- * 返回: OS_OK / 错误码
- */
+/* 删除信号量 */
 static OS_SEC_KERNEL_TEXT U32 OsSysSemDelete(U32 semId, U32 arg2, U32 arg3, U32 arg4)
 {
     (void)arg2;
