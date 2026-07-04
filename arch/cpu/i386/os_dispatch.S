@@ -215,33 +215,20 @@ OS_HWI_VECTOR 0x30, ZERO
 
 OsSyscallVector80:
     pushl $0                    /* 假 errCode，平衡栈帧 */
-    OS_HWI_SAVE_CONTEXT         /* 全量保存寄存器 */
+    OS_HWI_SAVE_CONTEXT         /* 全量保存寄存器到进程内核栈 */
 
-    /* 先保存上下文指针到 runningTsk->stkPtr */
+    /* 保存上下文指针到 runningTsk->stkPtr */
     movl $g_runQue, %eax
     movl 0(%eax), %eax          /* runningTsk */
-    movl %esp, 0(%eax)          /* stkPtr = 上下文地址 */
+    movl %esp, 0(%eax)          /* stkPtr = All Save 上下文 */
 
-    /* 判断是否在系统栈 */
-    movl $g_kernelStackHigh, %eax
-    movl 0(%eax), %eax
-    cmp %eax, %esp
-    jae .Lsyscall_on_sysstack
-    movl $g_kernelStackLow, %eax
-    movl 0(%eax), %eax
-    cmp %eax, %esp
-    jb .Lsyscall_on_sysstack
-    jmp .Lsyscall_call
+    /*
+     * 直接在进程内核栈上跑 handler，不切系统栈。
+     * 这样 OsTrapTsk 的 Fast Save 在 All Save 之上（同一栈），
+     * 恢复后自然回到 All Save，与 Linux 一致。
+     */
 
-.Lsyscall_on_sysstack:
-    /* 不在系统栈，切到系统栈 */
-    movl $g_kernelStackHigh, %eax
-    movl 0(%eax), %esp
-
-.Lsyscall_call:
-    /* 从 runningTsk->stkPtr 取上下文指针，逐字段压栈传参 */
-    movl $g_runQue, %eax
-    movl 0(%eax), %eax          /* runningTsk */
+    /* 从 stkPtr 取上下文指针，逐字段压栈传参 */
     movl 0(%eax), %eax          /* stkPtr = OsAllSaveContext* */
 
     pushl 0x08(%eax)            /* ctx->esi = arg4 */
@@ -252,12 +239,12 @@ OsSyscallVector80:
     call OsSyscallHandler
     addl $20, %esp
 
-    /* eax = 返回值，写回上下文的 eax 字段，iret 时恢复给用户态 */
-    movl $g_runQue, %edx
-    movl 0(%edx), %edx          /* runningTsk */
-    movl 0(%edx), %edx          /* stkPtr */
-    movl %eax, 0x20(%edx)       /* ctx->eax = 返回值 */
-    movl %edx, %esp             /* esp → 上下文，供 OsHwiRet 恢复 */
+    /*
+     * handler 可能阻塞（如 OsSemPend），OsTrapTsk 的 Fast Save
+     * 会覆盖 stkPtr。但恢复后 Fast Save 已被 pop，esp 自然
+     * 回到 All Save 上下文的位置。直接用 esp 即可。
+     */
+    movl %eax, 0x20(%esp)       /* ctx->eax = 返回值（esp 已指向 All Save） */
     jmp OsHwiRet
 
 OsExcRet:

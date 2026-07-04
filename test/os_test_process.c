@@ -3,6 +3,7 @@
 #include "os_process_external.h"
 #include "os_debug_external.h"
 #include "os_syscall_i386.h"
+#include "os_sem_external.h"
 #include "os_test_framework.h"
 #include "os_uart_external.h"
 #include "os_sched_external.h"
@@ -150,4 +151,139 @@ OS_SEC_KERNEL_TEXT void TestProcSetup(void)
 OS_SEC_KERNEL_TEXT void TestProcVerify(void)
 {
     OsUartPuts("[PROC] verify ok - system survived\n");
+}
+
+/* ====== 用户态信号量测试 ====== */
+
+/*
+ * 单进程信号量基本功能测试：
+ * 1. sem_create 返回有效 ID
+ * 2. BINARY_MUTEX: pend 立即获取 (val=1) + post 释放
+ * 3. BINARY_SYNC: pend 超时 + post 后 pend 成功
+ * 4. COUNTING: 多次 post 后多次 pend
+ * 5. sem_delete 成功
+ *
+ * 跨进程同步测试需要进程间共享 semId（待进程参数传递机制实现后补充）。
+ */
+
+OS_SEC_KERNEL_BSS volatile U32 g_testUsrSemAlive;
+
+OS_SEC_KERNEL_TEXT static void TestUsrSemEntry(void)
+{
+    U32 semId;
+    U32 ret;
+
+    /* === 1. BINARY_MUTEX: pend 立即获取，post 释放，delete === */
+    semId = usr_sem_create(OS_SEM_BINARY_MUTEX, 1, 1);
+    if (semId == (U32)-1) {
+        usr_puts("[SEM] FAIL: mutex create\n");
+        usr_exit(1);
+    }
+
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: mutex pend\n");
+        usr_exit(1);
+    }
+
+    ret = usr_sem_post(semId);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: mutex post\n");
+        usr_exit(1);
+    }
+
+    ret = usr_sem_delete(semId);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: mutex delete\n");
+        usr_exit(1);
+    }
+    usr_puts("[SEM] mutex ok\n");
+
+    /* === 2. BINARY_SYNC: 初始 val=0，pend 超时，然后 post+pend === */
+    semId = usr_sem_create(OS_SEM_BINARY_SYNC, 0, 1);
+    if (semId == (U32)-1) {
+        usr_puts("[SEM] FAIL: sync create\n");
+        usr_exit(1);
+    }
+
+    ret = usr_sem_pend(semId, 10);
+    if (ret != OS_SEM_PEND_TIMEOUT) {
+        usr_puts("[SEM] FAIL: sync pend timeout\n");
+        usr_exit(1);
+    }
+
+    usr_sem_post(semId);
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: sync pend after post\n");
+        usr_exit(1);
+    }
+
+    usr_sem_delete(semId);
+    usr_puts("[SEM] sync ok\n");
+
+    /* === 3. COUNTING: 多次 post + 多次 pend === */
+    semId = usr_sem_create(OS_SEM_COUNTING, 0, 5);
+    if (semId == (U32)-1) {
+        usr_puts("[SEM] FAIL: cnt create\n");
+        usr_exit(1);
+    }
+
+    usr_sem_post(semId);
+    usr_sem_post(semId);
+    usr_sem_post(semId);
+
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: cnt pend1\n");
+        usr_exit(1);
+    }
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: cnt pend2\n");
+        usr_exit(1);
+    }
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret != OS_OK) {
+        usr_puts("[SEM] FAIL: cnt pend3\n");
+        usr_exit(1);
+    }
+    /* 计数耗尽，应该拿不到 */
+    ret = usr_sem_pend(semId, OS_SEM_NO_WAIT);
+    if (ret == OS_OK) {
+        usr_puts("[SEM] FAIL: cnt pend4 should fail\n");
+        usr_exit(1);
+    }
+
+    usr_sem_delete(semId);
+    usr_puts("[SEM] counting ok\n");
+
+    usr_puts("[SEM] ALL ok\n");
+    g_testUsrSemAlive = 1;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestUsrSemSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testUsrSemAlive = 0;
+
+    strcpy(param.processName, "semTest");
+    param.entryFunc = (OsProcessEntryFunc)TestUsrSemEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestUsrSemVerify(void)
+{
+    OS_TEST_ASSERT(g_testUsrSemAlive == 1);
+    OsUartPuts("[PROC-SEM] verify ok\n");
 }

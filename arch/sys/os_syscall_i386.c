@@ -4,6 +4,7 @@
 #include "os_uart_external.h"
 #include "os_sched_external.h"
 #include "os_mem_external.h"
+#include "os_sem_external.h"
 #include "os_cpu.h"
 
 /*
@@ -75,6 +76,41 @@ static OS_SEC_KERNEL_TEXT U32 OsSysFree(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
     return 0;
 }
 
+static OS_SEC_KERNEL_TEXT U32 OsSysSemCreate(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    U32 semId;
+    U32 ret;
+    (void)arg4;
+    ret = OsSemCreate((enum OsSemType)arg1, arg2, arg3, OS_SEM_WAKE_PRIO, &semId);
+    if (ret != OS_OK) {
+        return (U32)-1;
+    }
+    return semId;
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsSysSemPend(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    (void)arg3;
+    (void)arg4;
+    return OsSemPend(arg1, arg2);
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsSysSemPost(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    (void)arg2;
+    (void)arg3;
+    (void)arg4;
+    return OsSemPost(arg1);
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsSysSemDelete(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    (void)arg2;
+    (void)arg3;
+    (void)arg4;
+    return OsSemDelete(arg1);
+}
+
 /* ====== 分发 ====== */
 
 OS_SEC_KERNEL_TEXT U32 OsSyscallHandler(U32 sysno, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
@@ -116,6 +152,10 @@ OS_SEC_KERNEL_TEXT U32 OsSyscallConfigInit(void)
     OsSyscallRegister(OS_SYS_EXIT, OsSysExit);
     OsSyscallRegister(OS_SYS_MALLOC, OsSysMalloc);
     OsSyscallRegister(OS_SYS_FREE, OsSysFree);
+    OsSyscallRegister(OS_SYS_SEM_CREATE, OsSysSemCreate);
+    OsSyscallRegister(OS_SYS_SEM_PEND, OsSysSemPend);
+    OsSyscallRegister(OS_SYS_SEM_POST, OsSysSemPost);
+    OsSyscallRegister(OS_SYS_SEM_DELETE, OsSysSemDelete);
 
     return OS_OK;
 }
