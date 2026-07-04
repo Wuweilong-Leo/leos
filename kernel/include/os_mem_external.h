@@ -29,6 +29,7 @@ struct OsMemPool {
 #define OS_USR_VIR_MEM_SIZE         (OS_KERNEL_MEM_VIR_ADDR_START - OS_USR_MEM_VIR_ADDR_START)
 #define OS_KERNEL_VIR_HEAP_MEM_BASE 0xC0200000
 #define OS_KERNEL_VIR_HEAP_MEM_SIZE (4 * 1024 * 1024)
+#define OS_USR_HEAP_MEM_SIZE        (4 * 1024 * 1024)   /* 用户堆 4MB，和内核堆一样 */
 
 extern U32 OsMemConfigInit(void);
 extern uintptr_t OsMemPoolGetFreePgs(struct OsMemPool *pool, size_t cnt);

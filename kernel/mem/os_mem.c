@@ -112,6 +112,7 @@ static OS_SEC_KERNEL_TEXT void OsMemAllocPgsRollback(struct OsMemPool *virMemPoo
     U32 i;
     uintptr_t virAddr = virAddrBase;
     uintptr_t phyAddr;
+    U32 virIdx;
 
     for (i = 0; i < (U32)allocated; i++) {
         phyAddr = OsUnmapVir2Phy(virAddr);
@@ -121,11 +122,9 @@ static OS_SEC_KERNEL_TEXT void OsMemAllocPgsRollback(struct OsMemPool *virMemPoo
         }
         virAddr += OS_PG_SIZE;
     }
-    {
-        U32 virIdx = (U32)((virAddrBase - virMemPool->base) / OS_PG_SIZE);
-        for (i = 0; i < (U32)cnt; i++) {
-            OsBtmpClear(&virMemPool->btmp, virIdx + i);
-        }
+    virIdx = (U32)((virAddrBase - virMemPool->base) / OS_PG_SIZE);
+    for (i = 0; i < (U32)cnt; i++) {
+        OsBtmpClear(&virMemPool->btmp, virIdx + i);
     }
 }
 

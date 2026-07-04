@@ -522,17 +522,15 @@ OS_SEC_KERNEL_TEXT void TestSemDeleteVerify(void)
     OsSemDelete(semId2);
 
     /* 4. BINARY_MUTEX 被持有时不能删除 */
-    {
-        U32 mtxId;
-        OsSemCreate(OS_SEM_BINARY_MUTEX, 1, 1, OS_SEM_WAKE_PRIO, &mtxId);
-        /* pend 立即获取（val=1） */
-        OsSemPend(mtxId, OS_SEM_NO_WAIT);
-        /* 此时 holder=当前任务，删除应被拒绝 */
-        ret = OsSemDelete(mtxId);
-        OS_TEST_ASSERT_EQ(ret, OS_SEM_DELETE_HAS_HOLDER);
-        /* 释放后再删除应成功 */
-        OsSemPost(mtxId);
-        ret = OsSemDelete(mtxId);
-        OS_TEST_ASSERT_EQ(ret, OS_OK);
-    }
+    U32 mtxId;
+    OsSemCreate(OS_SEM_BINARY_MUTEX, 1, 1, OS_SEM_WAKE_PRIO, &mtxId);
+    /* pend 立即获取（val=1） */
+    OsSemPend(mtxId, OS_SEM_NO_WAIT);
+    /* 此时 holder=当前任务，删除应被拒绝 */
+    ret = OsSemDelete(mtxId);
+    OS_TEST_ASSERT_EQ(ret, OS_SEM_DELETE_HAS_HOLDER);
+    /* 释放后再删除应成功 */
+    OsSemPost(mtxId);
+    ret = OsSemDelete(mtxId);
+    OS_TEST_ASSERT_EQ(ret, OS_OK);
 }

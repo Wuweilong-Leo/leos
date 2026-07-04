@@ -163,50 +163,43 @@ OS_SEC_KERNEL_TEXT size_t vsprintf(char *str, size_t bufSize, const char *fmt, v
             if (argStr == NULL) {
                 argStr = "(null)";
             }
-            {
-                size_t slen = strlen(argStr);
-                size_t avail = (size_t)(bufEnd - bufPtr);
-                if (slen > avail) {
-                    slen = avail;
-                }
-                memcpy(bufPtr, argStr, slen);
-                bufPtr += slen;
+            size_t slen = strlen(argStr);
+            size_t avail = (size_t)(bufEnd - bufPtr);
+            if (slen > avail) {
+                slen = avail;
             }
+            memcpy(bufPtr, argStr, slen);
+            bufPtr += slen;
             idxChar = *(++idxPtr);
             break;
         case 'x':
             argInt = OS_VA_ARG(ap, int);
-            {
-                /* 最多 8 位十六进制 + 可能的 0x 前缀 */
-                char numBuf[9];
-                char *numPtr = numBuf;
-                itoa(argInt, &numPtr, 16);
-                *numPtr = '\0';
-                size_t slen = strlen(numBuf);
-                size_t avail = (size_t)(bufEnd - bufPtr);
-                if (slen > avail) {
-                    slen = avail;
-                }
-                memcpy(bufPtr, numBuf, slen);
-                bufPtr += slen;
+            char numBufX[9]; /* 最多 8 位十六进制 */
+            char *numPtrX = numBufX;
+            itoa(argInt, &numPtrX, 16);
+            *numPtrX = '\0';
+            slen = strlen(numBufX);
+            avail = (size_t)(bufEnd - bufPtr);
+            if (slen > avail) {
+                slen = avail;
             }
+            memcpy(bufPtr, numBufX, slen);
+            bufPtr += slen;
             idxChar = *(++idxPtr);
             break;
         case 'u':
             argInt = OS_VA_ARG(ap, int);
-            {
-                char numBuf[11]; /* 4294967295 = 10 digits + NUL */
-                char *numPtr = numBuf;
-                itoa((U32)argInt, &numPtr, 10);
-                *numPtr = '\0';
-                size_t slen = strlen(numBuf);
-                size_t avail = (size_t)(bufEnd - bufPtr);
-                if (slen > avail) {
-                    slen = avail;
-                }
-                memcpy(bufPtr, numBuf, slen);
-                bufPtr += slen;
+            char numBufU[11]; /* 4294967295 = 10 digits + NUL */
+            char *numPtrU = numBufU;
+            itoa((U32)argInt, &numPtrU, 10);
+            *numPtrU = '\0';
+            slen = strlen(numBufU);
+            avail = (size_t)(bufEnd - bufPtr);
+            if (slen > avail) {
+                slen = avail;
             }
+            memcpy(bufPtr, numBufU, slen);
+            bufPtr += slen;
             idxChar = *(++idxPtr);
             break;
         case 'd':
@@ -217,19 +210,17 @@ OS_SEC_KERNEL_TEXT size_t vsprintf(char *str, size_t bufSize, const char *fmt, v
                 }
                 argInt = 0 - argInt;
             }
-            {
-                char numBuf[11];
-                char *numPtr = numBuf;
-                itoa(argInt, &numPtr, 10);
-                *numPtr = '\0';
-                size_t slen = strlen(numBuf);
-                size_t avail = (size_t)(bufEnd - bufPtr);
-                if (slen > avail) {
-                    slen = avail;
-                }
-                memcpy(bufPtr, numBuf, slen);
-                bufPtr += slen;
+            char numBufD[11];
+            char *numPtrD = numBufD;
+            itoa(argInt, &numPtrD, 10);
+            *numPtrD = '\0';
+            slen = strlen(numBufD);
+            avail = (size_t)(bufEnd - bufPtr);
+            if (slen > avail) {
+                slen = avail;
             }
+            memcpy(bufPtr, numBufD, slen);
+            bufPtr += slen;
             idxChar = *(++idxPtr);
             break;
         case 'c':

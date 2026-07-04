@@ -53,7 +53,8 @@ struct OsTaskCb {
     uintptr_t pgDir;                /* 进程页目录，线程为NULL */
     struct OsList holdSemList;     /* 该任务持有的所有互斥信号量（通过 semCb->holdNode 挂入） */
     struct OsList msgList;         /* 该任务的消息信箱（OsMsgHeader.queueNode 挂入） */
-    struct OsMemPool usrVirMemPool; /* 进程的用户虚拟内存池 */
+    struct OsMemPool usrVirMemPool;    /* 进程的用户虚拟内存池 */
+    struct OsMemFscCtrl *usrFscCtrl;   /* 进程的用户堆 FSC 控制块，线程为 NULL */
 };
 
 struct OsTaskCreateParam {

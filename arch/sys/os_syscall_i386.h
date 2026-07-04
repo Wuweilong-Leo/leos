@@ -12,9 +12,11 @@
 /* 系统调用号 */
 #define OS_SYS_WRITE  1   /* arg1=字符串指针, arg2=长度; 返回写入字节数 */
 #define OS_SYS_EXIT   2   /* arg1=退出码; 不返回 */
+#define OS_SYS_MALLOC 3   /* arg1=大小; 返回分配的地址(0=失败) */
+#define OS_SYS_FREE   4   /* arg1=地址; 无返回值 */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
-#define OS_SYS_NUM    3
+#define OS_SYS_NUM    5
 
 /* 系统调用处理函数类型 */
 typedef U32 (*OsSyscallFunc)(U32 arg1, U32 arg2, U32 arg3, U32 arg4);
@@ -71,6 +73,18 @@ OS_INLINE U32 usr_printf(const char *str, U32 len)
 OS_INLINE void usr_exit(U32 exitCode)
 {
     OsSyscall1(OS_SYS_EXIT, exitCode);
+}
+
+/* 用户态 malloc */
+OS_INLINE void *usr_malloc(U32 size)
+{
+    return (void *)(uintptr_t)OsSyscall1(OS_SYS_MALLOC, size);
+}
+
+/* 用户态 free */
+OS_INLINE void usr_free(void *addr)
+{
+    OsSyscall1(OS_SYS_FREE, (U32)(uintptr_t)addr);
 }
 
 #endif /* OS_SYSCALL_I386_H */

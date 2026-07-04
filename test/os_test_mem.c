@@ -344,17 +344,15 @@ OS_SEC_KERNEL_TEXT void TestFscStress(void)
         }
     }
 
-    {
-        U32 s;
-        for (s = 0; s < MEM_STRESS_SLOTS; s++) {
-            if (g_stressSlots[s] != NULL) {
-                struct OsMemFscHead *h = OsMemFscGetHead((uintptr_t)g_stressSlots[s]);
-                U32 sz = (U32)h->size;
-                OsMemFscFree(g_stressSlots[s]);
-                g_stressSlots[s] = NULL;
-                regSum -= sz;
-                live--;
-            }
+    U32 s;
+    for (s = 0; s < MEM_STRESS_SLOTS; s++) {
+        if (g_stressSlots[s] != NULL) {
+            struct OsMemFscHead *h = OsMemFscGetHead((uintptr_t)g_stressSlots[s]);
+            U32 sz = (U32)h->size;
+            OsMemFscFree(g_stressSlots[s]);
+            g_stressSlots[s] = NULL;
+            regSum -= sz;
+            live--;
         }
     }
     OsDebugSetLogLevel(savedLevel);

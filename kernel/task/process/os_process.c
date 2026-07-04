@@ -26,40 +26,31 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
 
 /*
  * 在进程页目录下分配并映射用户栈页。
- * 不切换 CR3——直接通过进程页目录的虚拟地址操作页表。
+ * 调用前 CR3 为内核页目录，调用后恢复为内核页目录。
+ * 用户堆 FSC 采用惰性初始化：第一次 malloc 时再创建（此时进程已在运行，
+ * 缺页处理中 OS_RUNNING_TASK() 能正确返回进程自身）。
  */
-static OS_SEC_KERNEL_TEXT uintptr_t OsProcessAllocUsrStack(struct OsTaskCb *tskCb)
+static OS_SEC_KERNEL_TEXT void OsProcessInitUsrMem(struct OsTaskCb *tskCb)
 {
-    uintptr_t pgdVaddr = tskCb->pgDir;
-    uintptr_t pdeVaddr;
-    uintptr_t pteVaddr;
     uintptr_t phyAddr;
-    U32 pdeVal;
-    U32 pteIdx;
+    U32 virIdx;
 
-    /* 1. 从用户物理池分配 1 页 */
+    /* 切到进程页目录（OsMapVir2Phy 依赖自映射，必须 CR3 = 进程 PGD） */
+    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
+
+    /* 分配并映射用户栈 */
     phyAddr = OsMemPoolGetFreePgs(&g_usrPhyMemPool, 1);
     if (phyAddr == (uintptr_t)NULL) {
-        OS_PANIC("OsProcessAllocUsrStack: no free user physical page\n");
+        OS_PANIC("OsProcessInitUsrMem: no free user physical page for stack\n");
     }
-
-    /* 2. 在进程虚拟位图中标记已占用 */
-    {
-        U32 virIdx = (U32)((OS_PROCESS_USR_STACK_BASE - tskCb->usrVirMemPool.base) / OS_PG_SIZE);
-        OsBtmpSet(&tskCb->usrVirMemPool.btmp, virIdx);
-    }
-
-    /* 3. 在进程页目录中映射该页 */
-    /* 切到进程页目录来做映射（OsMapVir2Phy 依赖当前 CR3 的自映射） */
-    OsLoadPgd(OsGetPaddrByVaddr(pgdVaddr));
-
+    virIdx = (U32)((OS_PROCESS_USR_STACK_BASE - tskCb->usrVirMemPool.base) / OS_PG_SIZE);
+    OsBtmpSet(&tskCb->usrVirMemPool.btmp, virIdx);
     if (!OsMapVir2Phy((uintptr_t)OS_PROCESS_USR_STACK_BASE, phyAddr)) {
-        OS_PANIC("OsProcessAllocUsrStack: OsMapVir2Phy failed\n");
+        OS_PANIC("OsProcessInitUsrMem: map user stack failed\n");
     }
 
+    /* 恢复内核页目录 */
     OsLoadPgd(OS_KERNEL_PGD_BASE);
-
-    return (uintptr_t)OS_PROCESS_USR_STACK_BASE;
 }
 
 OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam, U32 *pid)
@@ -95,10 +86,12 @@ OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam
     /* 初始化进程虚拟内存池 */
     OsProcessInitVirMemPool(tskCb);
 
-    /* 在进程页目录下分配用户栈（切 CR3） */
-    OsProcessAllocUsrStack(tskCb);
-
+    /* 标记为进程 */
     tskCb->tskType = OS_TASK_PROCESS;
+
+    /* 分配用户栈 + 初始化用户堆 FSC（统一切一次 CR3） */
+    OsProcessInitUsrMem(tskCb);
+
     *pid = tskId;
 
     OsIntRestore(intSave);

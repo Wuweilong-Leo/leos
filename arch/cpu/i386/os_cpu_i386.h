@@ -49,4 +49,10 @@
 
 /* 用户进程栈顶地址（紧挨内核空间下方） */
 #define OS_PROCESS_USR_STACK_BASE (0xC0000000 - OS_PG_SIZE)
+
+/* 用户堆起始地址
+ * 0x08048000 是用户空间起点，预留 1 页给用户代码段
+ * 堆从 0x08049000 开始向上增长，和栈（0xBFFFF000 向下增长）相对
+ */
+#define OS_PROCESS_USR_HEAP_BASE  0x08049000
 #endif

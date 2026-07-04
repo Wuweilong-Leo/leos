@@ -2,6 +2,9 @@
 #include "os_syscall_i386.h"
 #include "os_idt_i386.h"
 #include "os_uart_external.h"
+#include "os_sched_external.h"
+#include "os_mem_external.h"
+#include "os_cpu.h"
 
 /*
  * i386 syscall 处理
@@ -32,7 +35,43 @@ static OS_SEC_KERNEL_TEXT U32 OsSysExit(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
     (void)arg2;
     (void)arg3;
     (void)arg4;
-    OsUartPrintf("[syscall] exit code=%u\n", arg1);
+    OsTaskDelete(OS_RUNNING_TASK()->pid);
+    /* OsTaskDelete 自删除不会返回，会切到其他任务 */
+    while (1) {
+    }
+    return 0;
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsSysMalloc(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    struct OsTaskCb *tsk = OS_RUNNING_TASK();
+    (void)arg2;
+    (void)arg3;
+    (void)arg4;
+
+    /* 惰性初始化：第一次 malloc 时创建用户堆 FSC
+     * 此时进程已在运行，缺页处理中 OS_RUNNING_TASK() 能正确返回进程自身，
+     * OsMemFscInitPt 触发的缺页可以正常走 OsMemUsrAllocPgByAddr 映射。 */
+    if (tsk->usrFscCtrl == NULL) {
+        tsk->usrFscCtrl = OsMemFscInitPt((uintptr_t)OS_PROCESS_USR_HEAP_BASE,
+                                           OS_USR_HEAP_MEM_SIZE);
+        if (tsk->usrFscCtrl == NULL) {
+            return 0;
+        }
+    }
+
+    return (U32)(uintptr_t)OsMemFscAlloc(tsk->usrFscCtrl, (size_t)arg1, 4);
+}
+
+static OS_SEC_KERNEL_TEXT U32 OsSysFree(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
+{
+    (void)arg2;
+    (void)arg3;
+    (void)arg4;
+    if (arg1 == 0) {
+        return 0;
+    }
+    OsMemFscFree((void *)(uintptr_t)arg1);
     return 0;
 }
 
@@ -75,6 +114,8 @@ OS_SEC_KERNEL_TEXT U32 OsSyscallConfigInit(void)
     /* 填充系统调用表 */
     OsSyscallRegister(OS_SYS_WRITE, OsSysWrite);
     OsSyscallRegister(OS_SYS_EXIT, OsSysExit);
+    OsSyscallRegister(OS_SYS_MALLOC, OsSysMalloc);
+    OsSyscallRegister(OS_SYS_FREE, OsSysFree);
 
     return OS_OK;
 }

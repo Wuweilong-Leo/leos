@@ -75,14 +75,22 @@ OS_SEC_KERNEL_TEXT bool OsExcHandleKernelPgFault(uintptr_t errAddr)
 {
     uintptr_t pgBase;
 
+    /* 内核堆 [0xC0200000, 0xC0600000) */
     if (errAddr >= OS_KERNEL_VIR_HEAP_MEM_BASE &&
         errAddr < OS_KERNEL_VIR_HEAP_MEM_BASE + OS_KERNEL_VIR_HEAP_MEM_SIZE) {
         pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
         return OsMemKernelAllocPgByAddr(pgBase) != NULL;
-    } else {
-        OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (uintptr_t)errAddr);
-        return FALSE;
     }
+
+    /* 用户堆 [0x08049000, 0x08449000)：内核代为访问用户堆时触发缺页（如 syscall 拷贝数据） */
+    if (errAddr >= OS_PROCESS_USR_HEAP_BASE &&
+        errAddr < OS_PROCESS_USR_HEAP_BASE + OS_USR_HEAP_MEM_SIZE) {
+        pgBase = OS_ROUND_DOWN(errAddr, OS_PG_SIZE);
+        return OsMemUsrAllocPgByAddr(pgBase) != NULL;
+    }
+
+    OS_DEBUG_KPRINT("OsExcHandleKernelPgFault: errAddr not in range, 0x%x\n", (uintptr_t)errAddr);
+    return FALSE;
 }
 
 OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *context)
@@ -95,6 +103,17 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
 
     /* 用户态异常：杀进程而非崩系统 */
     if ((context->errCode & 0x4) || (context->cs & 0x3) == OS_RPL3) {
+        /* 用户态缺页：堆区域自动扩展（malloc 写入未映射页时触发） */
+        if (excNum == OS_EXC_TYPE_PAGE_FAULT) {
+            uintptr_t heapBase = (uintptr_t)OS_PROCESS_USR_HEAP_BASE;
+            uintptr_t heapEnd = heapBase + OS_USR_HEAP_MEM_SIZE;
+            if (context->cr2 >= heapBase && context->cr2 < heapEnd) {
+                uintptr_t pgBase = OS_ROUND_DOWN(context->cr2, OS_PG_SIZE);
+                if (OsMemUsrAllocPgByAddr(pgBase) != (uintptr_t)NULL) {
+                    return;  /* 映射成功，iret 回用户态继续 */
+                }
+            }
+        }
         kprintf("[USER FAULT] pid=%u exc=0x%x eip=0x%x cr2=0x%x errCode=0x%x\n",
                 OS_RUNNING_TASK()->pid, excNum,
                 context->eip, context->cr2, context->errCode);

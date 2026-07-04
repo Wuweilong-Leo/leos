@@ -173,18 +173,16 @@ OS_SEC_KERNEL_TEXT void TestPgfPrimitive(void)
         OS_TEST_ASSERT_EQ(bv1 - bv0, 1);
         OS_TEST_ASSERT_EQ(bp1 - bp0, 1);
     }
-    {
-        uintptr_t phy = OsUnmapVir2Phy(mid);
-        if (phy != (uintptr_t)NULL) {
-            OsBtmpClear(&g_kernelVirMemPool.btmp, 256);
-            OsBtmpClear(&g_kernelPhyMemPool.btmp,
-                        (U32)((phy - g_kernelPhyMemPool.base) / OS_PG_SIZE));
-        }
-        OS_TEST_ASSERT(OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0);
-        OS_TEST_ASSERT(!TestPgfPtePresent(mid));
-        OS_TEST_ASSERT_EQ(TestPgfVirPop(), bv0);
-        OS_TEST_ASSERT_EQ(TestPgfPhyUsed(), bp0);
+    uintptr_t phy = OsUnmapVir2Phy(mid);
+    if (phy != (uintptr_t)NULL) {
+        OsBtmpClear(&g_kernelVirMemPool.btmp, 256);
+        OsBtmpClear(&g_kernelPhyMemPool.btmp,
+                    (U32)((phy - g_kernelPhyMemPool.base) / OS_PG_SIZE));
     }
+    OS_TEST_ASSERT(OsBtmpGet(&g_kernelVirMemPool.btmp, 256) == 0);
+    OS_TEST_ASSERT(!TestPgfPtePresent(mid));
+    OS_TEST_ASSERT_EQ(TestPgfVirPop(), bv0);
+    OS_TEST_ASSERT_EQ(TestPgfPhyUsed(), bp0);
 }
 
 OS_SEC_KERNEL_TEXT void TestPgfStress(void)
@@ -211,25 +209,21 @@ OS_SEC_KERNEL_TEXT void TestPgfStress(void)
             OsMemKernelFree(sblk[j]);
         }
     }
-    {
-        U32 ve = TestPgfVirPop();
-        U32 pe = TestPgfPhyUsed();
-        U32 he = TestPgfPresentHeapPde();
-        OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
-        OS_TEST_ASSERT_EQ(pe - ps, (ve - vs) + (he - hs));
-    }
+    U32 ve = TestPgfVirPop();
+    U32 pe = TestPgfPhyUsed();
+    U32 he = TestPgfPresentHeapPde();
+    OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
+    OS_TEST_ASSERT_EQ(pe - ps, (ve - vs) + (he - hs));
 }
 
 OS_SEC_KERNEL_TEXT void TestPgfInvariantCase(void)
 {
     OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);
     /* 释放批量块 */
-    {
-        U32 k;
-        for (k = 0; k < g_pgfBlkN; k++) {
-            if (g_pgfBlks[k] != NULL) {
-                OsMemKernelFree(g_pgfBlks[k]);
-            }
+    U32 k;
+    for (k = 0; k < g_pgfBlkN; k++) {
+        if (g_pgfBlks[k] != NULL) {
+            OsMemKernelFree(g_pgfBlks[k]);
         }
     }
     OS_TEST_ASSERT_EQ(TestPgfInvariant(), 0);

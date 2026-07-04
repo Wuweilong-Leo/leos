@@ -48,6 +48,7 @@ OS_SEC_KERNEL_TEXT struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t si
     struct OsMemFscCtrl *ptCtrl;
     size_t ptSize;
     struct OsMemFscHead *blk;
+    struct OsMemFscHead *tailSentinel;
     U32 i;
     struct OsMemFscHead *freeList;
     size_t blkSize;
@@ -57,6 +58,12 @@ OS_SEC_KERNEL_TEXT struct OsMemFscCtrl *OsMemFscInitPt(uintptr_t addr, size_t si
     blk = (struct OsMemFscHead *)(ptCtrl + 1);
     blkSize =
         (uintptr_t)ptCtrl + ptSize - (uintptr_t)blk - OS_MEM_FSC_HEAD_SIZE; // 此处再预留个尾巴占位
+
+    /* 初始化尾部哨兵块：标记为使用中（ctrl 非 NULL），防止 free 合并越界 */
+    tailSentinel = (struct OsMemFscHead *)((uintptr_t)blk + blkSize);
+    tailSentinel->ctrl = ptCtrl;   /* 非 NULL = 使用中，free 不会合并 */
+    tailSentinel->size = 0;
+    tailSentinel->preSize = 0;
 
     for (i = 0; i < OS_MEM_FSC_SIZE_NUM; i++) {
         freeList = OsMemFscGetFreeList(ptCtrl, i);
