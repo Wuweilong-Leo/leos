@@ -14,10 +14,10 @@
 #define OS_SYS_EXIT   2   /* arg1=退出码; 不返回 */
 #define OS_SYS_MALLOC 3   /* arg1=大小; 返回分配的地址(0=失败) */
 #define OS_SYS_FREE   4   /* arg1=地址; 无返回值 */
-#define OS_SYS_SEM_CREATE 5   /* arg1=type, arg2=initVal, arg3=maxCnt; 返回semId(-1=失败) */
-#define OS_SYS_SEM_PEND 6     /* arg1=semId, arg2=timeout; 返回错误码 */
-#define OS_SYS_SEM_POST 7     /* arg1=semId; 返回错误码 */
-#define OS_SYS_SEM_DELETE 8   /* arg1=semId; 返回错误码 */
+#define OS_SYS_SEM_CREATE 5   /* arg1=type, arg2=initVal, arg3=maxCnt; 返回semId, >=0x10000为错误码 */
+#define OS_SYS_SEM_PEND 6     /* arg1=semId, arg2=timeout; 返回OS_OK/错误码 */
+#define OS_SYS_SEM_POST 7     /* arg1=semId; 返回OS_OK/错误码 */
+#define OS_SYS_SEM_DELETE 8   /* arg1=semId; 返回OS_OK/错误码 */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
 #define OS_SYS_NUM    9
@@ -92,6 +92,9 @@ OS_INLINE void usr_free(void *addr)
 }
 
 /* 用户态信号量 */
+/* sem_create 返回值：[0, OS_SEM_MAX_NUM) 为 semId，>= 0x10000 为错误码 */
+#define OS_USR_SEM_ID_IS_ERR(r) ((r) >= 0x10000U)
+
 OS_INLINE U32 usr_sem_create(U32 type, U32 initVal, U32 maxCnt)
 {
     return OsSyscall3(OS_SYS_SEM_CREATE, type, initVal, maxCnt);

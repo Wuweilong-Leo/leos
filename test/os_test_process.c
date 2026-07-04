@@ -175,7 +175,7 @@ OS_SEC_KERNEL_TEXT static void TestUsrSemEntry(void)
 
     /* === 1. BINARY_MUTEX: pend 立即获取，post 释放，delete === */
     semId = usr_sem_create(OS_SEM_BINARY_MUTEX, 1, 1);
-    if (semId == (U32)-1) {
+    if (OS_USR_SEM_ID_IS_ERR(semId)) {
         usr_puts("[SEM] FAIL: mutex create\n");
         usr_exit(1);
     }
@@ -201,7 +201,7 @@ OS_SEC_KERNEL_TEXT static void TestUsrSemEntry(void)
 
     /* === 2. BINARY_SYNC: 初始 val=0，pend 超时，然后 post+pend === */
     semId = usr_sem_create(OS_SEM_BINARY_SYNC, 0, 1);
-    if (semId == (U32)-1) {
+    if (OS_USR_SEM_ID_IS_ERR(semId)) {
         usr_puts("[SEM] FAIL: sync create\n");
         usr_exit(1);
     }
@@ -224,7 +224,7 @@ OS_SEC_KERNEL_TEXT static void TestUsrSemEntry(void)
 
     /* === 3. COUNTING: 多次 post + 多次 pend === */
     semId = usr_sem_create(OS_SEM_COUNTING, 0, 5);
-    if (semId == (U32)-1) {
+    if (OS_USR_SEM_ID_IS_ERR(semId)) {
         usr_puts("[SEM] FAIL: cnt create\n");
         usr_exit(1);
     }
