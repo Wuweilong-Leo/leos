@@ -4,6 +4,8 @@
 #include "os_print_external.h"
 #include "os_debug_external.h"
 #include "os_mem_external.h"
+#include "os_task_external.h"
+#include "os_sched_external.h"
 
 /*
  * i386 异常架构相关实现
@@ -91,16 +93,31 @@ OS_SEC_KERNEL_TEXT void OsExcDispatcher(U32 excNum, struct OsExcSaveContext *con
         }
     }
 
-    if (excNum == OS_EXC_TYPE_PAGE_FAULT && OsExcPgFaultTriggeredByKernel(context->errCode)) {
+    /* 用户态异常：杀进程而非崩系统 */
+    if ((context->errCode & 0x4) || (context->cs & 0x3) == OS_RPL3) {
+        kprintf("[USER FAULT] pid=%u exc=0x%x eip=0x%x cr2=0x%x errCode=0x%x\n",
+                OS_RUNNING_TASK()->pid, excNum,
+                context->eip, context->cr2, context->errCode);
+        /* 杀掉当前进程（不返回） */
+        OsTaskDelete(OS_RUNNING_TASK()->pid);
+        /* OsTaskDelete 对自删除不会返回，会切到其他任务 */
+        while (1) {
+        }
+    }
+
+    /* 内核态缺页：按需映射 */
+    if (excNum == OS_EXC_TYPE_PAGE_FAULT) {
         if (!OsExcHandleKernelPgFault(context->cr2)) {
             kprintf("\n!!! KERNEL PAGE FAULT: cs=0x%x eip=0x%x errAddr=0x%x !!!\n",
                     context->cs, context->eip, context->cr2);
             while (1) {
             }
         }
-    } else {
-        OsExcReport(excNum, context);
+        return;
     }
+
+    /* 内核态其他异常：报告并挂死 */
+    OsExcReport(excNum, context);
 }
 
 static OS_SEC_KERNEL_TEXT void OsExcRegIdt(void)

@@ -154,6 +154,7 @@ OS_SEC_KERNEL_TEXT void OsSchedSwitchFirstTsk(void)
     OsSchedIdleRdy(rq);
 
     tskCb = OsSchedPickHighestPrioTsk();
+
     rq->runningTsk = tskCb;
     tskCb->status |= OS_TASK_STATUS_RUNNING;
 

@@ -262,11 +262,8 @@ OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
     /* 进程页目录用内核的内存 */
     pgdBase = (struct OsPgtEntry *)OsMemKernelAllocPgs(1);
     if (pgdBase == NULL) {
-        OS_DEBUG_KPRINT("%s", "OsCreateProcessPgd: OsMemKernelAllocPgs failed\n");
         return NULL;
     }
-
-    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdBase = 0x%x\n", (uintptr_t)pgdBase);
 
     /* 对页目录项进行复制，要把内核1G全部复制过来 */
     memcpy(
@@ -276,7 +273,6 @@ OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
 
     /* 要把页目录的物理地址写入最后一项 */
     pgdPhyAddr = OsGetPaddrByVaddr((uintptr_t)pgdBase);
-    OS_DEBUG_KPRINT("OsCreateProcessPgd: pgdPhyAddr = 0x%x\n", (uintptr_t)pgdPhyAddr);
     *(U32 *)(&pgdBase[OS_PGD_ENTRY_NUM - 1]) = (uintptr_t)pgdPhyAddr | OS_PG_RW_W | OS_PG_US_U | OS_PG_P;
 
     return (uintptr_t)pgdBase;

@@ -43,6 +43,9 @@ extern void TestRrSetup(void);          extern void TestRrVerify(void);
 /* STRESS */
 extern void TestStressSetup(void);      extern void TestStressVerify(void);
 
+/* PROC */
+extern void TestProcSetup(void);       extern void TestProcVerify(void);
+
 /* MSG */
 extern void TestMsgBasicSetup(void);    extern void TestMsgBasicVerify(void);
 extern void TestMsgMultiSetup(void);    extern void TestMsgMultiVerify(void);
@@ -58,6 +61,8 @@ extern void TestMsgInvPidSetup(void);   extern void TestMsgInvPidVerify(void);
     { (suite_), (name_), (func_), (delay_), (setup_) }
 
 OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
+    /* PROC (异步) — 进程创建和用户态运行 */
+    TC("PROC", "user-run", TestProcVerify, 100, TestProcSetup),
     /* MEM (同步) */
     TC("MEM", "setup",    TestMemSetup,    0, NULL),
     TC("MEM", "basic",    TestFscBasic,    0, NULL),
@@ -91,7 +96,6 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("TASK", "self-delete", TestTaskVerify, 100, TestTaskSetup),
     /* RR (异步) */
     TC("RR", "round-robin", TestRrVerify, 100, TestRrSetup),
-    /* MSG (异步) */
     TC("MSG", "basic",      TestMsgBasicVerify,   100, TestMsgBasicSetup),
     TC("MSG", "multi",      TestMsgMultiVerify,   100, TestMsgMultiSetup),
     TC("MSG", "block-recv", TestMsgBlockVerify,   100, TestMsgBlockSetup),

@@ -6,6 +6,7 @@
 #include "os_io_i386.h"
 #include "os_print_external.h"
 #include "os_debug_external.h"
+#include "os_syscall_i386.h"
 
 /*
  * i386 硬件中断架构相关实现
@@ -68,6 +69,7 @@ OS_SEC_KERNEL_TEXT U32 OsHwiConfigInit(void)
     /* 异常向量由 OsExcConfigInit 先注册;此处只注册 IRQ 并装载 IDTR */
     OsHwiRegIdt();
     OsHwiPicInit();
+    OsSyscallConfigInit();  /* 注册 INT 0x80 (DPL=3)，在 OsIdtLoad 之前 */
     OsIdtLoad();
 
     OS_DEBUG_PRINT_STR("OsHwiConfig end\n");

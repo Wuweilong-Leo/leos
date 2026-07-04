@@ -9,7 +9,6 @@ OS_SEC_KERNEL_TEXT S32 main(void)
     (void)OsIntLock();
     OsConfigInit();
 
-    /* 由 OsSchedSwitchFirstTsk 统一做第一次调度 */
     OsSchedSwitchFirstTsk();
 
     while (1) {

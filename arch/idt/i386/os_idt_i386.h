@@ -8,8 +8,8 @@
  * - OsIdtLoad 装载 IDTR(lidt),由初始化编排里负责整体装载的一方调用一次。
  */
 
-/* IDT 覆盖向量 0x00..0x30(exc 0..0x1f + hwi 0x20..0x30),与两者如何划分无关 */
-#define OS_IDT_VEC_MAX  0x30
+/* IDT 完整 256 项（i386 标准），覆盖 exc + hwi + syscall */
+#define OS_IDT_VEC_MAX  0xFF
 #define OS_IDT_NUM      (OS_IDT_VEC_MAX + 1)
 
 /* IDT 门描述符 */

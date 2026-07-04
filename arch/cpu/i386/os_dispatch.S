@@ -208,6 +208,58 @@ OS_HWI_VECTOR 0x2e, ZERO
 OS_HWI_VECTOR 0x2f, ZERO
 OS_HWI_VECTOR 0x30, ZERO
 
+/* ====== Syscall 入口 (INT 0x80, DPL=3) ====== */
+.code32
+.section .os.kernel.text, "ax"
+.global OsSyscallVector80
+
+OsSyscallVector80:
+    pushl $0                    /* 假 errCode，平衡栈帧 */
+    OS_HWI_SAVE_CONTEXT         /* 全量保存寄存器 */
+
+    /* 先保存上下文指针到 runningTsk->stkPtr */
+    movl $g_runQue, %eax
+    movl 0(%eax), %eax          /* runningTsk */
+    movl %esp, 0(%eax)          /* stkPtr = 上下文地址 */
+
+    /* 判断是否在系统栈 */
+    movl $g_kernelStackHigh, %eax
+    movl 0(%eax), %eax
+    cmp %eax, %esp
+    jae .Lsyscall_on_sysstack
+    movl $g_kernelStackLow, %eax
+    movl 0(%eax), %eax
+    cmp %eax, %esp
+    jb .Lsyscall_on_sysstack
+    jmp .Lsyscall_call
+
+.Lsyscall_on_sysstack:
+    /* 不在系统栈，切到系统栈 */
+    movl $g_kernelStackHigh, %eax
+    movl 0(%eax), %esp
+
+.Lsyscall_call:
+    /* 从 runningTsk->stkPtr 取上下文指针，逐字段压栈传参 */
+    movl $g_runQue, %eax
+    movl 0(%eax), %eax          /* runningTsk */
+    movl 0(%eax), %eax          /* stkPtr = OsAllSaveContext* */
+
+    pushl 0x08(%eax)            /* ctx->esi = arg4 */
+    pushl 0x18(%eax)            /* ctx->edx = arg3 */
+    pushl 0x1C(%eax)            /* ctx->ecx = arg2 */
+    pushl 0x14(%eax)            /* ctx->ebx = arg1 */
+    pushl 0x20(%eax)            /* ctx->eax = sysno */
+    call OsSyscallHandler
+    addl $20, %esp
+
+    /* eax = 返回值，写回上下文的 eax 字段，iret 时恢复给用户态 */
+    movl $g_runQue, %edx
+    movl 0(%edx), %edx          /* runningTsk */
+    movl 0(%edx), %edx          /* stkPtr */
+    movl %eax, 0x20(%edx)       /* ctx->eax = 返回值 */
+    movl %edx, %esp             /* esp → 上下文，供 OsHwiRet 恢复 */
+    jmp OsHwiRet
+
 OsExcRet:
     addl $4, %esp // 越过cr2
     popl %edi

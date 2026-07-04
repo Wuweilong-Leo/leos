@@ -65,11 +65,8 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     allSaveContext->eip = (uintptr_t)entry;
     allSaveContext->eflags = OS_PROCESS_EFLAGS;
 
-    /* 创建用户栈 */
-    memBase = OsMemUsrAllocPgByAddr((uintptr_t)OS_PROCESS_USR_STACK_BASE);
-    if (memBase == NULL) {
-        OS_PANIC("OsMemUsrAllocPgByAddr failed\n");
-    }
+    /* 用户栈已在 OsProcessCreate 中分配并映射到进程页表 */
+    memBase = (uintptr_t)OS_PROCESS_USR_STACK_BASE;
 
     allSaveContext->esp = memBase + OS_PG_SIZE;
 
@@ -96,7 +93,6 @@ OS_SEC_KERNEL_TEXT void OsConfigPgdForTskSwitch(struct OsTaskCb *tsk)
     if (tsk->tskType == OS_TASK_PROCESS) {
         /* 获取页目录的物理地址 */
         pgdPhyAddr = OsGetPaddrByVaddr(tsk->pgDir);
-        // OS_DEBUG_KPRINT("OsConfigPgdForTskSwitch: pgdPhyAddr = 0x%x\n", (U32)pgdPhyAddr);
         OsLoadPgd(pgdPhyAddr);
     } else {
         OsLoadPgd(OS_KERNEL_PGD_BASE);
