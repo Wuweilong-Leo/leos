@@ -8,6 +8,7 @@
 #include "os_debug_external.h"
 #include "os_reset.h"
 #include "os_pgt.h"
+#include "os_btmp_external.h"
 
 static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
 {
@@ -101,4 +102,77 @@ OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam
 OS_SEC_KERNEL_TEXT U32 OsProcessResume(U32 processId)
 {
     return OsTaskResume(processId);
+}
+
+/* 释放进程的全部用户空间资源：用户物理页、PT 页、PGD 页、虚拟位图页 */
+OS_SEC_KERNEL_TEXT void OsProcessFreeResources(struct OsTaskCb *tskCb)
+{
+    U32 pdeIdx, pteIdx;
+    uintptr_t pdeVaddr, pteVaddr, virAddr, phyAddr;
+    U32 phyIdx, virIdx;
+    U32 btmpPgNum, i;
+    uintptr_t btmpPage;
+
+    /* 切到进程页目录，才能通过自映射访问进程的 PT */
+    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
+
+    /* 遍历用户区 PDE，释放每个用户物理页和 PT 页 */
+    for (pdeIdx = 0; pdeIdx < OS_PGD_KERNEL_IDX_START; pdeIdx++) {
+        pdeVaddr = 0xFFFFF000 + pdeIdx * 4;
+        if (!OsPdeIsExisted(pdeVaddr)) {
+            continue;
+        }
+
+        /* 遍历该 PT 的所有 PTE，释放用户物理页 */
+        for (pteIdx = 0; pteIdx < OS_PGT_ENTRY_NUM; pteIdx++) {
+            pteVaddr = 0xFFC00000 + pdeIdx * 0x1000 + pteIdx * 4;
+            if (!OsPteIsExisted(pteVaddr)) {
+                continue;
+            }
+
+            virAddr = (uintptr_t)((pdeIdx << 22) | (pteIdx << 12));
+            phyAddr = OsUnmapVir2Phy(virAddr);
+            if (phyAddr != (uintptr_t)NULL) {
+                phyIdx = (U32)((phyAddr - g_usrPhyMemPool.base) / OS_PG_SIZE);
+                OsBtmpClear(&g_usrPhyMemPool.btmp, phyIdx);
+            }
+        }
+
+        /* 释放 PT 页本身（来自内核池） */
+        phyAddr = OsUnmapVir2Phy(0xFFC00000 + pdeIdx * 0x1000);
+        if (phyAddr != (uintptr_t)NULL) {
+            phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+            OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+        }
+        virIdx = (U32)(((0xFFC00000 + pdeIdx * 0x1000) - g_kernelVirMemPool.base) / OS_PG_SIZE);
+        OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+    }
+
+    /* 切回内核页目录 */
+    OsLoadPgd(OS_KERNEL_PGD_BASE);
+
+    /* 释放 PGD 页（来自内核池） */
+    phyAddr = OsUnmapVir2Phy(tskCb->pgDir);
+    if (phyAddr != (uintptr_t)NULL) {
+        phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+        OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+    }
+    virIdx = (U32)((tskCb->pgDir - g_kernelVirMemPool.base) / OS_PG_SIZE);
+    OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+
+    /* 释放虚拟位图页（由 OsMemKernelAllocPgs 分配，来自内核池） */
+    btmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE);
+    for (i = 0; i < btmpPgNum; i++) {
+        btmpPage = (uintptr_t)tskCb->usrVirMemPool.btmp.base + i * OS_PG_SIZE;
+        phyAddr = OsUnmapVir2Phy(btmpPage);
+        if (phyAddr != (uintptr_t)NULL) {
+            phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+            OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+        }
+        virIdx = (U32)((btmpPage - g_kernelVirMemPool.base) / OS_PG_SIZE);
+        OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+    }
+
+    tskCb->pgDir = 0;
+    tskCb->usrFscCtrl = NULL;
 }

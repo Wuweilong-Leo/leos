@@ -10,6 +10,7 @@
 #include "string.h"
 #include "os_sem_external.h"
 #include "os_process_external.h"
+#include "os_process_internal.h"
 #include "os_tick_external.h"
 #include "os_mem_external.h"
 #include "os_base_external.h"
@@ -297,11 +298,10 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     }
 
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {
-        /* TODO: 释放进程页目录和用户空间映射 */
+        OsProcessFreeResources(tskCb);
     }
 
     tskCb->status = 0;
-    tskCb->pgDir = 0;
 
     curTsk = OS_RUNNING_TASK();
 

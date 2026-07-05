@@ -287,3 +287,51 @@ OS_SEC_KERNEL_TEXT void TestUsrSemVerify(void)
     OS_TEST_ASSERT(g_testUsrSemAlive == 1);
     OsUartPuts("[PROC-SEM] verify ok\n");
 }
+
+/* ====== 进程重复创建退出压力测试 ====== */
+
+/* 验证进程退出后资源被释放，能再次创建新进程 */
+#define TEST_PROC_RECYCLE_ROUNDS 5
+
+OS_SEC_KERNEL_BSS volatile U32 g_testProcRecycleCount;
+
+/* 用户态进程入口：打印一个字符后退出 */
+OS_SEC_KERNEL_TEXT static void TestProcRecycleEntry(void)
+{
+    usr_puts("R");
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestProcRecycleSetup(void)
+{
+    U32 i;
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testProcRecycleCount = 0;
+
+    for (i = 0; i < TEST_PROC_RECYCLE_ROUNDS; i++) {
+        strcpy(param.processName, "recycle");
+        param.entryFunc = (OsProcessEntryFunc)TestProcRecycleEntry;
+        param.prio = 5;
+
+        ret = OsProcessCreate(&param, &pid);
+        if (ret != OS_OK) {
+            OsUartPrintf("[PROC-RECYCLE] FAIL: create ret=%u i=%u\n", ret, i);
+            return;
+        }
+
+        OsProcessResume(pid);
+        /* 等进程退出后再创建下一个 */
+        OsTaskDelay(30);
+        g_testProcRecycleCount++;
+    }
+    OsUartPuts("[PROC-RECYCLE] setup done\n");
+}
+
+OS_SEC_KERNEL_TEXT void TestProcRecycleVerify(void)
+{
+    OS_TEST_ASSERT(g_testProcRecycleCount == TEST_PROC_RECYCLE_ROUNDS);
+    OsUartPuts("[PROC-RECYCLE] verify ok\n");
+}
