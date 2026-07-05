@@ -16,6 +16,7 @@ extern uintptr_t OsCreateProcessPgd(void);
 /* 通用架构接口（由架构层实现） */
 struct OsTaskCb;
 extern void OsProcessInitArch(struct OsTaskCb *process);
+extern void OsProcessFreeArchResources(struct OsTaskCb *process);
 extern void OsConfigArchForTskSwitch(struct OsTaskCb *tsk);
 
 /* 任务上下文初始化（由架构层实现） */

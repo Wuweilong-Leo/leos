@@ -104,61 +104,15 @@ OS_SEC_KERNEL_TEXT U32 OsProcessResume(U32 processId)
     return OsTaskResume(processId);
 }
 
-/* 释放进程的全部用户空间资源：用户物理页、PT 页、PGD 页、虚拟位图页 */
+/* 释放进程的全部用户空间资源 */
 OS_SEC_KERNEL_TEXT void OsProcessFreeResources(struct OsTaskCb *tskCb)
 {
-    U32 pdeIdx, pteIdx;
-    uintptr_t pdeVaddr, pteVaddr, virAddr, phyAddr;
-    U32 phyIdx, virIdx;
     U32 btmpPgNum, i;
-    uintptr_t btmpPage;
+    uintptr_t btmpPage, phyAddr;
+    U32 phyIdx, virIdx;
 
-    /* 切到进程页目录，才能通过自映射访问进程的 PT */
-    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
-
-    /* 遍历用户区 PDE，释放每个用户物理页和 PT 页 */
-    for (pdeIdx = 0; pdeIdx < OS_PGD_KERNEL_IDX_START; pdeIdx++) {
-        pdeVaddr = 0xFFFFF000 + pdeIdx * 4;
-        if (!OsPdeIsExisted(pdeVaddr)) {
-            continue;
-        }
-
-        /* 遍历该 PT 的所有 PTE，释放用户物理页 */
-        for (pteIdx = 0; pteIdx < OS_PGT_ENTRY_NUM; pteIdx++) {
-            pteVaddr = 0xFFC00000 + pdeIdx * 0x1000 + pteIdx * 4;
-            if (!OsPteIsExisted(pteVaddr)) {
-                continue;
-            }
-
-            virAddr = (uintptr_t)((pdeIdx << 22) | (pteIdx << 12));
-            phyAddr = OsUnmapVir2Phy(virAddr);
-            if (phyAddr != (uintptr_t)NULL) {
-                phyIdx = (U32)((phyAddr - g_usrPhyMemPool.base) / OS_PG_SIZE);
-                OsBtmpClear(&g_usrPhyMemPool.btmp, phyIdx);
-            }
-        }
-
-        /* 释放 PT 页本身（来自内核池） */
-        phyAddr = OsUnmapVir2Phy(0xFFC00000 + pdeIdx * 0x1000);
-        if (phyAddr != (uintptr_t)NULL) {
-            phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
-            OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
-        }
-        virIdx = (U32)(((0xFFC00000 + pdeIdx * 0x1000) - g_kernelVirMemPool.base) / OS_PG_SIZE);
-        OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
-    }
-
-    /* 切回内核页目录 */
-    OsLoadPgd(OS_KERNEL_PGD_BASE);
-
-    /* 释放 PGD 页（来自内核池） */
-    phyAddr = OsUnmapVir2Phy(tskCb->pgDir);
-    if (phyAddr != (uintptr_t)NULL) {
-        phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
-        OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
-    }
-    virIdx = (U32)((tskCb->pgDir - g_kernelVirMemPool.base) / OS_PG_SIZE);
-    OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+    /* 释放页表、页目录（架构相关：CR3 切换 + 自映射遍历） */
+    OsProcessFreeArchResources(tskCb);
 
     /* 释放虚拟位图页（由 OsMemKernelAllocPgs 分配，来自内核池） */
     btmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE);

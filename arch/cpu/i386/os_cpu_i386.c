@@ -9,6 +9,7 @@
 #include "os_debug_external.h"
 #include "os_context_i386.h"
 #include "os_mem_external.h"
+#include "os_btmp_external.h"
 #include "os_hwi.h"
 
 OS_SEC_KERNEL_TEXT void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb)
@@ -111,4 +112,59 @@ OS_SEC_KERNEL_TEXT void OsConfigArchForTskSwitch(struct OsTaskCb *tsk)
 
     /* 进入进程后，要把内核栈放到tss里存起来，因此要更新tss */
     OsConfigTssForTskSwitch(tsk);
+}
+
+/* 释放进程的页表和页目录（i386 自映射实现） */
+OS_SEC_KERNEL_TEXT void OsProcessFreeArchResources(struct OsTaskCb *tskCb)
+{
+    U32 pdeIdx, pteIdx;
+    uintptr_t pdeVaddr, pteVaddr, virAddr, phyAddr;
+    U32 phyIdx, virIdx;
+
+    /* 切到进程页目录，才能通过自映射访问进程的 PT */
+    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
+
+    /* 遍历用户区 PDE，释放每个用户物理页和 PT 页 */
+    for (pdeIdx = 0; pdeIdx < OS_PGD_KERNEL_IDX_START; pdeIdx++) {
+        pdeVaddr = 0xFFFFF000 + pdeIdx * 4;
+        if (!OsPdeIsExisted(pdeVaddr)) {
+            continue;
+        }
+
+        /* 遍历该 PT 的所有 PTE，释放用户物理页 */
+        for (pteIdx = 0; pteIdx < OS_PGT_ENTRY_NUM; pteIdx++) {
+            pteVaddr = 0xFFC00000 + pdeIdx * 0x1000 + pteIdx * 4;
+            if (!OsPteIsExisted(pteVaddr)) {
+                continue;
+            }
+
+            virAddr = (uintptr_t)((pdeIdx << 22) | (pteIdx << 12));
+            phyAddr = OsUnmapVir2Phy(virAddr);
+            if (phyAddr != (uintptr_t)NULL) {
+                phyIdx = (U32)((phyAddr - g_usrPhyMemPool.base) / OS_PG_SIZE);
+                OsBtmpClear(&g_usrPhyMemPool.btmp, phyIdx);
+            }
+        }
+
+        /* 释放 PT 页本身（来自内核池） */
+        phyAddr = OsUnmapVir2Phy(0xFFC00000 + pdeIdx * 0x1000);
+        if (phyAddr != (uintptr_t)NULL) {
+            phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+            OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+        }
+        virIdx = (U32)(((0xFFC00000 + pdeIdx * 0x1000) - g_kernelVirMemPool.base) / OS_PG_SIZE);
+        OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+    }
+
+    /* 切回内核页目录 */
+    OsLoadPgd(OS_KERNEL_PGD_BASE);
+
+    /* 释放 PGD 页（来自内核池） */
+    phyAddr = OsUnmapVir2Phy(tskCb->pgDir);
+    if (phyAddr != (uintptr_t)NULL) {
+        phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+        OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+    }
+    virIdx = (U32)((tskCb->pgDir - g_kernelVirMemPool.base) / OS_PG_SIZE);
+    OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
 }
