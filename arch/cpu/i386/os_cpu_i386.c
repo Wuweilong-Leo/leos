@@ -35,9 +35,6 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     struct OsAllSaveContext *allSaveContext;
     uintptr_t memBase;
 
-    (void)param1;
-    (void)param2;
-
     /* 当前还在内核态 */
     intSave = OsIntLock();
 
@@ -54,8 +51,8 @@ OS_SEC_KERNEL_TEXT void OsProcessEntry(OsProcessEntryFunc entry, void *param1, v
     allSaveContext->ebp = 0;
     allSaveContext->espDummy = 0;
     allSaveContext->eax = 0;
-    allSaveContext->ebx = 0;
-    allSaveContext->ecx = 0;
+    allSaveContext->ebx = (U32)(uintptr_t)param1;
+    allSaveContext->ecx = (U32)(uintptr_t)param2;
     allSaveContext->edx = 0;
     allSaveContext->gs = 0;
     allSaveContext->ds = OS_SELECTOR_U_DATA;
@@ -167,4 +164,18 @@ OS_SEC_KERNEL_TEXT void OsProcessFreeArchResources(struct OsTaskCb *tskCb)
     }
     virIdx = (U32)((tskCb->pgDir - g_kernelVirMemPool.base) / OS_PG_SIZE);
     OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+}
+
+/* 映射用户栈页到进程页表（i386 自映射实现） */
+OS_SEC_KERNEL_TEXT void OsProcessMapUsrStackArch(struct OsTaskCb *tskCb, uintptr_t phyAddr)
+{
+    /* 切到进程页目录（OsMapVir2Phy 依赖自映射，必须 CR3 = 进程 PGD） */
+    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
+
+    if (!OsMapVir2Phy((uintptr_t)OS_PROCESS_USR_STACK_BASE, phyAddr)) {
+        OS_PANIC("OsProcessMapUsrStackArch: map user stack failed\n");
+    }
+
+    /* 恢复内核页目录 */
+    OsLoadPgd(OS_KERNEL_PGD_BASE);
 }

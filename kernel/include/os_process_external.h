@@ -3,7 +3,7 @@
 #include "os_def.h"
 #include "os_task_external.h"
 
-typedef void (*OsProcessEntryFunc)(void *arg1, void *arg2);
+typedef void (*OsProcessEntryFunc)(void);
 
 #define OS_PROCESS_PARAM_NUM      0x2
 #define OS_PROCESS_NAME_MAX_SIZE  OS_TASK_NAME_MAX_SIZE

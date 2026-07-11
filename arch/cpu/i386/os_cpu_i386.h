@@ -55,4 +55,8 @@
  * 堆从 0x08049000 开始向上增长，和栈（0xBFFFF000 向下增长）相对
  */
 #define OS_PROCESS_USR_HEAP_BASE  0x08049000
+
+/* 用户态进程入口参数读取（通过 ebx/ecx 寄存器传递） */
+#define OS_PROC_ARG1() ({ U32 __a; OS_EMBED_ASM("movl %%ebx, %0" : "=r"(__a) :: "ebx"); __a; })
+#define OS_PROC_ARG2() ({ U32 __a; OS_EMBED_ASM("movl %%ecx, %0" : "=r"(__a) :: "ecx"); __a; })
 #endif

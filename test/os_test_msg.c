@@ -32,8 +32,16 @@ static OS_SEC_KERNEL_TEXT void TestMsgCleanupTask(U32 tskId)
 {
     U32 ret;
     U32 retry = 0;
+    struct OsTaskCb *tskCb = OS_TASK_GET_CB(tskId);
+    if (!(tskCb->status & OS_TASK_STATUS_USED)) {
+        return;  /* 任务已自行退出 */
+    }
     OsTaskSuspend(tskId);
     while ((ret = OsTaskDelete(tskId)) != OS_OK && retry < 5) {
+        tskCb = OS_TASK_GET_CB(tskId);
+        if (!(tskCb->status & OS_TASK_STATUS_USED)) {
+            return;  /* 重试过程中任务退出 */
+        }
         OsTaskResume(tskId);
         OsTaskDelay(2);
         OsTaskSuspend(tskId);

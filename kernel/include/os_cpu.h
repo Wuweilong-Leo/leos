@@ -16,6 +16,7 @@ extern uintptr_t OsCreateProcessPgd(void);
 /* 通用架构接口（由架构层实现） */
 struct OsTaskCb;
 extern void OsProcessInitArch(struct OsTaskCb *process);
+extern void OsProcessMapUsrStackArch(struct OsTaskCb *process, uintptr_t phyAddr);
 extern void OsProcessFreeArchResources(struct OsTaskCb *process);
 extern void OsConfigArchForTskSwitch(struct OsTaskCb *tsk);
 
@@ -23,8 +24,7 @@ extern void OsConfigArchForTskSwitch(struct OsTaskCb *tsk);
 extern void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb);
 
 /* 进程入口（由架构层实现） */
-typedef void (*OsProcessEntryFunc)(void *arg1, void *arg2);
-extern void OsProcessEntry(OsProcessEntryFunc entry, void *param1, void *param2);
+extern void OsProcessEntry(void (*entry)(void), void *param1, void *param2);
 
 /* 架构相关定义由下方条件编译引入 */
 #if defined(ARCH_i386)

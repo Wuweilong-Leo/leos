@@ -47,6 +47,7 @@ extern void TestStressSetup(void);      extern void TestStressVerify(void);
 extern void TestProcSetup(void);       extern void TestProcVerify(void);
 extern void TestUsrSemSetup(void);     extern void TestUsrSemVerify(void);
 extern void TestProcRecycleSetup(void);extern void TestProcRecycleVerify(void);
+extern void TestProcCrossSemSetup(void);extern void TestProcCrossSemVerify(void);
 
 /* MSG */
 extern void TestMsgBasicSetup(void);    extern void TestMsgBasicVerify(void);
@@ -67,6 +68,7 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("PROC", "user-run", TestProcVerify, 100, TestProcSetup),
     TC("PROC", "usr-sem",  TestUsrSemVerify, 100, TestUsrSemSetup),
     TC("PROC", "recycle",  TestProcRecycleVerify, 0, TestProcRecycleSetup),
+    TC("PROC", "cross-sem", TestProcCrossSemVerify, 200, TestProcCrossSemSetup),
     /* MEM (同步) */
     TC("MEM", "setup",    TestMemSetup,    0, NULL),
     TC("MEM", "basic",    TestFscBasic,    0, NULL),

@@ -7,7 +7,6 @@
 #include "os_mem_external.h"
 #include "os_debug_external.h"
 #include "os_reset.h"
-#include "os_pgt.h"
 #include "os_btmp_external.h"
 
 static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
@@ -25,33 +24,21 @@ static OS_SEC_KERNEL_TEXT void OsProcessInitVirMemPool(struct OsTaskCb *process)
                   OS_USR_VIR_MEM_SIZE, (U8 *)btmpBase);
 }
 
-/*
- * 在进程页目录下分配并映射用户栈页。
- * 调用前 CR3 为内核页目录，调用后恢复为内核页目录。
- * 用户堆 FSC 采用惰性初始化：第一次 malloc 时再创建（此时进程已在运行，
- * 缺页处理中 OS_RUNNING_TASK() 能正确返回进程自身）。
- */
+/* 分配用户栈物理页并标记虚拟位图，页表映射由 arch 层完成 */
 static OS_SEC_KERNEL_TEXT void OsProcessInitUsrMem(struct OsTaskCb *tskCb)
 {
     uintptr_t phyAddr;
     U32 virIdx;
 
-    /* 切到进程页目录（OsMapVir2Phy 依赖自映射，必须 CR3 = 进程 PGD） */
-    OsLoadPgd(OsGetPaddrByVaddr(tskCb->pgDir));
-
-    /* 分配并映射用户栈 */
     phyAddr = OsMemPoolGetFreePgs(&g_usrPhyMemPool, 1);
     if (phyAddr == (uintptr_t)NULL) {
         OS_PANIC("OsProcessInitUsrMem: no free user physical page for stack\n");
     }
     virIdx = (U32)((OS_PROCESS_USR_STACK_BASE - tskCb->usrVirMemPool.base) / OS_PG_SIZE);
     OsBtmpSet(&tskCb->usrVirMemPool.btmp, virIdx);
-    if (!OsMapVir2Phy((uintptr_t)OS_PROCESS_USR_STACK_BASE, phyAddr)) {
-        OS_PANIC("OsProcessInitUsrMem: map user stack failed\n");
-    }
 
-    /* 恢复内核页目录 */
-    OsLoadPgd(OS_KERNEL_PGD_BASE);
+    /* 架构层：切 CR3 -> 建立页表映射 -> 切回内核 CR3 */
+    OsProcessMapUsrStackArch(tskCb, phyAddr);
 }
 
 OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam, U32 *pid)

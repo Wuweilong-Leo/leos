@@ -2,6 +2,7 @@
 #include "os_print_external.h"
 #include "os_process_external.h"
 #include "os_debug_external.h"
+#include "os_cpu.h"
 #include "os_syscall_i386.h"
 #include "os_sem_external.h"
 #include "os_test_framework.h"
@@ -334,4 +335,93 @@ OS_SEC_KERNEL_TEXT void TestProcRecycleVerify(void)
 {
     OS_TEST_ASSERT(g_testProcRecycleCount == TEST_PROC_RECYCLE_ROUNDS);
     OsUartPuts("[PROC-RECYCLE] verify ok\n");
+}
+
+/* ====== 跨进程信号量同步测试 ====== */
+
+/*
+ * 两个用户态进程通过内核创建的信号量同步：
+ * - 进程 B（waiter, prio=5）：先运行，pend 阻塞
+ * - 进程 A（poster, prio=6）：B 阻塞后才运行，post 唤醒 B
+ * semId 通过 OS_PROC_ARG1() 从内核传入
+ */
+OS_SEC_KERNEL_BSS volatile U32 g_testProcCrossSemDone;
+OS_SEC_KERNEL_BSS U32 g_testProcCrossSemId;
+
+OS_SEC_KERNEL_TEXT static void TestProcCrossSemPostEntry(void)
+{
+    U32 semId = OS_PROC_ARG1();
+
+    usr_puts("[CROSS-A] pre-post\n");
+    usr_sem_post(semId);
+    usr_puts("[CROSS-A] post done\n");
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT static void TestProcCrossSemWaitEntry(void)
+{
+    U32 ret;
+    U32 semId = OS_PROC_ARG1();
+
+    usr_puts("[CROSS-B] pre-pend\n");
+    ret = usr_sem_pend(semId, 200);
+    if (ret != OS_OK) {
+        usr_puts("[CROSS-B] FAIL: pend\n");
+        usr_exit(1);
+    }
+    usr_puts("[CROSS-B] pend ok\n");
+    g_testProcCrossSemDone = 1;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestProcCrossSemSetup(void)
+{
+    U32 ret;
+    U32 semId;
+    U32 pidA, pidB;
+    struct OsProcessCreateParam param = {0};
+
+    g_testProcCrossSemDone = 0;
+
+    /* 内核态创建信号量，初始 val=0，两个进程共享此 semId */
+    ret = OsSemCreate(OS_SEM_BINARY_SYNC, 0, 1, OS_SEM_WAKE_FIFO, &g_testProcCrossSemId);
+    semId = g_testProcCrossSemId;
+    if (ret != OS_OK) {
+        OsUartPrintf("[PROC-CROSS] FAIL: sem create ret=%u\n", ret);
+        return;
+    }
+
+    /* 进程 B（waiter）：prio=5，先运行，先 pend 阻塞 */
+    strcpy(param.processName, "crossB");
+    param.entryFunc = (OsProcessEntryFunc)TestProcCrossSemWaitEntry;
+    param.prio = 5;
+    param.param[0] = (void *)(uintptr_t)semId;
+    ret = OsProcessCreate(&param, &pidB);
+    if (ret != OS_OK) {
+        OsUartPrintf("[PROC-CROSS] FAIL: create B ret=%u\n", ret);
+        return;
+    }
+
+    /* 进程 A（poster）：prio=6，B 阻塞后才运行，post 唤醒 B */
+    strcpy(param.processName, "crossA");
+    param.entryFunc = (OsProcessEntryFunc)TestProcCrossSemPostEntry;
+    param.prio = 6;
+    param.param[0] = (void *)(uintptr_t)semId;
+    ret = OsProcessCreate(&param, &pidA);
+    if (ret != OS_OK) {
+        OsUartPrintf("[PROC-CROSS] FAIL: create A ret=%u\n", ret);
+        return;
+    }
+
+    OsProcessResume(pidB);
+    OsProcessResume(pidA);
+    OsUartPuts("[PROC-CROSS] setup done\n");
+}
+
+OS_SEC_KERNEL_TEXT void TestProcCrossSemVerify(void)
+{
+    /* 先回收信号量，避免影响后续 STRESS 测试 */
+    OsSemDelete(g_testProcCrossSemId);
+    OS_TEST_ASSERT(g_testProcCrossSemDone == 1);
+    OsUartPuts("[PROC-CROSS] verify ok\n");
 }
