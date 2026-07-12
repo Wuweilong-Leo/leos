@@ -117,3 +117,150 @@ OS_SEC_KERNEL_TEXT void OsProcessFreeResources(struct OsTaskCb *tskCb)
     tskCb->pgDir = 0;
     tskCb->usrFscCtrl = NULL;
 }
+
+/* ====== fork 实现 ====== */
+
+/* fork 临时缓冲（静态 4KB，用于 CR3 交替时暂存页面内容）
+ * 单核关中断下不会并发使用 */
+static OS_SEC_KERNEL_BSS U8 g_forkTmpBuf[OS_PG_SIZE];
+
+/* fork 回滚：释放子进程已分配的资源 */
+static OS_SEC_KERNEL_TEXT void OsProcessForkRollback(struct OsTaskCb *child, uintptr_t childStk,
+                                                      bool pgdCreated, bool btmpCreated,
+                                                      uintptr_t newBtmpBase, U32 btmpPgNum)
+{
+    if (pgdCreated && child->pgDir != 0) {
+        OsProcessFreeArchResources(child);
+        child->pgDir = 0;
+    }
+    if (btmpCreated && newBtmpBase != 0) {
+        U32 i;
+        for (i = 0; i < btmpPgNum; i++) {
+            uintptr_t btmpPage = newBtmpBase + i * OS_PG_SIZE;
+            uintptr_t phyAddr = OsUnmapVir2Phy(btmpPage);
+            if (phyAddr != (uintptr_t)NULL) {
+                U32 phyIdx = (U32)((phyAddr - g_kernelPhyMemPool.base) / OS_PG_SIZE);
+                OsBtmpClear(&g_kernelPhyMemPool.btmp, phyIdx);
+            }
+            {
+                U32 virIdx = (U32)((btmpPage - g_kernelVirMemPool.base) / OS_PG_SIZE);
+                OsBtmpClear(&g_kernelVirMemPool.btmp, virIdx);
+            }
+        }
+    }
+    OsMemKernelFree((void *)childStk);
+    OsTaskReleaseFreeCb(child);
+}
+
+OS_SEC_KERNEL_TEXT U32 OsProcessFork(void)
+{
+    struct OsTaskCb *parent = OS_RUNNING_TASK();
+    struct OsTaskCb *child;
+    U32 childPid;
+    uintptr_t childStk;
+    enum OsIntStatus intSave;
+    U32 btmpPgNum;
+    uintptr_t newBtmpBase = 0;
+    bool pgdCreated = FALSE;
+    bool btmpCreated = FALSE;
+
+    intSave = OsIntLock();
+
+    /* === 步骤 1: 分配子进程 TCB === */
+    child = OsTaskGetFreeCb();
+    if (child == NULL) {
+        OsIntRestore(intSave);
+        return (U32)-1;
+    }
+    childPid = child->pid;
+
+    /* === 步骤 2: 分配内核栈 === */
+    childStk = (uintptr_t)OsMemKernelAlloc(OS_TASK_KERNEL_STACK_SIZE, 16);
+    if (childStk == 0) {
+        OsTaskReleaseFreeCb(child);
+        OsIntRestore(intSave);
+        return (U32)-1;
+    }
+
+    /* === 步骤 3: memcpy 内核栈 === */
+    memcpy((void *)childStk, (void *)parent->kernelStkTop, OS_TASK_KERNEL_STACK_SIZE);
+    child->kernelStkTop = childStk;
+
+    /* === 步骤 4: 设置 stkPtr 偏移 === */
+    child->stkPtr = child->kernelStkTop - parent->kernelStkTop + parent->stkPtr;
+
+    /* === 步骤 5: 拷贝 TCB 基本字段 === */
+    child->status = OS_TASK_STATUS_USED | OS_TASK_STATUS_SUSPENDED;
+    child->prio = parent->prio;
+    child->oriPrio = parent->oriPrio;
+    child->entry = parent->entry;
+    memcpy(child->arg, parent->arg, sizeof(parent->arg));
+    child->timeSliceTicks = parent->timeSliceTicks;
+    child->expiredTick = 0;
+    strcpy(child->name, parent->name);
+    child->eventMsk = 0;
+    child->curEvent = 0;
+    child->tskType = OS_TASK_PROCESS;
+    child->holdSemList.next = &child->holdSemList;
+    child->holdSemList.prev = &child->holdSemList;
+    child->msgList.next = &child->msgList;
+    child->msgList.prev = &child->msgList;
+    child->parentPid = parent->pid;
+    child->exitCode = 0;
+    child->waitPid = 0;
+
+    /* === 步骤 6: 分配子进程 PGD === */
+    child->pgDir = OsCreateProcessPgd();
+    if (child->pgDir == 0) {
+        OsMemKernelFree((void *)childStk);
+        OsTaskReleaseFreeCb(child);
+        OsIntRestore(intSave);
+        return (U32)-1;
+    }
+    pgdCreated = TRUE;
+
+    /* === 步骤 7: 深拷贝 usrVirMemPool === */
+    btmpPgNum = OS_BTMP_GET_PG_NUM_BY_MEM_SIZE(OS_USR_VIR_MEM_SIZE);
+    newBtmpBase = OsMemKernelAllocPgs(btmpPgNum);
+    if (newBtmpBase == 0) {
+        OsProcessForkRollback(child, childStk, pgdCreated, FALSE, 0, 0);
+        OsIntRestore(intSave);
+        return (U32)-1;
+    }
+    btmpCreated = TRUE;
+
+    /* 拷贝位图内容 */
+    for (U32 bi = 0; bi < btmpPgNum; bi++) {
+        memcpy((void *)(newBtmpBase + bi * OS_PG_SIZE),
+               (void *)((uintptr_t)parent->usrVirMemPool.btmp.base + bi * OS_PG_SIZE),
+               OS_PG_SIZE);
+    }
+
+    /* 拷贝 pool 结构体，替换位图指针，重新初始化链表 */
+    memcpy(&child->usrVirMemPool, &parent->usrVirMemPool, sizeof(struct OsMemPool));
+    child->usrVirMemPool.btmp.base = (U8 *)newBtmpBase;
+    OsListInit(&child->usrVirMemPool.memCtrlList);
+
+    /* === 步骤 8: 子进程 FSC 设为 NULL（惰性初始化） === */
+    child->usrFscCtrl = NULL;
+
+    /* === 步骤 9-10: CR3 交替逐页拷贝用户映射（架构层实现） === */
+    {
+        U32 copyRet = OsProcessForkCopyPageTables(parent, child, g_forkTmpBuf);
+        if (copyRet != OS_OK) {
+            OsProcessForkRollback(child, childStk, pgdCreated, btmpCreated,
+                                  newBtmpBase, btmpPgNum);
+            OsIntRestore(intSave);
+            return (U32)-1;
+        }
+    }
+
+    /* === 步骤 11: 子进程 fork 返回 0 === */
+    OsProcessForkSetChildRetval(child);
+
+    /* === 步骤 12: 将子进程加入就绪队列 === */
+    OsTaskResume(childPid);
+
+    OsIntRestore(intSave);
+    return childPid;
+}

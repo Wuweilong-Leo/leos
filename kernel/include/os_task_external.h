@@ -11,6 +11,8 @@
 
 #define OS_TASK_NAME_MAX_SIZE     0x10
 #define OS_TASK_MAX_NUM           32
+
+extern U32 g_tskMaxNum;
 #define OS_TASK_ARG_NUM           4
 #define OS_TASK_KERNEL_STACK_SIZE 0x1000
 
@@ -26,6 +28,9 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 #define OS_TASK_STATUS_TIMEOUT    0x20U
 #define OS_TASK_STATUS_SUSPENDED  0x40U
 #define OS_TASK_STATUS_PEND_MSG   0x80U  /* 在等消息接收 */
+#define OS_TASK_STATUS_ZOMBIE     0x100U /* 僵尸态（已exit，等waitpid收割） */
+
+#define OS_WAIT_ANY_CHILD  ((U32)-1)     /* waitpid 等待任意子进程 */
 
 // 两种任务类型，线程和进程
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
@@ -55,6 +60,9 @@ struct OsTaskCb {
     struct OsList msgList;         /* 该任务的消息信箱（OsMsgHeader.queueNode 挂入） */
     struct OsMemPool usrVirMemPool;    /* 进程的用户虚拟内存池 */
     struct OsMemFscCtrl *usrFscCtrl;   /* 进程的用户堆 FSC 控制块，线程为 NULL */
+    U32 parentPid;                     /* 父进程 pid（0=无父进程/内核任务） */
+    U32 exitCode;                      /* 退出码（ZOMBIE 时有效） */
+    U32 waitPid;                       /* waitpid 等待的目标 pid（0=不在等待，OS_WAIT_ANY_CHILD=等任意子进程） */
 };
 
 struct OsTaskCreateParam {
@@ -88,6 +96,9 @@ extern void OsTaskSchedule();
 extern U32 OsTaskDelay(U32 ticks);
 extern void OsTaskTimerListInsert(struct OsTaskCb *tsk);
 extern void OsTaskRecycleStk(void);
+extern void OsTaskReleaseFreeCb(struct OsTaskCb *tskCb);
+extern void OsTaskReapZombie(struct OsTaskCb *tskCb);
+extern struct OsTaskCb *OsTaskGetFreeCb(void);
 
 extern struct OsTaskCb *g_tskCbArray;
 

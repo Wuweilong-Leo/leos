@@ -64,7 +64,7 @@ OS_SEC_KERNEL_TEXT void OsTaskIdleEntry(void)
     }
 }
 
-OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
+OS_SEC_KERNEL_TEXT struct OsTaskCb *OsTaskGetFreeCb(void)
 {
     struct OsList *listNode;
 
@@ -76,6 +76,30 @@ OS_INLINE struct OsTaskCb *OsTaskGetFreeCb(void)
     listNode = OsListPopHead(&g_tskFreeList);
 
     return OS_GET_STRUCT_ENTRY(struct OsTaskCb, freeListNode, listNode);
+}
+
+/* 归还 TCB 到空闲链表（用于 fork 等场景的资源回滚） */
+OS_SEC_KERNEL_TEXT void OsTaskReleaseFreeCb(struct OsTaskCb *tskCb)
+{
+    tskCb->status = 0;
+    tskCb->pgDir = 0;
+    OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+}
+
+/* 收割 zombie 进程：释放 TCB 回空闲链表（供 waitpid 调用）
+ * 必须先调用 OsTaskRecycleStk 清理回收链表，因为 zombie 的 freeListNode
+ * 可能仍挂在 g_tskRecycleList 上（OsTaskDelete 中 self-delete 时放入），
+ * 直接 OsListAddTail 到 g_tskFreeList 会导致同一节点挂在两条链表上，
+ * 后续 OsTaskRecycleStk 遍历 g_tskRecycleList 时会因链表损坏而崩溃。 */
+OS_SEC_KERNEL_TEXT void OsTaskReapZombie(struct OsTaskCb *tskCb)
+{
+    /* 先处理回收链表：释放 zombie 的内核栈，将其从 g_tskRecycleList 摘除 */
+    OsTaskRecycleStk();
+
+    tskCb->status = 0;
+    tskCb->pgDir = 0;
+    tskCb->usrFscCtrl = NULL;
+    OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 }
 
 static OS_SEC_KERNEL_TEXT void OsTaskExit(void)
@@ -301,7 +325,48 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         OsProcessFreeResources(tskCb);
     }
 
-    tskCb->status = 0;
+    /* 父进程退出时，处理子进程：
+     * - zombie 子进程直接收割 TCB（完全释放）
+     * - 活着的子进程 parentPid 设 0（变为孤儿，exit 时自行完全释放）
+     */
+    if (tskCb->tskType == OS_TASK_PROCESS) {
+        U32 ci;
+        for (ci = 0; ci < g_tskMaxNum; ci++) {
+            struct OsTaskCb *child = &g_tskCbArray[ci];
+            if (child->parentPid != tskCb->pid) continue;
+            if (!(child->status & OS_TASK_STATUS_USED)) continue;
+            if (child->status & OS_TASK_STATUS_ZOMBIE) {
+                /* 收割 zombie 子进程 */
+                OsTaskReapZombie(child);
+            } else {
+                /* 子进程还在运行，设为孤儿 */
+                child->parentPid = 0;
+            }
+        }
+    }
+
+    /* 保留 ZOMBIE 位（exit 时设置的），其余状态位清零 */
+    if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
+        tskCb->status = OS_TASK_STATUS_USED | OS_TASK_STATUS_ZOMBIE;
+    } else {
+        tskCb->status = 0;
+    }
+
+    /* 唤醒等待此任务的父进程（子进程 exit 时 ZOMBIE 已设，OsTaskDelete 中走到这里） */
+    if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
+        U32 wi;
+        for (wi = 0; wi < g_tskMaxNum; wi++) {
+            struct OsTaskCb *waiter = &g_tskCbArray[wi];
+            if (!(waiter->status & OS_TASK_STATUS_PENDING)) continue;
+            if (waiter->waitPid == 0) continue;
+            if (waiter->waitPid == tskCb->pid || waiter->waitPid == OS_WAIT_ANY_CHILD) {
+                waiter->status &= ~OS_TASK_STATUS_PENDING;
+                waiter->status |= OS_TASK_STATUS_READY;
+                OsSchedRdyListEnqueTsk(waiter);
+                break;
+            }
+        }
+    }
 
     curTsk = OS_RUNNING_TASK();
 
@@ -329,11 +394,23 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
 
         /* 回收栈 */
         OsMemKernelFree((void *)tskCb->kernelStkTop);
+        tskCb->kernelStkTop = 0;
 
-        /* 回收TCB */
-        tskCb->status = 0;
-        tskCb->pgDir = 0;
-        OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+        if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
+            if (tskCb->parentPid == 0) {
+                /* 孤儿 zombie：无父进程可 waitpid，直接回收 TCB */
+                tskCb->status = 0;
+                tskCb->pgDir = 0;
+                tskCb->usrFscCtrl = NULL;
+                OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+            }
+            /* 有父进程：保留 ZOMBIE，等父进程 waitpid 收割 */
+        } else {
+            /* 回收TCB */
+            tskCb->status = 0;
+            tskCb->pgDir = 0;
+            OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
+        }
     }
 }
 

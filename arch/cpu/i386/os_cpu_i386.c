@@ -11,6 +11,7 @@
 #include "os_mem_external.h"
 #include "os_btmp_external.h"
 #include "os_hwi.h"
+#include "string.h"
 
 OS_SEC_KERNEL_TEXT void OsSetContext(uintptr_t stkMemBase, size_t stkSize, struct OsTaskCb *tskCb)
 {
@@ -95,6 +96,71 @@ OS_SEC_KERNEL_TEXT void OsConfigPgdForTskSwitch(struct OsTaskCb *tsk)
     } else {
         OsLoadPgd(OS_KERNEL_PGD_BASE);
     }
+}
+
+/* 设置 fork 子进程返回值为 0（通过 AllSaveContext.eax） */
+OS_SEC_KERNEL_TEXT void OsProcessForkSetChildRetval(struct OsTaskCb *child)
+{
+    struct OsAllSaveContext *ctx = (struct OsAllSaveContext *)child->stkPtr;
+    ctx->eax = 0;
+}
+
+/* fork 页表拷贝：遍历父进程用户映射，CR3 交替逐页拷贝到子进程 PGD */
+OS_SEC_KERNEL_TEXT U32 OsProcessForkCopyPageTables(struct OsTaskCb *parent, struct OsTaskCb *child,
+                                                    U8 *tmpBuf)
+{
+    U32 pdeIdx, pteIdx;
+
+    /* OsCreateProcessPgd 已拷贝内核 PDE + 修正 PDE[1023] 自映射
+     * 新 PGD 页已在 OsCreateProcessPgd 中 memset 清零，用户 PDE 为空 */
+
+    /* 遍历父进程用户 PDE/PTE，边遍历边拷贝 */
+    OsLoadPgd(OsGetPaddrByVaddr(parent->pgDir));
+
+    for (pdeIdx = 0; pdeIdx < OS_PGD_KERNEL_IDX_START; pdeIdx++) {
+        U32 pdeVaddr = 0xFFFFF000 + pdeIdx * 4;
+        if (!OsPdeIsExisted(pdeVaddr)) continue;
+
+        for (pteIdx = 0; pteIdx < OS_PGT_ENTRY_NUM; pteIdx++) {
+            U32 pteVaddr = 0xFFC00000 + pdeIdx * 0x1000 + pteIdx * 4;
+            U32 usrVaddr;
+            uintptr_t childPhy;
+            U32 virIdx;
+
+            if (!OsPteIsExisted(pteVaddr)) continue;
+
+            usrVaddr = (pdeIdx << 22) | (pteIdx << 12);
+
+            /* CR3=父进程，读父页面到临时缓冲 */
+            OsLoadPgd(OsGetPaddrByVaddr(parent->pgDir));
+            memcpy(tmpBuf, (void *)(uintptr_t)usrVaddr, OS_PG_SIZE);
+
+            /* 分配子进程物理页 */
+            childPhy = OsMemPoolGetFreePgs(&g_usrPhyMemPool, 1);
+            if (childPhy == 0) {
+                OsLoadPgd(OS_KERNEL_PGD_BASE);
+                return (U32)-1;
+            }
+
+            /* CR3=子进程，映射+写入 */
+            OsLoadPgd(OsGetPaddrByVaddr(child->pgDir));
+            if (!OsMapVir2Phy(usrVaddr, childPhy)) {
+                OsBtmpClear(&g_usrPhyMemPool.btmp,
+                            (U32)((childPhy - g_usrPhyMemPool.base) / OS_PG_SIZE));
+                OsLoadPgd(OS_KERNEL_PGD_BASE);
+                return (U32)-1;
+            }
+            memcpy((void *)(uintptr_t)usrVaddr, tmpBuf, OS_PG_SIZE);
+
+            /* 标记子进程虚拟位图 */
+            virIdx = (U32)((usrVaddr - child->usrVirMemPool.base) / OS_PG_SIZE);
+            OsBtmpSet(&child->usrVirMemPool.btmp, virIdx);
+        }
+    }
+
+    OsLoadPgd(OsGetPaddrByVaddr(parent->pgDir));  /* 恢复父进程 PGD（而非内核 PGD） */
+
+    return OS_OK;
 }
 
 OS_SEC_KERNEL_TEXT void OsConfigTssForTskSwitch(struct OsTaskCb *tsk)

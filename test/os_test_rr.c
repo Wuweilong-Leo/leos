@@ -82,6 +82,7 @@ static OS_SEC_KERNEL_TEXT void TestCleanupTask(U32 tskId)
 OS_SEC_KERNEL_TEXT void TestRrSetup(void)
 {
     struct OsTaskCreateParam param;
+    U32 ret;
 
     g_rrCountE = 0;
     g_rrCountF = 0;
@@ -90,16 +91,22 @@ OS_SEC_KERNEL_TEXT void TestRrSetup(void)
     strcpy(param.name, "TaskRrE");
     param.prio = OS_TEST_RR_PRIO;
     param.entryFunc = TestTaskRrE;
-    OsTaskCreate(&param, &g_rrTskIdE);
+    ret = OsTaskCreate(&param, &g_rrTskIdE);
+    if (ret != OS_OK) {
+        g_rrTskIdE = g_tskMaxNum;
+    }
 
     memset(&param, 0, sizeof(param));
     strcpy(param.name, "TaskRrF");
     param.prio = OS_TEST_RR_PRIO;
     param.entryFunc = TestTaskRrF;
-    OsTaskCreate(&param, &g_rrTskIdF);
+    ret = OsTaskCreate(&param, &g_rrTskIdF);
+    if (ret != OS_OK) {
+        g_rrTskIdF = g_tskMaxNum;
+    }
 
-    OsTaskResume(g_rrTskIdE);
-    OsTaskResume(g_rrTskIdF);
+    if (g_rrTskIdE < g_tskMaxNum) OsTaskResume(g_rrTskIdE);
+    if (g_rrTskIdF < g_tskMaxNum) OsTaskResume(g_rrTskIdF);
 }
 
 /* verify: 采样 → delay → 检查计数增长 → 清理 */

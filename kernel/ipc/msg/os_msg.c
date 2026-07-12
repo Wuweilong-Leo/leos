@@ -52,7 +52,7 @@ OS_SEC_KERNEL_TEXT U32 OsMsgSend(U32 targetPid, void *msgBuf)
     struct OsList *header;
     enum OsIntStatus intSave;
 
-    if (targetPid >= OS_TASK_MAX_NUM) {
+    if (targetPid >= g_tskMaxNum) {
         return OS_MSG_SEND_PID_INVALID;
     }
     if (msgBuf == NULL) {

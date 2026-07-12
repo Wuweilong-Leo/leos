@@ -17,4 +17,5 @@ struct OsProcessCreateParam {
 
 extern U32 OsProcessCreate(struct OsProcessCreateParam *param, U32 *processId);
 extern U32 OsProcessResume(U32 processId);
+extern U32 OsProcessFork(void);
 #endif

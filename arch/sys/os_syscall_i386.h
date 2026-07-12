@@ -18,9 +18,12 @@
 #define OS_SYS_SEM_PEND 6     /* semId=信号量ID, timeout=超时; 返回 OS_OK/错误码 */
 #define OS_SYS_SEM_POST 7     /* semId=信号量ID; 返回 OS_OK/错误码 */
 #define OS_SYS_SEM_DELETE 8   /* semId=信号量ID; 返回 OS_OK/错误码 */
+#define OS_SYS_GETPID    9   /* 返回当前进程 pid */
+#define OS_SYS_FORK     10   /* 创建子进程; 返回子进程 pid(父) / 0(子) */
+#define OS_SYS_WAITPID  11   /* pid=目标pid, statusPtr=状态指针, options=选项; 返回子进程 pid */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
-#define OS_SYS_NUM    9
+#define OS_SYS_NUM    12
 
 /* 系统调用处理函数类型 */
 typedef U32 (*OsSyscallFunc)(U32 arg1, U32 arg2, U32 arg3, U32 arg4);
@@ -38,6 +41,13 @@ extern U32 OsSyscallRegister(U32 sysno, OsSyscallFunc func);
 extern U32 OsSyscallConfigInit(void);
 
 /* ====== 用户态系统调用内联包装 ====== */
+
+OS_INLINE U32 OsSyscall0(U32 sysno)
+{
+    U32 ret;
+    OS_EMBED_ASM("int $0x80" : "=a"(ret) : "a"(sysno) : "memory");
+    return ret;
+}
 
 OS_INLINE U32 OsSyscall1(U32 sysno, U32 arg1)
 {
@@ -113,6 +123,22 @@ OS_INLINE U32 usr_sem_post(U32 semId)
 OS_INLINE U32 usr_sem_delete(U32 semId)
 {
     return OsSyscall1(OS_SYS_SEM_DELETE, semId);
+}
+
+/* 用户态进程接口 */
+OS_INLINE U32 usr_getpid(void)
+{
+    return OsSyscall0(OS_SYS_GETPID);
+}
+
+OS_INLINE U32 usr_fork(void)
+{
+    return OsSyscall0(OS_SYS_FORK);
+}
+
+OS_INLINE U32 usr_waitpid(U32 pid, U32 *status, U32 options)
+{
+    return OsSyscall3(OS_SYS_WAITPID, pid, (U32)(uintptr_t)status, options);
 }
 
 #endif /* OS_SYSCALL_I386_H */

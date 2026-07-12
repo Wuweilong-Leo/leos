@@ -12,13 +12,25 @@
 static OS_SEC_KERNEL_TEXT U32 TestCreateTask(const char *name, U32 prio, OsTaskEntryFunc entry)
 {
     U32 tskId;
+    U32 ret;
     struct OsTaskCreateParam param;
     memset(&param, 0, sizeof(param));
     strcpy(param.name, name);
     param.prio = prio;
     param.entryFunc = entry;
-    OsTaskCreate(&param, &tskId);
+    ret = OsTaskCreate(&param, &tskId);
+    if (ret != OS_OK) {
+        return g_tskMaxNum;
+    }
     return tskId;
+}
+
+/* 安全 Resume：tskId 无效时跳过 */
+static OS_SEC_KERNEL_TEXT void TestSafeResume(U32 tskId)
+{
+    if (tskId < g_tskMaxNum) {
+        OsTaskResume(tskId);
+    }
 }
 
 /* 删除任务（不关心返回值，任务可能已自行退出或暂时持有 mutex） */
@@ -84,8 +96,8 @@ OS_SEC_KERNEL_TEXT void TestSemCntSetup(void)
     g_testSemPostFullFlag = 0;
     g_testSemCntTskProd = TestCreateTask("SemProd", 8, TestSemProducer);
     g_testSemCntTskCons = TestCreateTask("SemCons", 8, TestSemConsumer);
-    OsTaskResume(g_testSemCntTskProd);
-    OsTaskResume(g_testSemCntTskCons);
+    TestSafeResume(g_testSemCntTskProd);
+    TestSafeResume(g_testSemCntTskCons);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemCntVerify(void)
@@ -134,8 +146,8 @@ OS_SEC_KERNEL_TEXT void TestSemBinSyncSetup(void)
     g_testBinSemPostRepeatFlag = 0;
     g_testBinTskWaiter = TestCreateTask("BinWait", 9, TestBinSemWaiter);
     g_testBinTskNotifier = TestCreateTask("BinNoti", 9, TestBinSemNotifier);
-    OsTaskResume(g_testBinTskWaiter);
-    OsTaskResume(g_testBinTskNotifier);
+    TestSafeResume(g_testBinTskWaiter);
+    TestSafeResume(g_testBinTskNotifier);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemBinSyncVerify(void)
@@ -180,8 +192,8 @@ OS_SEC_KERNEL_TEXT void TestSemMutexSetup(void)
     g_testMutexVal = 0;
     g_testMutexTskX = TestCreateTask("MutexX", 6, TestMutexTaskX);
     g_testMutexTskY = TestCreateTask("MutexY", 6, TestMutexTaskY);
-    OsTaskResume(g_testMutexTskX);
-    OsTaskResume(g_testMutexTskY);
+    TestSafeResume(g_testMutexTskX);
+    TestSafeResume(g_testMutexTskY);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemMutexVerify(void)
@@ -239,10 +251,10 @@ OS_SEC_KERNEL_TEXT void TestSemPrioSetup(void)
     g_testPrioTskM = TestCreateTask("PrioM", 10, TestPrioTaskM);
     g_testPrioTskL = TestCreateTask("PrioL", 15, TestPrioTaskL);
     g_testPrioTskPost = TestCreateTask("PrioPost", 4, TestPrioPostTask);
-    OsTaskResume(g_testPrioTskH);
-    OsTaskResume(g_testPrioTskM);
-    OsTaskResume(g_testPrioTskL);
-    OsTaskResume(g_testPrioTskPost);
+    TestSafeResume(g_testPrioTskH);
+    TestSafeResume(g_testPrioTskM);
+    TestSafeResume(g_testPrioTskL);
+    TestSafeResume(g_testPrioTskPost);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemPrioVerify(void)
@@ -299,10 +311,10 @@ OS_SEC_KERNEL_TEXT void TestSemTmoSetup(void)
     g_testTmoTskNoWait = TestCreateTask("TmoNoWt", 7, TestTmoNoWait);
     g_testTmoTskNorm = TestCreateTask("TmoNorm", 7, TestTmoNormal);
     g_testTmoTskPost = TestCreateTask("TmoPost", 6, TestTmoPostTask);
-    OsTaskResume(g_testTmoTskWait);
-    OsTaskResume(g_testTmoTskNoWait);
-    OsTaskResume(g_testTmoTskNorm);
-    OsTaskResume(g_testTmoTskPost);
+    TestSafeResume(g_testTmoTskWait);
+    TestSafeResume(g_testTmoTskNoWait);
+    TestSafeResume(g_testTmoTskNorm);
+    TestSafeResume(g_testTmoTskPost);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemTmoVerify(void)
@@ -346,8 +358,8 @@ OS_SEC_KERNEL_TEXT void TestSemNotHolderSetup(void)
     g_testMutexNotHolderFlag = 0;
     g_testNhTskOwner = TestCreateTask("MutexOW", 7, TestMutexOwner);
     g_testNhTskNH = TestCreateTask("MutexNH", 8, TestMutexNotHolder);
-    OsTaskResume(g_testNhTskOwner);
-    OsTaskResume(g_testNhTskNH);
+    TestSafeResume(g_testNhTskOwner);
+    TestSafeResume(g_testNhTskNH);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemNotHolderVerify(void)
@@ -418,9 +430,9 @@ OS_SEC_KERNEL_TEXT void TestSemPISetup(void)
     g_testPiTskLow = TestCreateTask("PILow", 20, TestPILowTask);
     g_testPiTskMid = TestCreateTask("PIMid", 15, TestPIMidTask);
     g_testPiTskHigh = TestCreateTask("PIHigh", 5, TestPIHighTask);
-    OsTaskResume(g_testPiTskLow);
-    OsTaskResume(g_testPiTskMid);
-    OsTaskResume(g_testPiTskHigh);
+    TestSafeResume(g_testPiTskLow);
+    TestSafeResume(g_testPiTskMid);
+    TestSafeResume(g_testPiTskHigh);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemPIVerify(void)
@@ -489,9 +501,9 @@ OS_SEC_KERNEL_TEXT void TestSemSusSetup(void)
     g_testSusTskW2 = TestCreateTask("SusW2", 12, TestSusWaiterNormal);
     g_testSusTskPost = TestCreateTask("SusPost", 11, TestSusPostTask);
     g_testSusSuspendedTskId = g_testSusTskW1;
-    OsTaskResume(g_testSusTskW1);
-    OsTaskResume(g_testSusTskW2);
-    OsTaskResume(g_testSusTskPost);
+    TestSafeResume(g_testSusTskW1);
+    TestSafeResume(g_testSusTskW2);
+    TestSafeResume(g_testSusTskPost);
 }
 
 OS_SEC_KERNEL_TEXT void TestSemSusVerify(void)

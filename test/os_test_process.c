@@ -425,3 +425,117 @@ OS_SEC_KERNEL_TEXT void TestProcCrossSemVerify(void)
     OS_TEST_ASSERT(g_testProcCrossSemDone == 1);
     OsUartPuts("[PROC-CROSS] verify ok\n");
 }
+
+/* ====== fork + waitpid POSIX 接口测试 ====== */
+
+/*
+ * 1. fork-basic: 子进程 fork 返回 0，父进程 fork 返回子 pid
+ * 2. fork-waitpid: 父进程 waitpid 收割子进程，获取退出码
+ * 3. fork-getpid: 父子进程 getpid 返回不同值
+ */
+
+OS_SEC_KERNEL_BSS volatile U32 g_testForkBasicDone;
+OS_SEC_KERNEL_BSS volatile U32 g_testForkWaitpidDone;
+
+/* fork-basic: 验证 fork 返回值 */
+OS_SEC_KERNEL_TEXT static void TestForkBasicEntry(void)
+{
+    U32 myPid = usr_getpid();
+    g_testForkBasicDone = myPid;  /* 记录 getpid 返回值 */
+    U32 pid = usr_fork();
+    if (pid == 0) {
+        g_testForkBasicDone = 0xAA;
+        usr_exit(0);
+    } else if (pid != (U32)-1) {
+        g_testForkBasicDone = 0xBB;
+        usr_exit(0);
+    } else {
+        g_testForkBasicDone = 0xFF;
+        usr_exit(1);
+    }
+}
+
+OS_SEC_KERNEL_TEXT void TestForkBasicSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testForkBasicDone = 0;
+
+    strcpy(param.processName, "forkB");
+    param.entryFunc = (OsProcessEntryFunc)TestForkBasicEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestForkBasicVerify(void)
+{
+    OsUartPrintf("[FORK-B] g_testForkBasicDone=%u\n", g_testForkBasicDone);
+    OS_TEST_ASSERT(g_testForkBasicDone >= 2);
+}
+
+/* fork-waitpid: 验证 waitpid 收割 + 退出码 + getpid */
+OS_SEC_KERNEL_TEXT static void TestForkWaitpidEntry(void)
+{
+    U32 myPid = usr_getpid();
+    U32 childPid;
+    U32 status;
+    U32 ret;
+
+    childPid = usr_fork();
+    if (childPid == 0) {
+        /* 子进程：验证 getpid 与父不同 */
+        U32 childOwnPid = usr_getpid();
+        if (childOwnPid == myPid) {
+            usr_puts("[FORK-W] FAIL: child pid same as parent\n");
+            usr_exit(1);
+        }
+        usr_puts("[FORK-W] child exit 42\n");
+        usr_exit(42);
+    }
+
+    /* 父进程：waitpid 阻塞等待子进程 */
+    status = 0;
+    ret = usr_waitpid(childPid, &status, 0);
+    if (ret != childPid) {
+        usr_puts("[FORK-W] FAIL: waitpid ret mismatch\n");
+        usr_exit(1);
+    }
+    /* status = exitCode << 8, 所以 42 << 8 = 0x2A00 */
+    if (status != (42 << 8)) {
+        usr_puts("[FORK-W] FAIL: status mismatch\n");
+        usr_exit(1);
+    }
+    usr_puts("[FORK-W] parent wait ok\n");
+    g_testForkWaitpidDone = 1;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestForkWaitpidSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testForkWaitpidDone = 0;
+
+    strcpy(param.processName, "forkW");
+    param.entryFunc = (OsProcessEntryFunc)TestForkWaitpidEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestForkWaitpidVerify(void)
+{
+    OS_TEST_ASSERT(g_testForkWaitpidDone == 1);
+    OsUartPuts("[FORK-W] verify ok\n");
+}

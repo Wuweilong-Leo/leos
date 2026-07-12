@@ -37,13 +37,25 @@
 static OS_SEC_KERNEL_TEXT U32 StressCreateTask(const char *name, U32 prio, OsTaskEntryFunc entry)
 {
     U32 tskId;
+    U32 ret;
     struct OsTaskCreateParam param;
     memset(&param, 0, sizeof(param));
     strcpy(param.name, name);
     param.prio = prio;
     param.entryFunc = entry;
-    OsTaskCreate(&param, &tskId);
+    ret = OsTaskCreate(&param, &tskId);
+    if (ret != OS_OK) {
+        return g_tskMaxNum;
+    }
     return tskId;
+}
+
+/* 安全 Resume：tskId 无效时跳过 */
+static OS_SEC_KERNEL_TEXT void StressSafeResume(U32 tskId)
+{
+    if (tskId < g_tskMaxNum) {
+        OsTaskResume(tskId);
+    }
 }
 
 static OS_SEC_KERNEL_TEXT void StressCleanupTask(U32 tskId)
@@ -139,9 +151,9 @@ static OS_SEC_KERNEL_TEXT void StressWorkerStart(void)
     OsSemCreate(OS_SEM_BINARY_SYNC, 0, 1, OS_SEM_WAKE_FIFO, &g_wkMutB);
     OsSemCreate(OS_SEM_BINARY_SYNC, 0, 1, OS_SEM_WAKE_FIFO, &g_wkMutC);
     g_wkDoneCnt = 0;
-    OsTaskResume(StressCreateTask("WkA", 10, StressWorkerA));
-    OsTaskResume(StressCreateTask("WkB", 10, StressWorkerB));
-    OsTaskResume(StressCreateTask("WkC", 10, StressWorkerC));
+    StressSafeResume(StressCreateTask("WkA", 10, StressWorkerA));
+    StressSafeResume(StressCreateTask("WkB", 10, StressWorkerB));
+    StressSafeResume(StressCreateTask("WkC", 10, StressWorkerC));
     /* A 在 pend 等 MutA，先给它一个初始 post 启动链条 */
     OsSemPost(g_wkMutA);
 }
@@ -230,9 +242,9 @@ static OS_SEC_KERNEL_TEXT void StressPiStart(void)
     g_piTskLow = StressCreateTask("PiLow", 20, StressPiLow);
     g_piTskMid = StressCreateTask("PiMid", 15, StressPiMid);
     g_piTskHigh = StressCreateTask("PiHi", 5, StressPiHigh);
-    OsTaskResume(g_piTskLow);
-    OsTaskResume(g_piTskMid);
-    OsTaskResume(g_piTskHigh);
+    StressSafeResume(g_piTskLow);
+    StressSafeResume(g_piTskMid);
+    StressSafeResume(g_piTskHigh);
 }
 
 static OS_SEC_KERNEL_TEXT void StressPiCleanup(void)
@@ -276,8 +288,8 @@ static OS_SEC_KERNEL_TEXT void StressRrStart(void)
     g_rrCntF = 0;
     g_rrTskE = StressCreateTask("StrRE", 28, StressRrE);
     g_rrTskF = StressCreateTask("StrRF", 28, StressRrF);
-    OsTaskResume(g_rrTskE);
-    OsTaskResume(g_rrTskF);
+    StressSafeResume(g_rrTskE);
+    StressSafeResume(g_rrTskF);
 }
 
 static OS_SEC_KERNEL_TEXT void StressRrCleanup(void)
@@ -325,7 +337,7 @@ static OS_SEC_KERNEL_TEXT void StressAllocStart(void)
     g_allocOkCnt = 0;
     g_allocFailCnt = 0;
     g_allocTsk = StressCreateTask("StrAlloc", 7, StressAllocator);
-    OsTaskResume(g_allocTsk);
+    StressSafeResume(g_allocTsk);
 }
 
 static OS_SEC_KERNEL_TEXT void StressAllocCleanup(void)
@@ -357,9 +369,13 @@ OS_SEC_KERNEL_TEXT void StressTmoSuspender(void *p1, void *p2, void *p3, void *p
     for (i = 0; i < 3; i++) {
         OsTaskDelay(50);
         /* suspend waiter（可能正在 pend），再 resume */
-        OsTaskSuspend(g_tmoTskWaiter);
+        if (g_tmoTskWaiter < g_tskMaxNum) {
+            OsTaskSuspend(g_tmoTskWaiter);
+        }
         OsTaskDelay(10);
-        OsTaskResume(g_tmoTskWaiter);
+        if (g_tmoTskWaiter < g_tskMaxNum) {
+            OsTaskResume(g_tmoTskWaiter);
+        }
         OsTaskDelay(60);
     }
 }
@@ -370,8 +386,8 @@ static OS_SEC_KERNEL_TEXT void StressTmoStart(void)
     g_tmoGotTimeout = 0;
     g_tmoTskWaiter = StressCreateTask("TmoW", 9, StressTmoWaiter);
     g_tmoTskSuspender = StressCreateTask("TmoS", 8, StressTmoSuspender);
-    OsTaskResume(g_tmoTskWaiter);
-    OsTaskResume(g_tmoTskSuspender);
+    StressSafeResume(g_tmoTskWaiter);
+    StressSafeResume(g_tmoTskSuspender);
 }
 
 static OS_SEC_KERNEL_TEXT void StressTmoCleanup(void)

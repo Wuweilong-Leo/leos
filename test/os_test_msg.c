@@ -19,13 +19,25 @@
 static OS_SEC_KERNEL_TEXT U32 TestMsgCreateTask(const char *name, U32 prio, OsTaskEntryFunc entry)
 {
     U32 tskId;
+    U32 ret;
     struct OsTaskCreateParam param;
     memset(&param, 0, sizeof(param));
     strcpy(param.name, name);
     param.prio = prio;
     param.entryFunc = entry;
-    OsTaskCreate(&param, &tskId);
+    ret = OsTaskCreate(&param, &tskId);
+    if (ret != OS_OK) {
+        return g_tskMaxNum;  /* 无效 ID，调用方跳过 Resume */
+    }
     return tskId;
+}
+
+/* 安全 Resume：tskId 无效时跳过 */
+static OS_SEC_KERNEL_TEXT void TestMsgSafeResume(U32 tskId)
+{
+    if (tskId < g_tskMaxNum) {
+        OsTaskResume(tskId);
+    }
 }
 
 static OS_SEC_KERNEL_TEXT void TestMsgCleanupTask(U32 tskId)
@@ -95,8 +107,8 @@ OS_SEC_KERNEL_TEXT void TestMsgBasicSetup(void)
     g_msgBasicRecvOk = 0;
     g_msgTskReceiver = TestMsgCreateTask("MsgRx", 8, TestMsgReceiverBasic);
     g_msgTskSender = TestMsgCreateTask("MsgTx", 9, TestMsgSenderBasic);
-    OsTaskResume(g_msgTskReceiver);
-    OsTaskResume(g_msgTskSender);
+    TestMsgSafeResume(g_msgTskReceiver);
+    TestMsgSafeResume(g_msgTskSender);
 }
 
 OS_SEC_KERNEL_TEXT void TestMsgBasicVerify(void)
@@ -148,8 +160,8 @@ OS_SEC_KERNEL_TEXT void TestMsgMultiSetup(void)
     g_msgMultiOk = 0;
     g_msgTskReceiver = TestMsgCreateTask("MulRx", 8, TestMsgReceiverMulti);
     g_msgTskSender = TestMsgCreateTask("MulTx", 9, TestMsgSenderMulti);
-    OsTaskResume(g_msgTskReceiver);
-    OsTaskResume(g_msgTskSender);
+    TestMsgSafeResume(g_msgTskReceiver);
+    TestMsgSafeResume(g_msgTskSender);
 }
 
 OS_SEC_KERNEL_TEXT void TestMsgMultiVerify(void)
@@ -194,8 +206,8 @@ OS_SEC_KERNEL_TEXT void TestMsgBlockSetup(void)
     g_msgBlockOk = 0;
     g_msgTskReceiver = TestMsgCreateTask("BlkRx", 8, TestMsgReceiverBlock);
     g_msgTskSender = TestMsgCreateTask("BlkTx", 9, TestMsgSenderBlock);
-    OsTaskResume(g_msgTskReceiver);
-    OsTaskResume(g_msgTskSender);
+    TestMsgSafeResume(g_msgTskReceiver);
+    TestMsgSafeResume(g_msgTskSender);
 }
 
 OS_SEC_KERNEL_TEXT void TestMsgBlockVerify(void)
@@ -222,7 +234,7 @@ OS_SEC_KERNEL_TEXT void TestMsgTmoSetup(void)
 {
     g_msgTmoResult = 0;
     g_msgTskReceiver = TestMsgCreateTask("TmoRx", 8, TestMsgReceiverTmo);
-    OsTaskResume(g_msgTskReceiver);
+    TestMsgSafeResume(g_msgTskReceiver);
 }
 
 OS_SEC_KERNEL_TEXT void TestMsgTmoVerify(void)
@@ -248,7 +260,7 @@ OS_SEC_KERNEL_TEXT void TestMsgNoWaitSetup(void)
 {
     g_msgNoWaitResult = 0;
     g_msgTskReceiver = TestMsgCreateTask("NwRx", 8, TestMsgReceiverNoWait);
-    OsTaskResume(g_msgTskReceiver);
+    TestMsgSafeResume(g_msgTskReceiver);
 }
 
 OS_SEC_KERNEL_TEXT void TestMsgNoWaitVerify(void)

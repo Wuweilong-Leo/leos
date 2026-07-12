@@ -265,6 +265,9 @@ OS_SEC_KERNEL_TEXT uintptr_t OsCreateProcessPgd(void)
         return NULL;
     }
 
+    /* 清零整个 PGD 页（复用的页可能含有旧的 PDE 残值） */
+    memset(pgdBase, 0, OS_PG_SIZE);
+
     /* 对页目录项进行复制，要把内核1G全部复制过来 */
     memcpy(
         (uintptr_t)pgdBase + OS_PGD_KERNEL_IDX_START * sizeof(struct OsPgtEntry),

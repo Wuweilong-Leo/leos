@@ -78,13 +78,25 @@ OS_SEC_KERNEL_TEXT void TestTaskC(void *para1, void *param2, void *param3, void 
 static OS_SEC_KERNEL_TEXT U32 TestCreateTask2(const char *name, U32 prio, OsTaskEntryFunc entry)
 {
     U32 tskId;
+    U32 ret;
     struct OsTaskCreateParam param;
     memset(&param, 0, sizeof(param));
     strcpy(param.name, name);
     param.prio = prio;
     param.entryFunc = entry;
-    OsTaskCreate(&param, &tskId);
+    ret = OsTaskCreate(&param, &tskId);
+    if (ret != OS_OK) {
+        return g_tskMaxNum;
+    }
     return tskId;
+}
+
+/* 安全 Resume：tskId 无效时跳过 */
+static OS_SEC_KERNEL_TEXT void TestSafeResume2(U32 tskId)
+{
+    if (tskId < g_tskMaxNum) {
+        OsTaskResume(tskId);
+    }
 }
 
 /* 辅助：删除任务（若暂时持有 mutex 则重试） */
@@ -117,10 +129,10 @@ OS_SEC_KERNEL_TEXT void TestTaskSetup(void)
     g_testTaskTskB = TestCreateTask2("TaskB", 5, TestTaskB);
     g_testTaskTskC = TestCreateTask2("TaskC", 5, TestTaskC);
     g_testTaskTskD = TestCreateTask2("TaskD", 6, TestTaskSelfDelete);
-    OsTaskResume(g_testTaskTskA);
-    OsTaskResume(g_testTaskTskB);
-    OsTaskResume(g_testTaskTskC);
-    OsTaskResume(g_testTaskTskD);
+    TestSafeResume2(g_testTaskTskA);
+    TestSafeResume2(g_testTaskTskB);
+    TestSafeResume2(g_testTaskTskC);
+    TestSafeResume2(g_testTaskTskD);
 }
 
 OS_SEC_KERNEL_TEXT void TestTaskVerify(void)
