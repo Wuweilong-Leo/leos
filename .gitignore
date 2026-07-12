@@ -8,3 +8,4 @@ kernel/symtab/os_symtab_data.c.stamp
 .vscode/
 run_stress_test.sh
 serial.log
+leos_hdd.img
