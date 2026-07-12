@@ -76,6 +76,8 @@ OS_SEC_KERNEL_TEXT U32 OsProcessCreate(struct OsProcessCreateParam *processParam
 
     /* 标记为进程 */
     tskCb->tskType = OS_TASK_PROCESS;
+    tskCb->pgShareMaster = tskCb;   /* 独立进程：指向自己 */
+    tskCb->pgDirRefCnt = 1;         /* 初始引用计数=1 */
 
     /* 分配用户栈 + 初始化用户堆 FSC（统一切一次 CR3） */
     OsProcessInitUsrMem(tskCb);
@@ -201,6 +203,8 @@ OS_SEC_KERNEL_TEXT U32 OsProcessFork(void)
     child->eventMsk = 0;
     child->curEvent = 0;
     child->tskType = OS_TASK_PROCESS;
+    child->pgShareMaster = child;    /* fork 子进程有独立地址空间 */
+    child->pgDirRefCnt = 1;
     child->holdSemList.next = &child->holdSemList;
     child->holdSemList.prev = &child->holdSemList;
     child->msgList.next = &child->msgList;

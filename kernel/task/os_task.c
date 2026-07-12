@@ -321,8 +321,29 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         OsMemKernelFree(msgNode);
     }
 
+    /* 主进程退出时，强制终止所有共享地址空间的线程（POSIX: exit() kills all threads）
+     * 必须在 pgDirRefCnt 递减之前执行，确保共享线程退出时 refCnt 正确递减 */
+    if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgShareMaster == tskCb && tskCb->pgDirRefCnt > 1) {
+        U32 si;
+        for (si = 0; si < g_tskMaxNum; si++) {
+            struct OsTaskCb *shared = &g_tskCbArray[si];
+            if (shared == tskCb) continue;
+            if (shared->pgShareMaster != tskCb) continue;
+            if (!(shared->status & OS_TASK_STATUS_USED)) continue;
+            /* 强制终止共享线程 */
+            shared->exitCode = (U32)-1;
+            shared->status |= OS_TASK_STATUS_ZOMBIE;
+            OsTaskDelete(shared->pid);
+        }
+    }
+
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {
-        OsProcessFreeResources(tskCb);
+        /* 引用计数：共享地址空间的线程 clone 时 +1，退出时 -1 */
+        struct OsTaskCb *master = tskCb->pgShareMaster;
+        master->pgDirRefCnt--;
+        if (master->pgDirRefCnt == 0) {
+            OsProcessFreeResources(master);
+        }
     }
 
     /* 父进程退出时，处理子进程：

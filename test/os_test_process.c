@@ -539,3 +539,225 @@ OS_SEC_KERNEL_TEXT void TestForkWaitpidVerify(void)
     OS_TEST_ASSERT(g_testForkWaitpidDone == 1);
     OsUartPuts("[FORK-W] verify ok\n");
 }
+
+/* ====== pthread 测试 ====== */
+
+/* pthread_mutex 内联包装（复用内核 BINARY_MUTEX 信号量） */
+OS_INLINE int pthread_mutex_init(pthread_mutex_t *m, void *attr)
+{
+    (void)attr;
+    m->semId = usr_sem_create(OS_SEM_BINARY_MUTEX, 1, 1);
+    return OS_USR_SEM_ID_IS_ERR(m->semId) ? -1 : 0;
+}
+OS_INLINE int pthread_mutex_lock(pthread_mutex_t *m)
+{
+    return (int)usr_sem_pend(m->semId, OS_SEM_WAIT_FOREVER);
+}
+OS_INLINE int pthread_mutex_unlock(pthread_mutex_t *m)
+{
+    return (int)usr_sem_post(m->semId);
+}
+OS_INLINE int pthread_mutex_destroy(pthread_mutex_t *m)
+{
+    return (int)usr_sem_delete(m->semId);
+}
+
+/*
+ * pthread-create-basic: 在用户进程内 pthread_create 创建共享地址空间的子线程，
+ * 子线程写全局变量，主线程 pthread_join 等待
+ */
+
+OS_SEC_KERNEL_BSS volatile U32 g_testPthreadBasicDone;
+
+/* pthread 入口跳板：clone 子线程 iret 后从这里开始执行
+ * ebx=start_routine, ecx=arg（由内核 OsSysClone 设置） */
+static OS_SEC_KERNEL_TEXT void __pthread_entry(void)
+{
+    void *(*start_routine)(void *);
+    void *arg;
+    void *result;
+    OS_EMBED_ASM("movl %%ebx, %0" : "=r"(start_routine));
+    OS_EMBED_ASM("movl %%ecx, %0" : "=r"(arg));
+    result = start_routine(arg);
+    usr_exit((U32)(uintptr_t)result);
+}
+
+/* 子线程入口 */
+static OS_SEC_KERNEL_TEXT void *TestPthreadBasicFunc(void *arg)
+{
+    (void)arg;
+    g_testPthreadBasicDone = 0xAA;
+    return (void *)0x1234;
+}
+
+/* 主进程入口：创建线程 + join */
+OS_SEC_KERNEL_TEXT static void TestPthreadBasicEntry(void)
+{
+    pthread_t thread;
+    void *stack;
+    U32 stackTop;
+    U32 tid;
+    U32 status;
+    U32 ret;
+
+    stack = usr_malloc(4096);
+    if (stack == NULL) {
+        usr_puts("[PTH-B] FAIL: malloc stack\n");
+        usr_exit(1);
+    }
+    stackTop = (U32)(uintptr_t)stack + 4096;
+
+    tid = usr_clone(stackTop, (U32)(uintptr_t)TestPthreadBasicFunc,
+                    0, (U32)(uintptr_t)__pthread_entry);
+    if (tid == (U32)-1) {
+        usr_puts("[PTH-B] FAIL: clone\n");
+        usr_free(stack);
+        usr_exit(1);
+    }
+    thread = tid;
+
+    /* 等待子线程退出 */
+    status = 0;
+    ret = usr_waitpid(thread, &status, 0);
+    if (ret != thread) {
+        usr_puts("[PTH-B] FAIL: join ret\n");
+        usr_exit(1);
+    }
+
+    if (g_testPthreadBasicDone != 0xAA) {
+        usr_puts("[PTH-B] FAIL: var not set\n");
+        usr_exit(1);
+    }
+
+    usr_free(stack);
+    usr_puts("[PTH-B] ok\n");
+    g_testPthreadBasicDone = 0xBB;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadBasicSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testPthreadBasicDone = 0;
+
+    strcpy(param.processName, "pthBas");
+    param.entryFunc = (OsProcessEntryFunc)TestPthreadBasicEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadBasicVerify(void)
+{
+    OS_TEST_ASSERT(g_testPthreadBasicDone == 0xBB);
+    OsUartPuts("[PTH-B] verify ok\n");
+}
+
+/* ====== pthread-mutex 测试 ====== */
+
+/*
+ * 两个线程通过 pthread_mutex 互斥访问共享计数器
+ */
+OS_SEC_KERNEL_BSS volatile U32 g_testPthreadMutexCnt;
+OS_SEC_KERNEL_BSS volatile U32 g_testPthreadMutexDone;
+OS_SEC_KERNEL_BSS U32 g_testPthreadMutexSemId;
+
+static OS_SEC_KERNEL_TEXT void *TestPthreadMutexFunc(void *arg)
+{
+    pthread_mutex_t mtx = *(pthread_mutex_t *)arg;
+    U32 i;
+
+    for (i = 0; i < 5; i++) {
+        pthread_mutex_lock(&mtx);
+        g_testPthreadMutexCnt++;
+        pthread_mutex_unlock(&mtx);
+    }
+    return NULL;
+}
+
+OS_SEC_KERNEL_TEXT static void TestPthreadMutexEntry(void)
+{
+    pthread_mutex_t mtx;
+    void *stack;
+    U32 stackTop;
+    U32 tid;
+    U32 ret;
+    U32 i;
+
+    if (pthread_mutex_init(&mtx, NULL) != 0) {
+        usr_puts("[PTH-M] FAIL: mutex init\n");
+        usr_exit(1);
+    }
+
+    g_testPthreadMutexCnt = 0;
+
+    stack = usr_malloc(4096);
+    if (stack == NULL) {
+        usr_puts("[PTH-M] FAIL: malloc stack\n");
+        usr_exit(1);
+    }
+    stackTop = (U32)(uintptr_t)stack + 4096;
+
+    tid = usr_clone(stackTop, (U32)(uintptr_t)TestPthreadMutexFunc,
+                    (U32)(uintptr_t)&mtx, (U32)(uintptr_t)__pthread_entry);
+    if (tid == (U32)-1) {
+        usr_puts("[PTH-M] FAIL: clone\n");
+        usr_free(stack);
+        usr_exit(1);
+    }
+
+    /* 主线程也跑同样的循环 */
+    for (i = 0; i < 5; i++) {
+        pthread_mutex_lock(&mtx);
+        g_testPthreadMutexCnt++;
+        pthread_mutex_unlock(&mtx);
+    }
+
+    /* 等待子线程 */
+    ret = usr_waitpid(tid, NULL, 0);
+    if (ret != tid) {
+        usr_puts("[PTH-M] FAIL: join\n");
+        usr_exit(1);
+    }
+
+    if (g_testPthreadMutexCnt != 10) {
+        usr_puts("[PTH-M] FAIL: cnt mismatch\n");
+        usr_exit(1);
+    }
+
+    pthread_mutex_destroy(&mtx);
+    usr_free(stack);
+    usr_puts("[PTH-M] ok\n");
+    g_testPthreadMutexDone = 1;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadMutexSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testPthreadMutexDone = 0;
+
+    strcpy(param.processName, "pthMut");
+    param.entryFunc = (OsProcessEntryFunc)TestPthreadMutexEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadMutexVerify(void)
+{
+    OS_TEST_ASSERT(g_testPthreadMutexDone == 1);
+    OsUartPuts("[PTH-M] verify ok\n");
+}

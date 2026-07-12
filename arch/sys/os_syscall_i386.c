@@ -8,6 +8,8 @@
 #include "os_cpu.h"
 #include "os_process_external.h"
 #include "os_task_external.h"
+#include "os_context_i386.h"
+#include "string.h"
 
 /*
  * i386 syscall 处理
@@ -206,6 +208,91 @@ static OS_SEC_KERNEL_TEXT U32 OsSysWaitpid(U32 pid, U32 statusPtr, U32 options, 
     return (U32)-1;
 }
 
+/* 创建共享地址空间的用户线程（类似 Linux clone(CLONE_VM)）
+ * stackTop: 用户传入的线程栈顶
+ * startRoutine: 线程入口函数
+ * arg: 传给入口的参数
+ * trampoline: 跳板函数地址（子线程 iret 后从这里开始执行）
+ * 返回：子线程 tid（父）/ 0 不会到达（子，eip 被改为 trampoline）
+ */
+static OS_SEC_KERNEL_TEXT U32 OsSysClone(U32 stackTop, U32 startRoutine, U32 arg, U32 trampoline)
+{
+    struct OsTaskCb *parent;
+    struct OsTaskCb *child;
+    U32 childPid;
+    uintptr_t childStk;
+    struct OsAllSaveContext *ctx;
+
+    parent = OS_RUNNING_TASK();
+
+    /* 仅用户进程可调用 clone */
+    if (parent->tskType != OS_TASK_PROCESS) {
+        return (U32)-1;
+    }
+
+    /* 1. 取空闲 TCB */
+    child = OsTaskGetFreeCb();
+    if (child == NULL) {
+        return (U32)-1;
+    }
+
+    /* 2. 分配内核栈 */
+    childStk = (uintptr_t)OsMemKernelAlloc(OS_TASK_KERNEL_STACK_SIZE, 16);
+    if (childStk == 0) {
+        OsTaskReleaseFreeCb(child);
+        return (U32)-1;
+    }
+    child->kernelStkTop = childStk;
+
+    /* 3. 拷贝父进程内核栈（保留 AllSaveContext，与 fork 一致）
+     *    INT 0x80 期间中断关闭，内核栈内容稳定，memcpy 安全 */
+    memcpy((void *)childStk, (void *)parent->kernelStkTop, OS_TASK_KERNEL_STACK_SIZE);
+
+    /* 4. 设置 stkPtr 偏移 */
+    child->stkPtr = childStk - parent->kernelStkTop + parent->stkPtr;
+
+    /* 5. 修改子线程的 AllSaveContext */
+    ctx = (struct OsAllSaveContext *)child->stkPtr;
+    ctx->eax = 0;                   /* 子线程从跳板入口开始，不会读到 eax */
+    ctx->eip = trampoline;          /* iret 后跳到跳板函数 */
+    ctx->esp = stackTop;            /* 用户传入的栈顶 */
+    ctx->ebx = startRoutine;        /* 跳板通过 ebx 读取 start_routine */
+    ctx->ecx = arg;                 /* 跳板通过 ecx 读取 arg */
+    ctx->eflags = OS_PROCESS_EFLAGS; /* IF=1, IOPL=0，确保子线程开中断启动 */
+    /* 段寄存器从父进程 memcpy 继承，已是用户态选择子，无需修改 */
+
+    /* 6. 设置 TCB 字段 */
+    child->status = OS_TASK_STATUS_USED | OS_TASK_STATUS_SUSPENDED;
+    child->prio = parent->prio;
+    child->oriPrio = parent->oriPrio;
+    child->entry = parent->entry;
+    memcpy(child->arg, parent->arg, sizeof(parent->arg));
+    child->timeSliceTicks = parent->timeSliceTicks;
+    child->expiredTick = 0;
+    strcpy(child->name, "pthread");
+    child->tskType = OS_TASK_PROCESS;
+    child->pgDir = parent->pgDir;                     /* 共享 pgDir */
+    child->usrVirMemPool = parent->usrVirMemPool;     /* 浅拷贝：共享位图 */
+    OsListInit(&child->usrVirMemPool.memCtrlList);    /* 独立链表头，与 fork 一致 */
+    child->usrFscCtrl = parent->usrFscCtrl;           /* 共享 FSC */
+    child->parentPid = parent->pid;                   /* waitpid 依赖 */
+    child->exitCode = 0;
+    child->waitPid = 0;
+    child->pgShareMaster = parent->pgShareMaster;     /* 指向同一个 master */
+    parent->pgShareMaster->pgDirRefCnt++;             /* 引用计数 +1 */
+    OsListInit(&child->holdSemList);
+    OsListInit(&child->msgList);
+
+    /* 7. 设置时间片 */
+    OsTaskSetTimeSlice(child, OsTaskCalTimeSlice(child));
+
+    /* 8. 恢复子线程 */
+    childPid = child->pid;
+    OsTaskResume(childPid);
+
+    return childPid;
+}
+
 /* ====== 分发 ====== */
 
 OS_SEC_KERNEL_TEXT U32 OsSyscallHandler(U32 sysno, U32 arg1, U32 arg2, U32 arg3, U32 arg4)
@@ -254,6 +341,7 @@ OS_SEC_KERNEL_TEXT U32 OsSyscallConfigInit(void)
     OsSyscallRegister(OS_SYS_GETPID, OsSysGetPid);
     OsSyscallRegister(OS_SYS_FORK, OsSysFork);
     OsSyscallRegister(OS_SYS_WAITPID, OsSysWaitpid);
+    OsSyscallRegister(OS_SYS_CLONE, OsSysClone);
 
     return OS_OK;
 }

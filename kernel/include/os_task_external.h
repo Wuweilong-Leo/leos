@@ -32,7 +32,8 @@ typedef void (*OsTaskEntryFunc)(void *arg1, void *arg2, void *arg3, void *arg4);
 
 #define OS_WAIT_ANY_CHILD  ((U32)-1)     /* waitpid 等待任意子进程 */
 
-// 两种任务类型，线程和进程
+// 两种任务类型：内核线程和用户进程
+// 共享地址空间线程也是 OS_TASK_PROCESS，通过 pgShareMaster 区分
 enum OsTaskType { OS_TASK_THREAD, OS_TASK_PROCESS };
 
 /* 任务控制块 */
@@ -60,6 +61,8 @@ struct OsTaskCb {
     struct OsList msgList;         /* 该任务的消息信箱（OsMsgHeader.queueNode 挂入） */
     struct OsMemPool usrVirMemPool;    /* 进程的用户虚拟内存池 */
     struct OsMemFscCtrl *usrFscCtrl;   /* 进程的用户堆 FSC 控制块，线程为 NULL */
+    struct OsTaskCb *pgShareMaster;    /* 共享地址空间组的主 TCB（独立进程指向自己，共享线程指向创建者） */
+    U16 pgDirRefCnt;                   /* 页目录引用计数（仅 master 中有效，clone 时 +1，退出时 -1） */
     U32 parentPid;                     /* 父进程 pid（0=无父进程/内核任务） */
     U32 exitCode;                      /* 退出码（ZOMBIE 时有效） */
     U32 waitPid;                       /* waitpid 等待的目标 pid（0=不在等待，OS_WAIT_ANY_CHILD=等任意子进程） */

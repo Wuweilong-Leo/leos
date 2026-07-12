@@ -21,9 +21,10 @@
 #define OS_SYS_GETPID    9   /* 返回当前进程 pid */
 #define OS_SYS_FORK     10   /* 创建子进程; 返回子进程 pid(父) / 0(子) */
 #define OS_SYS_WAITPID  11   /* pid=目标pid, statusPtr=状态指针, options=选项; 返回子进程 pid */
+#define OS_SYS_CLONE   12   /* ebx=stack_top, ecx=start_routine, edx=arg, esi=trampoline; 返回 tid(父)/0(子) */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
-#define OS_SYS_NUM    12
+#define OS_SYS_NUM    13
 
 /* 系统调用处理函数类型 */
 typedef U32 (*OsSyscallFunc)(U32 arg1, U32 arg2, U32 arg3, U32 arg4);
@@ -140,5 +141,16 @@ OS_INLINE U32 usr_waitpid(U32 pid, U32 *status, U32 options)
 {
     return OsSyscall3(OS_SYS_WAITPID, pid, (U32)(uintptr_t)status, options);
 }
+
+/* 用户态 clone：创建共享地址空间的用户线程 */
+OS_INLINE U32 usr_clone(U32 stackTop, U32 startRoutine, U32 arg, U32 trampoline)
+{
+    return OsSyscall4(OS_SYS_CLONE, stackTop, startRoutine, arg, trampoline);
+}
+
+/* ====== POSIX pthread 接口 ====== */
+
+typedef U32 pthread_t;
+typedef struct { U32 semId; } pthread_mutex_t;
 
 #endif /* OS_SYSCALL_I386_H */

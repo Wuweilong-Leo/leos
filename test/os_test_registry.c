@@ -50,6 +50,8 @@ extern void TestProcRecycleSetup(void);extern void TestProcRecycleVerify(void);
 extern void TestProcCrossSemSetup(void);extern void TestProcCrossSemVerify(void);
 extern void TestForkBasicSetup(void);   extern void TestForkBasicVerify(void);
 extern void TestForkWaitpidSetup(void); extern void TestForkWaitpidVerify(void);
+extern void TestPthreadBasicSetup(void);extern void TestPthreadBasicVerify(void);
+extern void TestPthreadMutexSetup(void);extern void TestPthreadMutexVerify(void);
 
 /* MSG */
 extern void TestMsgBasicSetup(void);    extern void TestMsgBasicVerify(void);
@@ -73,6 +75,8 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("PROC", "cross-sem", TestProcCrossSemVerify, 200, TestProcCrossSemSetup),
     TC("PROC", "fork-basic", TestForkBasicVerify, 200, TestForkBasicSetup),
     TC("PROC", "fork-waitpid", TestForkWaitpidVerify, 200, TestForkWaitpidSetup),
+    TC("PROC", "pthread-basic", TestPthreadBasicVerify, 200, TestPthreadBasicSetup),
+    TC("PROC", "pthread-mutex", TestPthreadMutexVerify, 200, TestPthreadMutexSetup),
     /* MEM (同步) */
     TC("MEM", "setup",    TestMemSetup,    0, NULL),
     TC("MEM", "basic",    TestFscBasic,    0, NULL),
