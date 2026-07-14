@@ -11,8 +11,8 @@
 set(LEOS_OUTPUT_DIR  ${CMAKE_BINARY_DIR})
 set(LEOS_ELF         ${LEOS_OUTPUT_DIR}/os_kernel.elf)
 set(LEOS_MAP         ${LEOS_OUTPUT_DIR}/kernel.map)
-set(LEOS_LINK_SCRIPT ${CMAKE_SOURCE_DIR}/ld_script/os_ld.S)
-set(LEOS_SYMTAB_SRC  ${CMAKE_SOURCE_DIR}/kernel/symtab/os_symtab_data.c)
+set(LEOS_LINK_SCRIPT ${CMAKE_SOURCE_DIR}/src/ld_script/os_ld.S)
+set(LEOS_SYMTAB_SRC  ${CMAKE_SOURCE_DIR}/src/kernel/symtab/os_symtab_data.c)
 set(LEOS_SYMTAB_SCRIPT ${CMAKE_SOURCE_DIR}/tools/gen_symtab.py)
 
 # 确保 os_symtab_data.c 存在(首次构建时可能还没有 kernel.map)

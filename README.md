@@ -306,35 +306,43 @@ BINARY_MUTEX 信号量支持优先级继承，防止优先级反转：
 
 ```
 leos/
-├── arch/                  ← 架构相关代码
-│   ├── boot/i386/         ← MBR、Loader（汇编）
-│   ├── cpu/i386/          ← CPU 初始化、GDT、页表、TSS、上下文切换
-│   ├── dev/               ← 设备驱动（VGA、键盘、串口）
-│   ├── exc/i386/          ← 异常处理（缺页等）
-│   ├── hwi/i386/          ← 中断控制器（8259A）、中断处理
-│   ├── idt/i386/          ← 中断描述符表
-│   ├── timer/i386/        ← PIT 定时器
-│   ├── io/i386/           ← I/O 端口操作
-│   └── sys/               ← 系统栈注册
-├── kernel/                ← 架构无关的内核逻辑
-│   ├── task/              ← 任务管理、进程
-│   ├── sched/             ← 调度器
-│   ├── tick/              ← 时钟滴答处理
-│   ├── mem/               ← 内存管理（物理池 + FSC 虚拟堆）
-│   ├── ipc/               ← 进程间通信
-│   │   ├── sem/           ← 信号量（计数/二值/互斥/优先级继承）
-│   │   └── msg/           ← 消息 IPC
-│   ├── print/             ← kprintf 内核打印
-│   ├── shell/             ← Shell 命令行
-│   ├── symtab/            ← 符号表（地址→函数名）
-│   └── hwi/               ← 中断框架
-├── test/                  ← 测试模块
-├── debug/                 ← 调试打印宏
-├── lib/                   ← C 库函数（memset, strcpy 等）
-├── ld_script/             ← 链接脚本
-├── main.c                 ← 内核入口
-├── os_config.c            ← 配置初始化注册
-└── Makefile
+├── src/                   ← 全部源码
+│   ├── arch/              ← 架构相关代码
+│   │   ├── boot/i386/     ← MBR、Loader（汇编）
+│   │   ├── cpu/i386/      ← CPU 初始化、GDT、页表、TSS、上下文切换
+│   │   ├── dev/           ← 设备驱动（VGA、键盘、串口）
+│   │   ├── exc/i386/      ← 异常处理（缺页等）
+│   │   ├── hwi/i386/      ← 中断控制器（8259A）、中断处理
+│   │   ├── idt/i386/      ← 中断描述符表
+│   │   ├── timer/i386/    ← PIT 定时器
+│   │   ├── io/i386/       ← I/O 端口操作
+│   │   └── sys/           ← 系统调用、系统栈注册
+│   ├── kernel/            ← 架构无关的内核逻辑
+│   │   ├── task/          ← 任务管理、进程
+│   │   ├── sched/         ← 调度器
+│   │   ├── tick/          ← 时钟滴答处理
+│   │   ├── mem/           ← 内存管理（物理池 + FSC 虚拟堆）
+│   │   ├── ipc/           ← 进程间通信
+│   │   │   ├── sem/       ← 信号量（计数/二值/互斥/优先级继承）
+│   │   │   └── msg/       ← 消息 IPC
+│   │   ├── print/         ← kprintf 内核打印
+│   │   ├── shell/         ← Shell 命令行
+│   │   ├── symtab/        ← 符号表（地址→函数名）
+│   │   └── hwi/           ← 中断框架
+│   ├── test/              ← 测试模块
+│   ├── debug/             ← 调试打印宏
+│   ├── lib/               ← C 库函数（memset, strcpy 等）
+│   ├── ld_script/         ← 链接脚本
+│   ├── main.c             ← 内核入口
+│   ├── os_config.c        ← 配置初始化注册
+│   ├── os_def.h           ← 全局类型/宏定义
+│   └── os_sys.h           ← 系统配置
+├── tools/                 ← 构建辅助工具（gen_symtab.py 符号表生成、loc.py 行数统计）
+├── cmake/                 ← CMake 构建模块（与 makefile 对齐）
+├── doc/                   ← 设计文档
+├── build/                 ← 编译产物（gitignore）
+├── makefile               ← 主构建入口（WSL: make dis）
+└── CMakeLists.txt         ← CMake 构建入口
 ```
 
 ---

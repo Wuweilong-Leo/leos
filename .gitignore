@@ -2,8 +2,8 @@
 /cmake-build/
 /bochs/
 *.ps1
-kernel/symtab/os_symtab_data.c
-kernel/symtab/os_symtab_data.c.stamp
+src/kernel/symtab/os_symtab_data.c
+src/kernel/symtab/os_symtab_data.c.stamp
 .claude/
 .vscode/
 run_stress_test.sh

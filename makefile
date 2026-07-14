@@ -1,4 +1,5 @@
 CUR_DIR := .
+SRC_DIR := $(CUR_DIR)/src
 OBJ_DIR := $(CUR_DIR)/build/obj
 BIN_DIR := $(CUR_DIR)/build/output
 MAP_DIR := $(CUR_DIR)/build/map
@@ -10,74 +11,74 @@ $(shell mkdir -p $(OBJ_DIR) $(BIN_DIR) $(MAP_DIR))
 COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -fno-stack-protector -fno-pic -fno-pie -Wno-error=int-conversion -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration -DDEBUG_ENABLE=1 -c
 
 # 包含目录
-INC_DIR := $(CUR_DIR) \
-           $(CUR_DIR)/kernel/include \
-           $(CUR_DIR)/arch/cpu/i386 \
-           $(CUR_DIR)/arch/hwi/i386 \
-           $(CUR_DIR)/arch/exc/i386 \
-           $(CUR_DIR)/arch/idt/i386 \
-           $(CUR_DIR)/arch/boot \
-           $(CUR_DIR)/arch/sys \
-           $(CUR_DIR)/arch/timer/i386 \
-           $(CUR_DIR)/arch/cpu/i386/gdt \
-           $(CUR_DIR)/arch/cpu/i386/pgt \
-           $(CUR_DIR)/arch/cpu/i386/tss \
-           $(CUR_DIR)/arch/cpu/i386/reset \
-           $(CUR_DIR)/arch/io/i386 \
-           $(CUR_DIR)/arch/dev/uart \
-           $(CUR_DIR)/lib/include \
-           $(CUR_DIR)/kernel/sched \
-           $(CUR_DIR)/kernel/task/process \
-           $(CUR_DIR)/kernel/tick \
-           $(CUR_DIR)/kernel/hwi \
-           $(CUR_DIR)/kernel/print \
-           $(CUR_DIR)/arch/dev/vga \
-           $(CUR_DIR)/arch/dev/kbd \
-           $(CUR_DIR)/arch/dev/kbd/i386 \
-           $(CUR_DIR)/kernel/shell \
-           $(CUR_DIR)/kernel/symtab \
-           $(CUR_DIR)/debug/include \
-           $(CUR_DIR)/kernel/mem \
-           $(CUR_DIR)/kernel/mem/fsc \
-           $(CUR_DIR)/lib/btmp \
-           $(CUR_DIR)/test
+INC_DIR := $(SRC_DIR) \
+           $(SRC_DIR)/kernel/include \
+           $(SRC_DIR)/arch/cpu/i386 \
+           $(SRC_DIR)/arch/hwi/i386 \
+           $(SRC_DIR)/arch/exc/i386 \
+           $(SRC_DIR)/arch/idt/i386 \
+           $(SRC_DIR)/arch/boot \
+           $(SRC_DIR)/arch/sys \
+           $(SRC_DIR)/arch/timer/i386 \
+           $(SRC_DIR)/arch/cpu/i386/gdt \
+           $(SRC_DIR)/arch/cpu/i386/pgt \
+           $(SRC_DIR)/arch/cpu/i386/tss \
+           $(SRC_DIR)/arch/cpu/i386/reset \
+           $(SRC_DIR)/arch/io/i386 \
+           $(SRC_DIR)/arch/dev/uart \
+           $(SRC_DIR)/lib/include \
+           $(SRC_DIR)/kernel/sched \
+           $(SRC_DIR)/kernel/task/process \
+           $(SRC_DIR)/kernel/tick \
+           $(SRC_DIR)/kernel/hwi \
+           $(SRC_DIR)/kernel/print \
+           $(SRC_DIR)/arch/dev/vga \
+           $(SRC_DIR)/arch/dev/kbd \
+           $(SRC_DIR)/arch/dev/kbd/i386 \
+           $(SRC_DIR)/kernel/shell \
+           $(SRC_DIR)/kernel/symtab \
+           $(SRC_DIR)/debug/include \
+           $(SRC_DIR)/kernel/mem \
+           $(SRC_DIR)/kernel/mem/fsc \
+           $(SRC_DIR)/lib/btmp \
+           $(SRC_DIR)/test
 
 INCS := $(addprefix -I, $(INC_DIR))
 
 # 源文件搜索目录
-SRC_DIRS := $(CUR_DIR) \
-            $(CUR_DIR)/kernel/sched \
-            $(CUR_DIR)/kernel/task \
-            $(CUR_DIR)/kernel/mem \
-            $(CUR_DIR)/kernel/mem/fsc \
-            $(CUR_DIR)/kernel/tick \
-            $(CUR_DIR)/kernel/hwi \
-            $(CUR_DIR)/kernel/ipc/sem \
-            $(CUR_DIR)/kernel/ipc/msg \
-            $(CUR_DIR)/kernel/task/process \
-            $(CUR_DIR)/arch/boot/i386 \
-            $(CUR_DIR)/arch/boot \
-			$(CUR_DIR)/arch/sys \
-            $(CUR_DIR)/arch/io/i386 \
-            $(CUR_DIR)/arch/hwi/i386 \
-            $(CUR_DIR)/arch/exc/i386 \
-            $(CUR_DIR)/arch/idt/i386 \
-            $(CUR_DIR)/arch/timer/i386 \
-            $(CUR_DIR)/arch/cpu/i386/gdt \
-            $(CUR_DIR)/arch/cpu/i386/pgt \
-            $(CUR_DIR)/arch/cpu/i386/tss \
-            $(CUR_DIR)/lib \
-            $(CUR_DIR)/lib/btmp \
-            $(CUR_DIR)/arch/cpu/i386 \
-            $(CUR_DIR)/arch/cpu/i386/reset \
-            $(CUR_DIR)/kernel/print \
-            $(CUR_DIR)/arch/dev/vga \
-            $(CUR_DIR)/arch/dev/uart/i386 \
-            $(CUR_DIR)/arch/dev/kbd/i386 \
-            $(CUR_DIR)/kernel/shell \
-            $(CUR_DIR)/kernel/symtab \
-            $(CUR_DIR)/debug \
-            $(CUR_DIR)/test
+SRC_DIRS := $(SRC_DIR) \
+            $(SRC_DIR)/kernel/sched \
+            $(SRC_DIR)/kernel/task \
+            $(SRC_DIR)/kernel/mem \
+            $(SRC_DIR)/kernel/mem/fsc \
+            $(SRC_DIR)/kernel/tick \
+            $(SRC_DIR)/kernel/hwi \
+            $(SRC_DIR)/kernel/ipc/sem \
+            $(SRC_DIR)/kernel/ipc/msg \
+            $(SRC_DIR)/kernel/task/process \
+            $(SRC_DIR)/arch/boot/i386 \
+            $(SRC_DIR)/arch/boot \
+			$(SRC_DIR)/arch/sys \
+            $(SRC_DIR)/arch/io/i386 \
+            $(SRC_DIR)/arch/hwi/i386 \
+            $(SRC_DIR)/arch/exc/i386 \
+            $(SRC_DIR)/arch/idt/i386 \
+            $(SRC_DIR)/arch/timer/i386 \
+            $(SRC_DIR)/arch/cpu/i386/gdt \
+            $(SRC_DIR)/arch/cpu/i386/pgt \
+            $(SRC_DIR)/arch/cpu/i386/tss \
+            $(SRC_DIR)/lib \
+            $(SRC_DIR)/lib/btmp \
+            $(SRC_DIR)/arch/cpu/i386 \
+            $(SRC_DIR)/arch/cpu/i386/reset \
+            $(SRC_DIR)/kernel/print \
+            $(SRC_DIR)/arch/dev/vga \
+            $(SRC_DIR)/arch/dev/uart/i386 \
+            $(SRC_DIR)/arch/dev/kbd/i386 \
+            $(SRC_DIR)/kernel/shell \
+            $(SRC_DIR)/kernel/symtab \
+            $(SRC_DIR)/debug \
+            $(SRC_DIR)/test
 
 # 查找所有源文件
 C_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.c))
@@ -85,7 +86,7 @@ ASM_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.S))
 
 # 符号表生成脚本
 SYMTAB_SCRIPT := $(CUR_DIR)/tools/gen_symtab.py
-SYMTAB_DATA   := $(CUR_DIR)/kernel/symtab/os_symtab_data.c
+SYMTAB_DATA   := $(SRC_DIR)/kernel/symtab/os_symtab_data.c
 
 # 确保 os_symtab_data.c 占位文件存在
 ifeq ($(wildcard $(SYMTAB_DATA)),)
@@ -99,7 +100,7 @@ OBJS := $(patsubst $(CUR_DIR)/%.c, $(OBJ_DIR)/%.o, $(C_SRCS)) \
 # 主目标
 $(BIN_DIR)/os_kernel.elf: $(OBJS)
 	@echo "Linking $@"
-	ld -T ld_script/os_ld.S -m elf_i386 -Map $(MAP_DIR)/kernel.map $^ -o $@
+	ld -T $(SRC_DIR)/ld_script/os_ld.S -m elf_i386 -Map $(MAP_DIR)/kernel.map $^ -o $@
 	@echo "Generating symbol table"
 	@python3 $(SYMTAB_SCRIPT) $(MAP_DIR)/kernel.map $(SYMTAB_DATA)
 
