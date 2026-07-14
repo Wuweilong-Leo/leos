@@ -66,6 +66,7 @@ struct OsTaskCb {
     U32 parentPid;                     /* 父进程 pid（0=无父进程/内核任务） */
     U32 exitCode;                      /* 退出码（ZOMBIE 时有效） */
     U32 waitPid;                       /* waitpid 等待的目标 pid（0=不在等待，OS_WAIT_ANY_CHILD=等任意子进程） */
+    bool detached;                     /* TRUE=分离线程，退出时自动回收不需 join；FALSE=joinable（默认）退出后 ZOMBIE 等 waitpid */
 };
 
 struct OsTaskCreateParam {
@@ -87,6 +88,14 @@ struct OsTaskCreateParam {
 #define OS_TASK_DELETE_TSK_STATUS_ILL  OS_BUILD_ERR_CODE(OS_MID_TASK, 0x9);
 #define OS_TASK_DELETE_HOLD_SEM       OS_BUILD_ERR_CODE(OS_MID_TASK, 0xA); /* 持有互斥信号量不允许删除 */
 #define OS_TASK_CREATE_PRIO_ILL      OS_BUILD_ERR_CODE(OS_MID_TASK, 0xB); /* 优先级非法(>= LOWEST_PRIO,占用 idle 层) */
+
+/* pthread_detach 错误码（0x20-0x25） */
+#define OS_TASK_DETACH_INVALID_PID   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x20)  /* pid 越界或 status 无效 */
+#define OS_TASK_DETACH_NOT_PROCESS   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x21)  /* 目标不是用户进程/线程 */
+#define OS_TASK_DETACH_NOT_SAME_VM   OS_BUILD_ERR_CODE(OS_MID_TASK, 0x22)  /* 调用者与目标不在同一地址空间组 */
+#define OS_TASK_DETACH_NOT_CLONE     OS_BUILD_ERR_CODE(OS_MID_TASK, 0x23)  /* 目标是独立进程(fork/OsProcessCreate)，不可 detach */
+#define OS_TASK_DETACH_ALREADY       OS_BUILD_ERR_CODE(OS_MID_TASK, 0x24)  /* 目标已 detached */
+#define OS_TASK_DETACH_HAS_WAITER    OS_BUILD_ERR_CODE(OS_MID_TASK, 0x25)  /* 有线程正在 waitpid 等待目标 */
 
 extern void OsTaskIdleEntry(void);
 extern U32 OsTaskConfigInit(void);

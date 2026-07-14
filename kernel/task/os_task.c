@@ -83,6 +83,10 @@ OS_SEC_KERNEL_TEXT void OsTaskReleaseFreeCb(struct OsTaskCb *tskCb)
 {
     tskCb->status = 0;
     tskCb->pgDir = 0;
+    tskCb->detached = FALSE;    /* 完整清理，防止 TCB 复用残留 */
+    tskCb->exitCode = 0;
+    tskCb->parentPid = 0;       /* fork 失败回滚时 parentPid 已被设置，必须清零 */
+    tskCb->kernelStkTop = 0;    /* 与其他回收路径一致 */
     OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 }
 
@@ -99,6 +103,9 @@ OS_SEC_KERNEL_TEXT void OsTaskReapZombie(struct OsTaskCb *tskCb)
     tskCb->status = 0;
     tskCb->pgDir = 0;
     tskCb->usrFscCtrl = NULL;
+    tskCb->detached = FALSE;    /* 清理残留，防止 TCB 复用误判 */
+    tskCb->exitCode = 0;
+    tskCb->parentPid = 0;       /* 防止复用后 waitpid 误匹配 */
     OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
 }
 
@@ -322,24 +329,40 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
     }
 
     /* 主进程退出时，强制终止所有共享地址空间的线程（POSIX: exit() kills all threads）
-     * 必须在 pgDirRefCnt 递减之前执行，确保共享线程退出时 refCnt 正确递减 */
+     * 必须在 pgDirRefCnt 递减之前执行，确保共享线程退出时 refCnt 正确递减。
+     * 【R5-C1】循环前先清空 g_tskRecycleList：self-delete 后挂在其上的 joinable ZOMBIE
+     *   共享线程 kernelStkTop 已被 OsTaskRecycleStk 置 0、pgDirRefCnt 已递减，若再走
+     *   OsTaskDelete else 分支会 free(0) 崩溃 + double-decrement + 链表损坏。
+     *   清空后：已 ZOMBIE 的用 OsTaskReapZombie（不递减、不 free 栈），运行中的用 OsTaskDelete。 */
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgShareMaster == tskCb && tskCb->pgDirRefCnt > 1) {
         U32 si;
+        OsTaskRecycleStk();
         for (si = 0; si < g_tskMaxNum; si++) {
             struct OsTaskCb *shared = &g_tskCbArray[si];
             if (shared == tskCb) continue;
             if (shared->pgShareMaster != tskCb) continue;
             if (!(shared->status & OS_TASK_STATUS_USED)) continue;
-            /* 强制终止共享线程 */
-            shared->exitCode = (U32)-1;
-            shared->status |= OS_TASK_STATUS_ZOMBIE;
-            OsTaskDelete(shared->pid);
+            shared->parentPid = 0;   /* 【R4-C2】防止 master 父子清理重复处理（double-free 修复） */
+
+            if (shared->status & OS_TASK_STATUS_ZOMBIE) {
+                /* 已退出的 ZOMBIE 共享线程：pgDirRefCnt 已递减、栈已 free，直接收割 TCB */
+                OsTaskReapZombie(shared);
+            } else {
+                /* 仍在运行：强制终止（首次删除，递减 pgDirRefCnt）。
+                 * joinable 保留 ZOMBIE；detached 走 status=0 直接回收 */
+                if (!shared->detached) {
+                    shared->status |= OS_TASK_STATUS_ZOMBIE;
+                }
+                OsTaskDelete(shared->pid);
+            }
         }
     }
 
     if (tskCb->tskType == OS_TASK_PROCESS && tskCb->pgDir) {
         /* 引用计数：共享地址空间的线程 clone 时 +1，退出时 -1 */
         struct OsTaskCb *master = tskCb->pgShareMaster;
+        OS_PANIC_IF(master->pgDirRefCnt == 0, "pgDirRefCnt underflow, tsk=%u master=%u\n",
+                    tskCb->pid, master->pid);
         master->pgDirRefCnt--;
         if (master->pgDirRefCnt == 0) {
             OsProcessFreeResources(master);
@@ -366,15 +389,25 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         }
     }
 
-    /* 保留 ZOMBIE 位（exit 时设置的），其余状态位清零 */
+    /* 保留 ZOMBIE 位（exit 时设置的），其余状态位清零。
+     * 【DET-002】detached 线程跳过 ZOMBIE：status 直接清零，TCB 直接回收。
+     * 注意：下方唤醒条件用 detached（而非 status）——detached 时 status 已清零，
+     *       需靠 detached 标志触发唤醒。【R4-M2】 */
     if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
-        tskCb->status = OS_TASK_STATUS_USED | OS_TASK_STATUS_ZOMBIE;
+        if (tskCb->detached) {
+            tskCb->status = 0;          /* detached: 跳过 ZOMBIE，直接清零 */
+        } else {
+            tskCb->status = OS_TASK_STATUS_USED | OS_TASK_STATUS_ZOMBIE;  /* joinable: 保留 ZOMBIE 等 waitpid */
+        }
     } else {
         tskCb->status = 0;
     }
 
-    /* 唤醒等待此任务的父进程（子进程 exit 时 ZOMBIE 已设，OsTaskDelete 中走到这里） */
-    if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
+    /* 唤醒等待此任务的父进程。
+     * 【DET-002/R4-I1】status & ZOMBIE 或 detached 时唤醒；唤醒所有匹配者（不 break），
+     *   解决多个 waitpid(-1) 等待者死锁：只唤醒一个则它发现无 ZOMBIE 后重新 PENDING，
+     *   其余无人唤醒。detached 退出虽无 ZOMBIE，但仍需唤醒等待者重新扫描发现目标已回收。 */
+    if ((tskCb->status & OS_TASK_STATUS_ZOMBIE) || tskCb->detached) {
         U32 wi;
         for (wi = 0; wi < g_tskMaxNum; wi++) {
             struct OsTaskCb *waiter = &g_tskCbArray[wi];
@@ -384,7 +417,7 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
                 waiter->status &= ~OS_TASK_STATUS_PENDING;
                 waiter->status |= OS_TASK_STATUS_READY;
                 OsSchedRdyListEnqueTsk(waiter);
-                break;
+                /* 不 break，唤醒所有匹配的等待者 */
             }
         }
     }
@@ -395,7 +428,18 @@ OS_SEC_KERNEL_TEXT U32 OsTaskDelete(U32 tskId)
         OsListAddTail(&g_tskRecycleList, &tskCb->freeListNode);
         OsTaskSchedule();
     } else {
-        OsMemKernelFree((void *)tskCb->kernelStkTop);
+        /* 【R5-C1】防御：kernelStkTop 为 0 时跳过 free（OsMemFscFree 无 NULL 检查，free(0) 崩溃）。
+         * 正常 C3 杀运行中线程时非 0；此检查防御异常状态。 */
+        if (tskCb->kernelStkTop != 0) {
+            OsMemKernelFree((void *)tskCb->kernelStkTop);
+            tskCb->kernelStkTop = 0;
+        }
+        tskCb->status = 0;         /* 【N6-C1】显式清零，防止 ZOMBIE 残留导致 TCB 复用误判 */
+        tskCb->pgDir = 0;          /* 【R7-M2】防止复用后残留共享 PGD 指针 */
+        tskCb->usrFscCtrl = NULL;  /* 【R7-C1】清零共享 FSC 指针（不可释放，属 master） */
+        tskCb->detached = FALSE;   /* 【R4-C1】防止 TCB 复用残留 */
+        tskCb->exitCode = 0;
+        tskCb->parentPid = 0;      /* 【R4-I3】防止复用后 waitpid 误匹配 */
         OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
     }
 
@@ -423,13 +467,21 @@ OS_SEC_KERNEL_TEXT void OsTaskRecycleStk(void)
                 tskCb->status = 0;
                 tskCb->pgDir = 0;
                 tskCb->usrFscCtrl = NULL;
+                tskCb->detached = FALSE;   /* 清理残留 */
+                tskCb->exitCode = 0;
+                tskCb->parentPid = 0;
                 OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
             }
             /* 有父进程：保留 ZOMBIE，等父进程 waitpid 收割 */
         } else {
-            /* 回收TCB */
+            /* 回收TCB（detached 线程 self-delete 后 status 已清零，走此分支）。
+             * 【R5-I5】不清零 usrFscCtrl：此分支仅 detached 共享线程进入，其 usrFscCtrl
+             *   由 pgShareMaster 持有（共享），master 仍存活，不可在此触碰。 */
             tskCb->status = 0;
             tskCb->pgDir = 0;
+            tskCb->detached = FALSE;   /* 清理残留 */
+            tskCb->exitCode = 0;
+            tskCb->parentPid = 0;
             OsListAddTail(&g_tskFreeList, &tskCb->freeListNode);
         }
     }

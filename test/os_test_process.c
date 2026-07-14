@@ -761,3 +761,164 @@ OS_SEC_KERNEL_TEXT void TestPthreadMutexVerify(void)
     OS_TEST_ASSERT(g_testPthreadMutexDone == 1);
     OsUartPuts("[PTH-M] verify ok\n");
 }
+
+/* ====== pthread-detach 测试 ====== */
+
+OS_SEC_KERNEL_BSS volatile U32 g_testPthreadDetachDone;
+OS_SEC_KERNEL_BSS volatile U32 g_testPthreadDetachVar;
+OS_SEC_KERNEL_BSS U32 g_testPthreadDetachSyncSem;   /* 子线程→主线程 完成信号量 */
+
+/* A/B/E 共用 worker：写全局变量后 post 信号量退出 */
+static OS_SEC_KERNEL_TEXT void *TestPthreadDetachWorker(void *arg)
+{
+    g_testPthreadDetachVar = (U32)(uintptr_t)arg;
+    usr_sem_post(g_testPthreadDetachSyncSem);
+    return NULL;
+}
+
+/* C: 线程 self-detach（DET-004） */
+static OS_SEC_KERNEL_TEXT void *TestPthreadDetachSelfFunc(void *arg)
+{
+    pthread_t self = (pthread_t)usr_getpid();
+    (void)arg;
+    if (pthread_detach(self) != 0) {
+        g_testPthreadDetachVar = 0xEE;   /* self-detach 失败 */
+        usr_sem_post(g_testPthreadDetachSyncSem);
+        return NULL;
+    }
+    g_testPthreadDetachVar = 0xCC;
+    usr_sem_post(g_testPthreadDetachSyncSem);
+    return NULL;
+}
+
+/* D: 退出后变 ZOMBIE，供主线程测试"先退出后 detach"（DET-005） */
+static OS_SEC_KERNEL_TEXT void *TestPthreadDetachZombieFunc(void *arg)
+{
+    (void)arg;
+    usr_sem_post(g_testPthreadDetachSyncSem);
+    return NULL;
+}
+
+/* 辅助：分配栈 + clone，返回栈指针（NULL=失败） */
+static OS_SEC_KERNEL_TEXT void *TestPthreadDetachSpawn(void *func, U32 arg, U32 *outTid)
+{
+    void *stack = usr_malloc(4096);
+    U32 stackTop;
+    U32 tid;
+
+    if (stack == NULL) {
+        return NULL;
+    }
+    stackTop = (U32)(uintptr_t)stack + 4096;
+    tid = usr_clone(stackTop, (U32)(uintptr_t)func, arg, (U32)(uintptr_t)__pthread_entry);
+    if (tid == (U32)-1) {
+        usr_free(stack);
+        return NULL;
+    }
+    *outTid = tid;
+    return stack;
+}
+
+/* 主进程入口：DET-001..DET-005 + TCB 复用不残留
+ * 依赖同优先级非抢占：clone 后子线程 READY 但不立即运行，主线程持续执行直到阻塞，
+ * 故 detach/waitpid 的时序确定。 */
+OS_SEC_KERNEL_TEXT static void TestPthreadDetachEntry(void)
+{
+    U32 semId;
+    void *stack;
+    U32 tid;
+    U32 status;
+    U32 ret;
+
+    semId = usr_sem_create(OS_SEM_BINARY_SYNC, 0, 1);
+    if (OS_USR_SEM_ID_IS_ERR(semId)) {
+        usr_puts("[PTH-D] FAIL: sem create\n");
+        usr_exit(1);
+    }
+    g_testPthreadDetachSyncSem = semId;
+
+    /* === A. detach 后线程自动回收（DET-001/002）：主线程不 join === */
+    g_testPthreadDetachVar = 0;
+    stack = TestPthreadDetachSpawn(TestPthreadDetachWorker, 0xAA, &tid);
+    if (stack == NULL) { usr_puts("[PTH-D] FAIL: A spawn\n"); usr_exit(1); }
+    if (pthread_detach(tid) != 0) { usr_puts("[PTH-D] FAIL: A detach\n"); usr_exit(1); }
+    usr_sem_pend(semId, OS_SEM_WAIT_FOREVER);   /* 子线程 post 后自动回收退出 */
+    if (g_testPthreadDetachVar != 0xAA) { usr_puts("[PTH-D] FAIL: A var\n"); usr_exit(1); }
+    usr_free(stack);
+    usr_puts("[PTH-D] A detach+autoreclaim ok\n");
+
+    /* === B. 对存活中的 detached 线程 waitpid 返回 -1（DET-003）=== */
+    g_testPthreadDetachVar = 0;
+    stack = TestPthreadDetachSpawn(TestPthreadDetachWorker, 0xBB, &tid);
+    if (stack == NULL) { usr_puts("[PTH-D] FAIL: B spawn\n"); usr_exit(1); }
+    if (pthread_detach(tid) != 0) { usr_puts("[PTH-D] FAIL: B detach\n"); usr_exit(1); }
+    /* 子线程仍 READY 未运行，waitpid 立即返回 -1（ECHILD：无 joinable 子进程） */
+    status = 0;
+    ret = usr_waitpid(tid, &status, 0);
+    if (ret != (U32)-1) { usr_puts("[PTH-D] FAIL: B waitpid\n"); usr_exit(1); }
+    usr_sem_pend(semId, OS_SEM_WAIT_FOREVER);   /* 放行子线程跑完自动回收 */
+    if (g_testPthreadDetachVar != 0xBB) { usr_puts("[PTH-D] FAIL: B var\n"); usr_exit(1); }
+    usr_free(stack);
+    usr_puts("[PTH-D] B join-rejected ok\n");
+
+    /* === C. 线程 self-detach（DET-004）=== */
+    g_testPthreadDetachVar = 0;
+    stack = TestPthreadDetachSpawn(TestPthreadDetachSelfFunc, 0, &tid);
+    if (stack == NULL) { usr_puts("[PTH-D] FAIL: C spawn\n"); usr_exit(1); }
+    usr_sem_pend(semId, OS_SEM_WAIT_FOREVER);
+    if (g_testPthreadDetachVar != 0xCC) { usr_puts("[PTH-D] FAIL: C var\n"); usr_exit(1); }
+    usr_free(stack);
+    usr_puts("[PTH-D] C self-detach ok\n");
+
+    /* === D. 先退出后 detach（DET-005）：detach 一个已 ZOMBIE 的线程 === */
+    stack = TestPthreadDetachSpawn(TestPthreadDetachZombieFunc, 0, &tid);
+    if (stack == NULL) { usr_puts("[PTH-D] FAIL: D spawn\n"); usr_exit(1); }
+    /* pend 返回时子线程已 usr_exit→self-delete 为 ZOMBIE */
+    usr_sem_pend(semId, OS_SEM_WAIT_FOREVER);
+    if (pthread_detach(tid) != 0) { usr_puts("[PTH-D] FAIL: D detach zombie\n"); usr_exit(1); }
+    status = 0;
+    ret = usr_waitpid(tid, &status, 0);
+    if (ret != (U32)-1) { usr_puts("[PTH-D] FAIL: D waitpid\n"); usr_exit(1); }
+    usr_free(stack);
+    usr_puts("[PTH-D] D detach-zombie ok\n");
+
+    /* === E. TCB 复用后 detached 不残留：新建 joinable 线程应能正常 join === */
+    g_testPthreadDetachVar = 0;
+    stack = TestPthreadDetachSpawn(TestPthreadDetachWorker, 0x55, &tid);
+    if (stack == NULL) { usr_puts("[PTH-D] FAIL: E spawn\n"); usr_exit(1); }
+    status = 0;
+    ret = usr_waitpid(tid, &status, 0);
+    if (ret != tid) { usr_puts("[PTH-D] FAIL: E join\n"); usr_exit(1); }
+    if (g_testPthreadDetachVar != 0x55) { usr_puts("[PTH-D] FAIL: E var\n"); usr_exit(1); }
+    usr_free(stack);
+    usr_puts("[PTH-D] E reuse-joinable ok\n");
+
+    usr_sem_delete(semId);
+    usr_puts("[PTH-D] ALL ok\n");
+    g_testPthreadDetachDone = 1;
+    usr_exit(0);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadDetachSetup(void)
+{
+    U32 ret;
+    U32 pid;
+    struct OsProcessCreateParam param = {0};
+
+    g_testPthreadDetachDone = 0;
+
+    strcpy(param.processName, "pthDet");
+    param.entryFunc = (OsProcessEntryFunc)TestPthreadDetachEntry;
+    param.prio = 5;
+    ret = OsProcessCreate(&param, &pid);
+    if (ret != OS_OK) {
+        return;
+    }
+    OsProcessResume(pid);
+}
+
+OS_SEC_KERNEL_TEXT void TestPthreadDetachVerify(void)
+{
+    OS_TEST_ASSERT(g_testPthreadDetachDone == 1);
+    OsUartPuts("[PTH-D] verify ok\n");
+}

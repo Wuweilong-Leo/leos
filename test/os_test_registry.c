@@ -52,6 +52,7 @@ extern void TestForkBasicSetup(void);   extern void TestForkBasicVerify(void);
 extern void TestForkWaitpidSetup(void); extern void TestForkWaitpidVerify(void);
 extern void TestPthreadBasicSetup(void);extern void TestPthreadBasicVerify(void);
 extern void TestPthreadMutexSetup(void);extern void TestPthreadMutexVerify(void);
+extern void TestPthreadDetachSetup(void);extern void TestPthreadDetachVerify(void);
 
 /* MSG */
 extern void TestMsgBasicSetup(void);    extern void TestMsgBasicVerify(void);
@@ -77,6 +78,7 @@ OS_SEC_KERNEL_DATA const struct OsTestCase g_osTestCases[] = {
     TC("PROC", "fork-waitpid", TestForkWaitpidVerify, 200, TestForkWaitpidSetup),
     TC("PROC", "pthread-basic", TestPthreadBasicVerify, 200, TestPthreadBasicSetup),
     TC("PROC", "pthread-mutex", TestPthreadMutexVerify, 200, TestPthreadMutexSetup),
+    TC("PROC", "pthread-detach", TestPthreadDetachVerify, 200, TestPthreadDetachSetup),
     /* MEM (同步) */
     TC("MEM", "setup",    TestMemSetup,    0, NULL),
     TC("MEM", "basic",    TestFscBasic,    0, NULL),

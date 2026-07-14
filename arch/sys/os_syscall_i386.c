@@ -9,6 +9,7 @@
 #include "os_process_external.h"
 #include "os_task_external.h"
 #include "os_context_i386.h"
+#include "os_hwi.h"
 #include "string.h"
 
 /*
@@ -138,19 +139,38 @@ static OS_SEC_KERNEL_TEXT U32 OsSysFork(U32 arg1, U32 arg2, U32 arg3, U32 arg4)
 /* waitpid 选项 */
 #define OS_SYS_WAITPID_WNOHANG  1
 
-/* 等待子进程退出，返回子进程 pid，status 写入退出码 */
+/* 等待子进程/线程退出，返回 pid，status 写入退出码。
+ * 【DET-003】detached 线程不参与 waitpid：扫描跳过、hasJoinable 不计、指定 pid 时返回 -1。 */
 static OS_SEC_KERNEL_TEXT U32 OsSysWaitpid(U32 pid, U32 statusPtr, U32 options, U32 arg4)
 {
     struct OsTaskCb *curTsk = OS_RUNNING_TASK();
     U32 i;
     (void)arg4;
 
-    /* 非阻塞扫描找 ZOMBIE 子进程 */
+    /* 指定 pid 时：先确认是调用者的子进程，再检查 detached。
+     * 不在函数开头盲查 detached——需先过 parentPid 权限校验，避免对非子进程误报。 */
+    if (pid != OS_WAIT_ANY_CHILD) {
+        if (pid >= g_tskMaxNum) {
+            return (U32)-1;
+        }
+        {
+            struct OsTaskCb *t = &g_tskCbArray[pid];
+            if (!(t->status & OS_TASK_STATUS_USED) || t->parentPid != curTsk->pid) {
+                return (U32)-1;  /* 不是你的子进程 */
+            }
+            if (t->detached) {
+                return (U32)-1;  /* 已 detached：不可 join */
+            }
+        }
+    }
+
+    /* 非阻塞扫描找 ZOMBIE 子进程（跳过 detached） */
     for (i = 0; i < g_tskMaxNum; i++) {
         struct OsTaskCb *child = &g_tskCbArray[i];
         if (child == curTsk) continue;
         if (child->parentPid != curTsk->pid) continue;
         if (!(child->status & OS_TASK_STATUS_ZOMBIE)) continue;
+        if (child->detached) continue;
         if (pid != OS_WAIT_ANY_CHILD && child->pid != pid) continue;
 
         /* 收割 ZOMBIE */
@@ -162,22 +182,23 @@ static OS_SEC_KERNEL_TEXT U32 OsSysWaitpid(U32 pid, U32 statusPtr, U32 options, 
         return child->pid;
     }
 
-    /* 没找到 ZOMBIE，检查是否有子进程 */
+    /* 没找到 ZOMBIE，检查是否有可 join 的子进程（detached 不算） */
     {
-        bool hasChild = FALSE;
+        bool hasJoinable = FALSE;
         for (i = 0; i < g_tskMaxNum; i++) {
             if (g_tskCbArray[i].parentPid == curTsk->pid &&
-                (g_tskCbArray[i].status & OS_TASK_STATUS_USED)) {
-                hasChild = TRUE;
+                (g_tskCbArray[i].status & OS_TASK_STATUS_USED) &&
+                !g_tskCbArray[i].detached) {
+                hasJoinable = TRUE;
                 break;
             }
         }
-        if (!hasChild) {
-            return (U32)-1;  /* ECHILD: 没有子进程 */
+        if (!hasJoinable) {
+            return (U32)-1;  /* ECHILD: 没有可 join 的子进程 */
         }
     }
 
-    /* 有子进程但还没退出 */
+    /* 有可 join 子进程但还没退出 */
     if (options & OS_SYS_WAITPID_WNOHANG) {
         return 0;
     }
@@ -188,24 +209,47 @@ static OS_SEC_KERNEL_TEXT U32 OsSysWaitpid(U32 pid, U32 statusPtr, U32 options, 
     OsSchedRdyListDequeTsk(curTsk);
     OsTaskSchedule();
 
-    /* 被唤醒后再次扫描（单核非抢占，无竞态） */
-    for (i = 0; i < g_tskMaxNum; i++) {
-        struct OsTaskCb *child = &g_tskCbArray[i];
-        if (child->parentPid != curTsk->pid) continue;
-        if (!(child->status & OS_TASK_STATUS_ZOMBIE)) continue;
-        if (pid != OS_WAIT_ANY_CHILD && child->pid != pid) continue;
+    /* 被唤醒后再次扫描（单核非抢占，无竞态）。可能被 detached 线程退出唤醒（无 ZOMBIE），
+     * 找不到时重新检查 hasJoinable：有则继续等，无则返回 ECHILD。 */
+    for (;;) {
+        for (i = 0; i < g_tskMaxNum; i++) {
+            struct OsTaskCb *child = &g_tskCbArray[i];
+            if (child->parentPid != curTsk->pid) continue;
+            if (!(child->status & OS_TASK_STATUS_ZOMBIE)) continue;
+            if (child->detached) continue;
+            if (pid != OS_WAIT_ANY_CHILD && child->pid != pid) continue;
 
-        if (statusPtr != 0) {
-            *(U32 *)(uintptr_t)statusPtr = (child->exitCode << 8);
+            if (statusPtr != 0) {
+                *(U32 *)(uintptr_t)statusPtr = (child->exitCode << 8);
+            }
+            OsTaskReapZombie(child);
+            curTsk->waitPid = 0;
+            return child->pid;
         }
-        OsTaskReapZombie(child);
-        curTsk->waitPid = 0;
-        return child->pid;
-    }
 
-    /* 不应到达（单核非抢占下唤醒后必然能找到） */
-    curTsk->waitPid = 0;
-    return (U32)-1;
+        /* 未找到 ZOMBIE，重新检查是否还有可 join 子进程 */
+        {
+            bool hasJoinable = FALSE;
+            for (i = 0; i < g_tskMaxNum; i++) {
+                if (g_tskCbArray[i].parentPid == curTsk->pid &&
+                    (g_tskCbArray[i].status & OS_TASK_STATUS_USED) &&
+                    !g_tskCbArray[i].detached) {
+                    hasJoinable = TRUE;
+                    break;
+                }
+            }
+            if (!hasJoinable) {
+                curTsk->waitPid = 0;
+                return (U32)-1;  /* ECHILD: 所有子线程都 detached 或已退出 */
+            }
+        }
+
+        /* 还有 joinable 子进程未退出，重新 PENDING 等待 */
+        curTsk->waitPid = pid;
+        curTsk->status |= OS_TASK_STATUS_PENDING;
+        OsSchedRdyListDequeTsk(curTsk);
+        OsTaskSchedule();
+    }
 }
 
 /* 创建共享地址空间的用户线程（类似 Linux clone(CLONE_VM)）
@@ -278,6 +322,7 @@ static OS_SEC_KERNEL_TEXT U32 OsSysClone(U32 stackTop, U32 startRoutine, U32 arg
     child->parentPid = parent->pid;                   /* waitpid 依赖 */
     child->exitCode = 0;
     child->waitPid = 0;
+    child->detached = FALSE;                          /* clone 线程默认 joinable，需显式 detach */
     child->pgShareMaster = parent->pgShareMaster;     /* 指向同一个 master */
     parent->pgShareMaster->pgDirRefCnt++;             /* 引用计数 +1 */
     OsListInit(&child->holdSemList);
@@ -291,6 +336,80 @@ static OS_SEC_KERNEL_TEXT U32 OsSysClone(U32 stackTop, U32 startRoutine, U32 arg
     OsTaskResume(childPid);
 
     return childPid;
+}
+
+/* 分离线程：标记 detached，退出时自动回收 TCB/内核栈，无需 join/waitpid。
+ * 也支持 self-detach（thread == 调用者自身）和对已 ZOMBIE 线程 detach（立即收割）。
+ * 返回 0=成功，错误码=失败。 */
+static OS_SEC_KERNEL_TEXT U32 OsSysDetach(U32 tid, U32 arg2, U32 arg3, U32 arg4)
+{
+    struct OsTaskCb *tskCb;
+    struct OsTaskCb *curTsk;
+    enum OsIntStatus intSave;
+    U32 wi;
+
+    (void)arg2; (void)arg3; (void)arg4;
+
+    if (tid >= g_tskMaxNum) {
+        return OS_TASK_DETACH_INVALID_PID;
+    }
+
+    intSave = OsIntLock();
+
+    tskCb = OS_TASK_GET_CB(tid);
+    curTsk = OS_RUNNING_TASK();
+
+    /* 1. 目标必须存在且是用户进程/线程 */
+    if (!(tskCb->status & OS_TASK_STATUS_USED)) {
+        OsIntRestore(intSave);
+        return OS_TASK_DETACH_INVALID_PID;
+    }
+    if (tskCb->tskType != OS_TASK_PROCESS) {
+        OsIntRestore(intSave);
+        return OS_TASK_DETACH_NOT_PROCESS;
+    }
+
+    /* 2. 调用者与目标必须在同一地址空间组（POSIX: 同进程内线程可互相 detach，含 self-detach） */
+    if (tskCb->pgShareMaster != curTsk->pgShareMaster) {
+        OsIntRestore(intSave);
+        return OS_TASK_DETACH_NOT_SAME_VM;
+    }
+
+    /* 3. 只有 clone 线程可以被 detach（fork 子进程和独立进程不可：pgShareMaster==self） */
+    if (tskCb->pgShareMaster == tskCb) {
+        OsIntRestore(intSave);
+        return OS_TASK_DETACH_NOT_CLONE;
+    }
+
+    /* 4. 不可重复 detach */
+    if (tskCb->detached) {
+        OsIntRestore(intSave);
+        return OS_TASK_DETACH_ALREADY;
+    }
+
+    /* 5. 目标线程的父进程正在 waitpid 等待目标时不允许 detach（防止永久阻塞）。
+     *    只检查目标的父进程（waiter->pid == tskCb->parentPid），其他进程的 waitpid(-1) 不影响。 */
+    for (wi = 0; wi < g_tskMaxNum; wi++) {
+        struct OsTaskCb *waiter = &g_tskCbArray[wi];
+        if (!(waiter->status & OS_TASK_STATUS_PENDING)) continue;
+        if (waiter->waitPid == 0) continue;
+        if (waiter->pid != tskCb->parentPid) continue;
+        if (waiter->waitPid == tid || waiter->waitPid == OS_WAIT_ANY_CHILD) {
+            OsIntRestore(intSave);
+            return OS_TASK_DETACH_HAS_WAITER;
+        }
+    }
+
+    /* 6. 已 ZOMBIE（先退出后 detach）：直接收割，不设 detached（TCB 已回收）。
+     *    非 ZOMBIE：设 detached=TRUE，退出时由 OsTaskDelete 自动回收。 */
+    if (tskCb->status & OS_TASK_STATUS_ZOMBIE) {
+        OsTaskReapZombie(tskCb);
+    } else {
+        tskCb->detached = TRUE;
+    }
+
+    OsIntRestore(intSave);
+    return OS_OK;
 }
 
 /* ====== 分发 ====== */
@@ -342,6 +461,7 @@ OS_SEC_KERNEL_TEXT U32 OsSyscallConfigInit(void)
     OsSyscallRegister(OS_SYS_FORK, OsSysFork);
     OsSyscallRegister(OS_SYS_WAITPID, OsSysWaitpid);
     OsSyscallRegister(OS_SYS_CLONE, OsSysClone);
+    OsSyscallRegister(OS_SYS_DETACH, OsSysDetach);
 
     return OS_OK;
 }

@@ -22,9 +22,10 @@
 #define OS_SYS_FORK     10   /* 创建子进程; 返回子进程 pid(父) / 0(子) */
 #define OS_SYS_WAITPID  11   /* pid=目标pid, statusPtr=状态指针, options=选项; 返回子进程 pid */
 #define OS_SYS_CLONE   12   /* ebx=stack_top, ecx=start_routine, edx=arg, esi=trampoline; 返回 tid(父)/0(子) */
+#define OS_SYS_DETACH  13   /* ebx=tid; 将线程标记为 detached，退出时自动回收; 返回 0=成功, 错误码=失败 */
 
 /* 系统调用号总数（必须等于最大系统调用号 + 1） */
-#define OS_SYS_NUM    13
+#define OS_SYS_NUM    14
 
 /* 系统调用处理函数类型 */
 typedef U32 (*OsSyscallFunc)(U32 arg1, U32 arg2, U32 arg3, U32 arg4);
@@ -148,9 +149,21 @@ OS_INLINE U32 usr_clone(U32 stackTop, U32 startRoutine, U32 arg, U32 trampoline)
     return OsSyscall4(OS_SYS_CLONE, stackTop, startRoutine, arg, trampoline);
 }
 
+/* 用户态 detach：将线程标记为分离，退出时自动回收资源 */
+OS_INLINE U32 usr_detach(U32 tid)
+{
+    return OsSyscall1(OS_SYS_DETACH, tid);
+}
+
 /* ====== POSIX pthread 接口 ====== */
 
 typedef U32 pthread_t;
 typedef struct { U32 semId; } pthread_mutex_t;
+
+/* pthread_detach：分离线程，使其退出后自动回收，无需 join */
+OS_INLINE int pthread_detach(pthread_t thread)
+{
+    return (int)OsSyscall1(OS_SYS_DETACH, thread);
+}
 
 #endif /* OS_SYSCALL_I386_H */

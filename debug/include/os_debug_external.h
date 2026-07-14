@@ -26,6 +26,14 @@ extern enum OsLogLevel OsDebugGetLogLevel(void);
         kprintf("[PANIC][%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);                          \
         OsPanic();                                                                                  \
     } while (0)
+
+/* 条件 panic：cond 为真时触发，用于关键不变量校验（如引用计数下溢） */
+#define OS_PANIC_IF(cond, fmt, ...)                                                                 \
+    do {                                                                                           \
+        if (cond) {                                                                                \
+            OS_PANIC(fmt, ##__VA_ARGS__);                                                          \
+        }                                                                                          \
+    } while (0)
 extern void OsDebugAssertFail(const char *filename, U32 line, const char *func, const char *cond);
 
 #define OS_ASSERT(cond)                                                                            \
