@@ -9,3 +9,6 @@ kernel/symtab/os_symtab_data.c.stamp
 run_stress_test.sh
 serial.log
 leos_hdd.img
+# PyInstaller 打包产物，勿跟踪（源码见 tools/loc.py）
+tools/dist/
+*.exe
