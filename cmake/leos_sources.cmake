@@ -24,6 +24,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/src/arch/dev/uart
     ${CMAKE_SOURCE_DIR}/src/lib/include
     ${CMAKE_SOURCE_DIR}/src/kernel/sched
+    ${CMAKE_SOURCE_DIR}/src/kernel/sys
     ${CMAKE_SOURCE_DIR}/src/kernel/task/process
     ${CMAKE_SOURCE_DIR}/src/kernel/tick
     ${CMAKE_SOURCE_DIR}/src/kernel/hwi
@@ -45,6 +46,7 @@ include_directories(${LEOS_INC_DIRS})
 set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/kernel/sched
+    ${CMAKE_SOURCE_DIR}/src/kernel/sys
     ${CMAKE_SOURCE_DIR}/src/kernel/task
     ${CMAKE_SOURCE_DIR}/src/kernel/mem
     ${CMAKE_SOURCE_DIR}/src/kernel/mem/fsc

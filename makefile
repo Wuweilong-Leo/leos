@@ -28,6 +28,7 @@ INC_DIR := $(SRC_DIR) \
            $(SRC_DIR)/arch/dev/uart \
            $(SRC_DIR)/lib/include \
            $(SRC_DIR)/kernel/sched \
+           $(SRC_DIR)/kernel/sys \
            $(SRC_DIR)/kernel/task/process \
            $(SRC_DIR)/kernel/tick \
            $(SRC_DIR)/kernel/hwi \
@@ -48,6 +49,7 @@ INCS := $(addprefix -I, $(INC_DIR))
 # 源文件搜索目录
 SRC_DIRS := $(SRC_DIR) \
             $(SRC_DIR)/kernel/sched \
+            $(SRC_DIR)/kernel/sys \
             $(SRC_DIR)/kernel/task \
             $(SRC_DIR)/kernel/mem \
             $(SRC_DIR)/kernel/mem/fsc \
