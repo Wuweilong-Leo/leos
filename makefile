@@ -41,7 +41,7 @@ INC_DIR := $(SRC_DIR) \
            $(SRC_DIR)/kernel/mem \
            $(SRC_DIR)/kernel/mem/fsc \
            $(SRC_DIR)/lib/btmp \
-           $(SRC_DIR)/test
+           $(CUR_DIR)/test
 
 INCS := $(addprefix -I, $(INC_DIR))
 
@@ -78,7 +78,7 @@ SRC_DIRS := $(SRC_DIR) \
             $(SRC_DIR)/kernel/shell \
             $(SRC_DIR)/kernel/symtab \
             $(SRC_DIR)/debug \
-            $(SRC_DIR)/test
+            $(CUR_DIR)/test
 
 # 查找所有源文件
 C_SRCS := $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.c))

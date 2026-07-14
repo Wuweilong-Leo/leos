@@ -329,7 +329,6 @@ leos/
 │   │   ├── shell/         ← Shell 命令行
 │   │   ├── symtab/        ← 符号表（地址→函数名）
 │   │   └── hwi/           ← 中断框架
-│   ├── test/              ← 测试模块
 │   ├── debug/             ← 调试打印宏
 │   ├── lib/               ← C 库函数（memset, strcpy 等）
 │   ├── ld_script/         ← 链接脚本
@@ -337,6 +336,7 @@ leos/
 │   ├── os_config.c        ← 配置初始化注册
 │   ├── os_def.h           ← 全局类型/宏定义
 │   └── os_sys.h           ← 系统配置
+├── test/                  ← 测试用例（与源码分离）
 ├── tools/                 ← 构建辅助工具（gen_symtab.py 符号表生成、loc.py 行数统计）
 ├── cmake/                 ← CMake 构建模块（与 makefile 对齐）
 ├── doc/                   ← 设计文档

@@ -37,7 +37,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/src/kernel/mem
     ${CMAKE_SOURCE_DIR}/src/kernel/mem/fsc
     ${CMAKE_SOURCE_DIR}/src/lib/btmp
-    ${CMAKE_SOURCE_DIR}/src/test
+    ${CMAKE_SOURCE_DIR}/test
 )
 include_directories(${LEOS_INC_DIRS})
 
@@ -75,7 +75,7 @@ set(LEOS_SRC_DIRS
     ${CMAKE_SOURCE_DIR}/src/kernel/shell
     ${CMAKE_SOURCE_DIR}/src/kernel/symtab
     ${CMAKE_SOURCE_DIR}/src/debug
-    ${CMAKE_SOURCE_DIR}/src/test
+    ${CMAKE_SOURCE_DIR}/test
 )
 
 # 收集所有 .c 文件:按 SRC_DIRS 顺序,每目录 GLOB 后排序,拼接。
