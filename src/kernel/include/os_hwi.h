@@ -9,7 +9,7 @@ enum OsIntStatus { OS_INT_OFF, OS_INT_ON };
 #if defined(ARCH_i386)
 #include "os_hwi_i386.h"
 #else
-#error "Unsupported architecture. Define ARCH_i386 in os_target.h."
+#error "Unsupported architecture. Provide os_feature.h with ARCH_<arch> defined."
 #endif
 
 #endif /* OS_HWI_H */

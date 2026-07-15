@@ -10,6 +10,7 @@ set(LEOS_INC_DIRS
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/kernel/include
     ${CMAKE_SOURCE_DIR}/src/arch/cpu/i386
+    ${CMAKE_SOURCE_DIR}/config/i386
     ${CMAKE_SOURCE_DIR}/src/arch/hwi/i386
     ${CMAKE_SOURCE_DIR}/src/arch/exc/i386
     ${CMAKE_SOURCE_DIR}/src/arch/idt/i386

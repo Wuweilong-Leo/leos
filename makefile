@@ -14,6 +14,7 @@ COMPILE_FLAG := -g -m32 -std=c11 -fno-builtin -fno-stack-protector -fno-pic -fno
 INC_DIR := $(SRC_DIR) \
            $(SRC_DIR)/kernel/include \
            $(SRC_DIR)/arch/cpu/i386 \
+           $(CUR_DIR)/config/i386 \
            $(SRC_DIR)/arch/hwi/i386 \
            $(SRC_DIR)/arch/exc/i386 \
            $(SRC_DIR)/arch/idt/i386 \

@@ -38,7 +38,7 @@ extern U32 OsProcessForkCopyPageTables(struct OsTaskCb *parent, struct OsTaskCb 
 #if defined(ARCH_i386)
 #include "os_cpu_i386.h"
 #else
-#error "Unsupported architecture. Define ARCH_i386 in os_target.h."
+#error "Unsupported architecture. Provide os_feature.h with ARCH_<arch> defined."
 #endif
 
 #endif

@@ -117,6 +117,8 @@ static OS_SEC_KERNEL_TEXT void OsSemPendListInsertByPrio(struct OsList *pendList
 
 /* ====== 优先级继承 (Priority Inheritance) ====== */
 
+#ifdef OS_OPTION_PRIO_INHERIT
+
 /*
  * OsSemPrioInherit: 低优先级任务持有mutex，高优先级任务来pend时，
  * 提升持有者的优先级到pend者优先级（若更高）。
@@ -174,6 +176,8 @@ static OS_SEC_KERNEL_TEXT void OsSemPrioRestore(struct OsTaskCb *tskCb)
     }
 }
 
+#endif /* OS_OPTION_PRIO_INHERIT */
+
 /* ====== 信号量 Pend / Post ====== */
 
 OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
@@ -217,9 +221,11 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
         }
 
         /* PI: 仅BINARY_MUTEX支持优先级继承 */
+#ifdef OS_OPTION_PRIO_INHERIT
         if (semCb->type == OS_SEM_BINARY_MUTEX) {
             OsSemPrioInherit(semCb, curTsk);
         }
+#endif
 
         /* 从就绪队列里删除 */
         OsSchedRdyListDequeTsk(curTsk);
@@ -294,7 +300,9 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
         semCb->holder = NULL;
         OsListRemoveNode(&semCb->holdNode);
         /* PI: 释放mutex后恢复持有者优先级（在唤醒pend者之前） */
+#ifdef OS_OPTION_PRIO_INHERIT
         OsSemPrioRestore(curTsk);
+#endif
     }
 
     /* val 递增 */
