@@ -6,6 +6,7 @@
 #include "os_tick_external.h"
 #include "os_mem_external.h"
 #include "os_test_framework.h"
+#include "os_target.h"
 #include "os_symtab_external.h"
 #include "string.h"
 
@@ -52,8 +53,10 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdMemInfo(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdUptime(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdLogLevel(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdTest(U32 argc, char *argv[]);
+#ifdef OS_OPTION_SYMTAB
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdSyms(U32 argc, char *argv[]);
 static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[]);
+#endif
 
 /* ====== 命令注册表 ====== */
 
@@ -66,8 +69,10 @@ OS_SEC_KERNEL_DATA const struct OsShellCmd g_shellCmds[] = {
     OS_SHELL_CMD("uptime",   "show system ticks",   OsShellCmdUptime),
     OS_SHELL_CMD("loglevel", "set log level 0-4",   OsShellCmdLogLevel),
     OS_SHELL_CMD("test",     "run all tests",       OsShellCmdTest),
+#ifdef OS_OPTION_SYMTAB
     OS_SHELL_CMD("syms",     "list/search symbols", OsShellCmdSyms),
     OS_SHELL_CMD("addr2name","addr to symbol name", OsShellCmdAddr2Name),
+#endif
 };
 
 OS_SEC_KERNEL_DATA const U32 g_shellCmdCnt = sizeof(g_shellCmds) / sizeof(struct OsShellCmd);
@@ -160,6 +165,7 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdTest(U32 argc, char *argv[])
     return 0;
 }
 
+#ifdef OS_OPTION_SYMTAB
 static OS_SEC_KERNEL_TEXT void OsShellSymPrintCb(const struct OsSymtabEntry *ent)
 {
     kprintf("0x%08x %s\n", (uintptr_t)ent->addr, ent->name);
@@ -226,6 +232,7 @@ static OS_SEC_KERNEL_TEXT U32 OsShellCmdAddr2Name(U32 argc, char *argv[])
 
     return 0;
 }
+#endif /* OS_OPTION_SYMTAB */
 
 /* ====== 命令解析与执行 ====== */
 

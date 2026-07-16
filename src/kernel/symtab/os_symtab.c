@@ -1,3 +1,7 @@
+#include "os_target.h"
+
+#ifdef OS_OPTION_SYMTAB
+
 #include "os_symtab_external.h"
 #include "os_print_external.h"
 #include "string.h"
@@ -112,3 +116,5 @@ OS_SEC_KERNEL_TEXT U32 OsSymtabPrefixMatch(const char *prefix,
 
     return count;
 }
+
+#endif /* OS_OPTION_SYMTAB */

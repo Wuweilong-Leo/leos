@@ -69,6 +69,11 @@ def gen_c_source(symbols):
 
     不 include os_symtab_external.h，避免与同名函数声明冲突。
     直接前置声明 struct OsSymtabEntry 和宏 OS_SYMTAB_ENTRY。
+
+    整个符号表用 #ifdef OS_OPTION_SYMTAB 包裹：关闭该特性宏时，
+    g_symtab[] / g_symtabCnt 不产出，与 os_symtab.c 的函数体 gate 协同，
+    避免数据表里的 OS_SYMTAB_ENTRY(OsSymtabLookup) 反向引用已被裁掉的函数符号。
+    os_target.h 经 include 路径提供 OS_OPTION_SYMTAB 定义。
     """
     lines = []
     lines.append('/*')
@@ -77,6 +82,9 @@ def gen_c_source(symbols):
     lines.append(' */')
     lines.append('')
     lines.append('#include "os_def.h"')
+    lines.append('#include "os_target.h"')
+    lines.append('')
+    lines.append('#ifdef OS_OPTION_SYMTAB')
     lines.append('')
     lines.append('struct OsSymtabEntry {')
     lines.append('    const void *addr;')
@@ -100,6 +108,8 @@ def gen_c_source(symbols):
     lines.append('};')
     lines.append('')
     lines.append(f'OS_SEC_KERNEL_DATA const U32 g_symtabCnt = sizeof(g_symtab) / sizeof(struct OsSymtabEntry);')
+    lines.append('')
+    lines.append('#endif /* OS_OPTION_SYMTAB */')
     lines.append('')
 
     return '\n'.join(lines)

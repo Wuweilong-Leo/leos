@@ -16,4 +16,18 @@
 /* 优先级继承：BINARY_MUTEX 信号量支持优先级继承，防止优先级反转 */
 #define OS_OPTION_PRIO_INHERIT
 
+/*
+ * 符号表（symtab）：内核符号表查表，供 shell 的 syms/addr2name 命令使用。
+ * 关闭后 os_symtab.c 函数体与 os_shell.c 调用点被裁掉，
+ * os_symtab_data.c 的数据表成为无人引用符号（不报错，仅占镜像体积）。
+ */
+#define OS_OPTION_SYMTAB
+
+/*
+ * 递归互斥锁：BINARY_MUTEX 支持同任务多次 Pend（nestCnt 嵌套计数）。
+ * 注：本宏已收编为 OS_OPTION_ 命名（原游离宏 OS_SEM_BIN_SUPPORT_RECUR），
+ *     但此处刻意【不定义】，功能保持 OFF——当前无递归锁测试用例，
+ *     贸然开启只能靠"不回归"验证不充分。开启 + 补测试作为后续独立项。
+ */
+
 #endif /* OS_FEATURE_H */

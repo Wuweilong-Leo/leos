@@ -27,7 +27,7 @@ struct OsSemCb {
     struct OsList pendList;       /* 等待队列 */
     struct OsList holdNode;       /* 挂入持有者 TCB 的 holdSemList（仅 BINARY_MUTEX 使用） */
     struct OsTaskCb *holder;      /* BINARY_MUTEX 持有者，其他类型为 NULL */
-#ifdef OS_SEM_BIN_SUPPORT_RECUR
+#ifdef OS_OPTION_RECURSIVE_MUTEX
     U32 nestCnt;                  /* BINARY_MUTEX 递归嵌套计数 */
 #endif
 };

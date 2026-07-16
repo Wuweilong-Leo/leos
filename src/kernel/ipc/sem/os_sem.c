@@ -88,7 +88,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemCreate(enum OsSemType type, U32 initVal, U32 maxCnt,
     semCb->type       = type;
     semCb->wakePolicy = policy;
     semCb->holder     = NULL;
-#ifdef OS_SEM_BIN_SUPPORT_RECUR
+#ifdef OS_OPTION_RECURSIVE_MUTEX
     semCb->nestCnt    = 0;
 #endif
     *semId = semCb->semId;
@@ -196,7 +196,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPend(U32 semId, U32 timeout)
     curTsk = OS_RUNNING_TASK();
 
     /* BINARY_MUTEX 递归持有检查 */
-#ifdef OS_SEM_BIN_SUPPORT_RECUR
+#ifdef OS_OPTION_RECURSIVE_MUTEX
     if (semCb->type == OS_SEM_BINARY_MUTEX && semCb->holder == curTsk) {
         semCb->nestCnt++;
         OsIntRestore(intSave);
@@ -290,7 +290,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemPost(U32 semId)
             OsIntRestore(intSave);
             return OS_SEM_POST_NOT_HOLDER;
         }
-#ifdef OS_SEM_BIN_SUPPORT_RECUR
+#ifdef OS_OPTION_RECURSIVE_MUTEX
         if (semCb->nestCnt > 0) {
             semCb->nestCnt--;
             OsIntRestore(intSave);
@@ -388,7 +388,7 @@ OS_SEC_KERNEL_TEXT U32 OsSemDelete(U32 semId)
     semCb->type = 0;
     semCb->wakePolicy = 0;
     semCb->holder = NULL;
-#ifdef OS_SEM_BIN_SUPPORT_RECUR
+#ifdef OS_OPTION_RECURSIVE_MUTEX
     semCb->nestCnt = 0;
 #endif
     OsListInit(&semCb->pendList);
