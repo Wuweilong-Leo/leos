@@ -1,5 +1,6 @@
 /build/
 /cmake-build/
+/build-cmake/
 /bochs/
 *.ps1
 src/kernel/symtab/os_symtab_data.c
